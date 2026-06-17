@@ -337,10 +337,7 @@ const useDataStore = create((set, get) => ({
       if (header === 'Amount') return offer.amount;
       if (header === 'Is There An Offer') return offer.isOffer || 'Yes';
       if (header === 'Offer Copy') return offer.offerCopy || '';
-      if (header === 'Amount To Be Paid') return offer.amount;
-      if (header === 'Outstanding Amount') return offer.amount;
-      if (header === 'Status') return 'Pending';
-      return '';
+      return ''; // all other columns (Amount To Be Paid, Outstanding Amount, Status, etc.) — formula columns, do not overwrite
     });
     const res = await get().saveRow('OFFER', 'insert', null, rowDataArray);
     if (res.success) {
@@ -365,7 +362,7 @@ const useDataStore = create((set, get) => ({
       if (header === 'Is There An Offer') return merged.isOffer;
       if (header === 'Offer Copy') return merged.offerCopy;
       if (header === 'Amount To Be Paid') return merged.amountPaid;
-      if (header === 'Outstanding Amount') return merged.outstanding;
+      if (header === 'Outstanding Amount') return '';  // formula column — do not overwrite
       if (header === 'Status') return merged.status;
       return '';
     });

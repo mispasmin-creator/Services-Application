@@ -9,14 +9,22 @@ import Utility from './pages/Utility';
 import Bills from './pages/Bills';
 import Payments from './pages/Payments';
 import Tally from './pages/Tally';
+import Reports from './pages/Reports';
 import Users from './pages/Users';
 import useAuthStore from './store/useAuthStore';
 import useDataStore from './store/useDataStore';
+import { hasPageAccess } from './lib/permissions';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { isLoggedIn } = useAuthStore();
   return isLoggedIn ? children : <Navigate to="/login" replace />;
+};
+
+// Blocks access to a page the current user hasn't been assigned, redirecting home instead.
+const PageGuard = ({ pageKey, children }) => {
+  const { user } = useAuthStore();
+  return hasPageAccess(user, pageKey) ? children : <Navigate to="/dashboard" replace />;
 };
 
 function App() {
@@ -53,13 +61,14 @@ function App() {
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="offers" element={<Offers />} />
-          <Route path="services" element={<Services />} />
-          <Route path="utility" element={<Utility />} />
-          <Route path="bills" element={<Bills />} />
-          <Route path="payments" element={<Payments />} />
-          <Route path="tally" element={<Tally />} />
-          <Route path="users" element={<Users />} />
+          <Route path="offers" element={<PageGuard pageKey="Offers"><Offers /></PageGuard>} />
+          <Route path="services" element={<PageGuard pageKey="Services"><Services /></PageGuard>} />
+          <Route path="utility" element={<PageGuard pageKey="Utility"><Utility /></PageGuard>} />
+          <Route path="bills" element={<PageGuard pageKey="Bills"><Bills /></PageGuard>} />
+          <Route path="payments" element={<PageGuard pageKey="Payments"><Payments /></PageGuard>} />
+          <Route path="tally" element={<PageGuard pageKey="Tally"><Tally /></PageGuard>} />
+          <Route path="reports" element={<PageGuard pageKey="Reports"><Reports /></PageGuard>} />
+          <Route path="users" element={<PageGuard pageKey="Users"><Users /></PageGuard>} />
         </Route>
 
         {/* Catch all */}

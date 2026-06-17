@@ -1,13 +1,16 @@
-import React, { useState, useRef } from 'react';
-import { 
-  Search, CreditCard, Loader2, CheckCircle2, 
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Search, CreditCard, Loader2, CheckCircle2,
   Clock, IndianRupee, Wrench, Zap, ExternalLink, X, AlertCircle,
   Upload, Paperclip
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
 import { cn, formatCurrency, uploadFileToDrive } from '../lib/utils';
+import useAuthStore from '../store/useAuthStore';
+import { getAllowedTabs } from '../lib/permissions';
 
 const Payments = () => {
+  const { user: currentUser } = useAuthStore();
   const { services, utilities, loading, updateService, updateUtility } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('All');
@@ -97,6 +100,19 @@ const Payments = () => {
 
   const totalAmount = allPayments.reduce((sum, p) => sum + (p.netAmount || 0), 0);
 
+  const paymentsTabsConfig = [
+    { id: 'active', label: 'Active Payments', count: totalActiveCount, colorClass: 'bg-blue-100 text-blue-800' },
+    { id: 'history', label: 'History', count: totalPaidCount, colorClass: 'bg-emerald-100 text-emerald-800' }
+  ];
+  const visibleTabs = getAllowedTabs(currentUser, 'Payments', paymentsTabsConfig);
+  const visibleTabIds = visibleTabs.map(t => t.id).join(',');
+
+  useEffect(() => {
+    if (visibleTabs.length > 0 && !visibleTabs.some(t => t.id === activeTab)) {
+      setActiveTab(visibleTabs[0].id);
+    }
+  }, [visibleTabIds, activeTab]);
+
   const openPayModal = (item) => {
     setSelectedItem(item);
     setPaymentProof(item.paymentProofUrl || '');
@@ -151,30 +167,27 @@ const Payments = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Payment Processing</h1>
-        <p className="text-slate-500">Release payments for verified bills and upload payment proofs.</p>
+        <h1 className="text-2xl font-bold text-gray-900">Payment Processing</h1>
+        <p className="text-gray-500">Release payments for verified bills and upload payment proofs.</p>
       </div>
 
       {/* Tab Selector */}
-      <div className="flex border-b border-slate-200 gap-1 overflow-x-auto pb-px">
-        {[
-          { id: 'active', label: 'Active Payments', count: totalActiveCount, colorClass: 'bg-blue-100 text-blue-800' },
-          { id: 'history', label: 'History', count: totalPaidCount, colorClass: 'bg-emerald-100 text-emerald-800' }
-        ].map(tab => (
+      <div className="flex border-b border-gray-200 gap-1 overflow-x-auto pb-px">
+        {visibleTabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
               "px-5 py-4 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
               activeTab === tab.id
-                ? "border-blue-600 text-blue-600 font-bold"
-                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                ? "border-gray-900 text-gray-900 font-bold"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
             )}
           >
             <span>{tab.label}</span>
             <span className={cn(
               "px-2.5 py-0.5 text-xs font-bold rounded-full transition-colors",
-              activeTab === tab.id ? tab.colorClass : "bg-slate-100 text-slate-600"
+              activeTab === tab.id ? tab.colorClass : "bg-gray-100 text-gray-600"
             )}>
               {tab.count}
             </span>
@@ -184,30 +197,30 @@ const Payments = () => {
 
       {/* Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-amber-500 border border-slate-200 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Pending Payment</p>
-          <h4 className="text-2xl font-bold text-slate-900 mt-1">{pendingCount}</h4>
+        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-amber-500 border border-gray-200 shadow-sm">
+          <p className="text-sm font-medium text-gray-500">Pending Payment</p>
+          <h4 className="text-2xl font-bold text-gray-900 mt-1">{pendingCount}</h4>
         </div>
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-emerald-500 border border-slate-200 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Payments Released</p>
-          <h4 className="text-2xl font-bold text-slate-900 mt-1">{paidCount}</h4>
+        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-emerald-500 border border-gray-200 shadow-sm">
+          <p className="text-sm font-medium text-gray-500">Payments Released</p>
+          <h4 className="text-2xl font-bold text-gray-900 mt-1">{paidCount}</h4>
         </div>
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-blue-500 border border-slate-200 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Total Net Amount</p>
-          <h4 className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(totalAmount)}</h4>
+        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-gray-900 border border-gray-200 shadow-sm">
+          <p className="text-sm font-medium text-gray-500">Total Net Amount</p>
+          <h4 className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(totalAmount)}</h4>
         </div>
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-4">
+      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center gap-4">
         <div className="relative flex-1 min-w-[240px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search by reference ID or vendor..." 
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Search by reference ID or vendor..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -217,9 +230,9 @@ const Payments = () => {
               onClick={() => setFilterType(type)}
               className={cn(
                 "px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
-                filterType === type 
-                  ? "bg-blue-600 text-white border-blue-600" 
-                  : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                filterType === type
+                  ? "bg-gray-900 text-white border-gray-900"
+                  : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
               )}
             >
               {type}
@@ -231,42 +244,42 @@ const Payments = () => {
       {/* Payment Table */}
       {loading ? (
         <div className="py-12 flex flex-col items-center justify-center gap-2">
-          <Loader2 className="animate-spin text-blue-600" size={32} />
-          <p className="text-slate-400 text-sm">Loading payments...</p>
+          <Loader2 className="animate-spin text-gray-900" size={32} />
+          <p className="text-gray-400 text-sm">Loading payments...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Reference</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Pay To</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Bill Amount</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">TDS</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Net Payable</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Action</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Reference</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Pay To</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Amount</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">TDS</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Net Payable</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-gray-200">
                 {allPayments.map((item, index) => (
-                  <tr key={`pay-${item.type}-${item.sheetRowIndex}-${index}`} className="hover:bg-slate-50 transition-colors">
+                  <tr key={`pay-${item.type}-${item.sheetRowIndex}-${index}`} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <span className={cn(
                         "px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1 w-fit",
-                        item.type === 'Service' 
-                          ? "bg-blue-50 text-blue-600 border border-blue-100" 
-                          : "bg-purple-50 text-purple-600 border border-purple-100"
+                        item.type === 'Service'
+                          ? "bg-gray-100 text-gray-700 border border-gray-200"
+                          : "bg-gray-900 text-white border border-gray-900"
                       )}>
                         {item.type === 'Service' ? <Wrench size={10} /> : <Zap size={10} />}
                         {item.type}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm font-bold text-slate-900">{item.id}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600 font-medium">{item.paidTo}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-slate-900">{formatCurrency(item.amount)}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{item.id}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600 font-medium">{item.paidTo}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatCurrency(item.amount)}</td>
                     <td className="px-6 py-4 text-sm text-rose-600 font-semibold">
                       {item.tdsAmount ? `- ${formatCurrency(item.tdsAmount)}` : '—'}
                     </td>
@@ -286,7 +299,7 @@ const Payments = () => {
                       {item.paymentStatus !== 'Paid' && item.paymentStatus !== 'Payment Done' ? (
                         <button
                           onClick={() => openPayModal(item)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition-all border border-blue-100 ml-auto"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition-all border border-gray-200 ml-auto"
                         >
                           <CreditCard size={13} />
                           <span>Release Payment</span>
@@ -301,7 +314,7 @@ const Payments = () => {
                 ))}
                 {allPayments.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-6 py-10 text-center text-slate-400 text-sm">
+                    <td colSpan={8} className="px-6 py-10 text-center text-gray-400 text-sm">
                       {activeTab === 'active'
                         ? "No payments pending. Verify bills first in the Bills module."
                         : "No payment history records found."}
@@ -316,17 +329,17 @@ const Payments = () => {
 
       {/* Payment Release Modal */}
       {isPayModalOpen && selectedItem && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-gray-100">
+            <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-slate-800">Release Payment</h3>
-                <p className="text-xs text-slate-400 mt-0.5">{selectedItem.id} — {selectedItem.paidTo}</p>
+                <h3 className="font-bold text-gray-800">Release Payment</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{selectedItem.id} — {selectedItem.paidTo}</p>
               </div>
-              <button 
+              <button
                 disabled={isSaving}
                 onClick={() => setIsPayModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 rounded-lg p-1 hover:bg-slate-100"
+                className="text-gray-400 hover:text-gray-600 rounded-lg p-1 hover:bg-gray-100"
               >
                 <X size={18} />
               </button>
@@ -334,29 +347,29 @@ const Payments = () => {
 
             <form onSubmit={handleMakePayment} className="p-6 space-y-4">
               {/* Summary */}
-              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 space-y-2">
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-2">
                 <div className="grid grid-cols-2 gap-y-1.5 text-xs">
-                  <span className="text-slate-500">Bill Amount:</span>
-                  <span className="font-bold text-slate-800 text-right">{formatCurrency(selectedItem.amount)}</span>
-                  <span className="text-slate-500">TDS Deduction:</span>
+                  <span className="text-gray-500">Bill Amount:</span>
+                  <span className="font-bold text-gray-800 text-right">{formatCurrency(selectedItem.amount)}</span>
+                  <span className="text-gray-500">TDS Deduction:</span>
                   <span className="font-bold text-rose-600 text-right">- {formatCurrency(selectedItem.tdsAmount || 0)}</span>
-                  <span className="text-slate-700 font-bold border-t border-blue-200 pt-1">Net Payable:</span>
-                  <span className="font-bold text-emerald-700 text-right border-t border-blue-200 pt-1">{formatCurrency(selectedItem.netAmount)}</span>
+                  <span className="text-gray-700 font-bold border-t border-gray-200 pt-1">Net Payable:</span>
+                  <span className="font-bold text-emerald-700 text-right border-t border-gray-200 pt-1">{formatCurrency(selectedItem.netAmount)}</span>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase">Payment Date *</label>
+                <label className="text-xs font-bold text-gray-700 uppercase">Payment Date *</label>
                 <input
                   type="date"
                   value={paymentDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-gray-900/20"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase">Payment Proof (Upload File) *</label>
+                <label className="text-xs font-bold text-gray-700 uppercase">Payment Proof (Upload File) *</label>
 
                 {/* Hidden file input */}
                 <input
@@ -378,14 +391,14 @@ const Payments = () => {
                     <a href={uploadedFile.url} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-800">
                       <ExternalLink size={12} />
                     </a>
-                    <button 
-                      type="button" 
-                      onClick={() => { 
-                        setUploadedFile(null); 
-                        setPaymentProof(''); 
-                        if (fileInputRef.current) fileInputRef.current.value = ''; 
-                      }} 
-                      className="text-slate-400 hover:text-red-500"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUploadedFile(null);
+                        setPaymentProof('');
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      className="text-gray-400 hover:text-red-500"
                     >
                       <X size={12} />
                     </button>
@@ -395,16 +408,16 @@ const Payments = () => {
                     type="button"
                     disabled={isSaving || isUploading}
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-50 border-2 border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50/30 rounded-xl text-sm text-slate-500 hover:text-blue-600 transition-all"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-50 border-2 border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50 rounded-xl text-sm text-gray-500 hover:text-gray-900 transition-all"
                   >
                     {isUploading ? (
                       <>
-                        <Loader2 size={15} className="animate-spin text-blue-600" />
+                        <Loader2 size={15} className="animate-spin text-gray-900" />
                         <span className="text-xs font-medium">Uploading...</span>
                       </>
                     ) : (
                       <>
-                        <Upload size={15} className="text-slate-400" />
+                        <Upload size={15} className="text-gray-400" />
                         <span className="text-xs font-medium">Click to upload payment proof</span>
                       </>
                     )}
@@ -421,7 +434,7 @@ const Payments = () => {
                   type="button"
                   disabled={isSaving}
                   onClick={() => setIsPayModalOpen(false)}
-                  className="px-4 py-2.5 border border-slate-200 rounded-xl text-slate-600 text-sm hover:bg-slate-50 font-semibold"
+                  className="px-4 py-2.5 border border-gray-200 rounded-xl text-gray-600 text-sm hover:bg-gray-50 font-semibold"
                 >
                   Cancel
                 </button>

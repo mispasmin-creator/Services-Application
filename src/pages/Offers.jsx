@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Plus, Search, CheckCircle2,
   ArrowRight, Loader2, AlertCircle, X,
@@ -7,6 +7,7 @@ import {
 import useDataStore from '../store/useDataStore';
 import { cn, formatCurrency, uploadFileToDrive } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
+import { getAllowedTabs } from '../lib/permissions';
 
 const Offers = () => {
   const { user: currentUser } = useAuthStore();
@@ -41,7 +42,8 @@ const Offers = () => {
     location: '',
     amount: '',
     isOffer: 'Yes',
-    offerCopy: ''
+    offerCopy: '',
+    timestamp: new Date().toISOString()
   });
 
   // File upload state
@@ -109,7 +111,10 @@ const Offers = () => {
         location: newOffer.location,
         amount: parseFloat(newOffer.amount),
         isOffer: newOffer.isOffer,
-        offerCopy: newOffer.isOffer === 'Yes' ? newOffer.offerCopy : ''
+        offerCopy: newOffer.isOffer === 'Yes' ? newOffer.offerCopy : '',
+        status: '', // Empty status - not Pending
+        timestamp: new Date().toISOString(), // Add timestamp
+        createdAt: new Date().toISOString() // Add creation date
       });
       if (res.success) {
         setIsCreateModalOpen(false);
@@ -122,7 +127,8 @@ const Offers = () => {
           location: '',
           amount: '',
           isOffer: 'Yes',
-          offerCopy: ''
+          offerCopy: '',
+          timestamp: new Date().toISOString()
         });
         if (fileInputRef.current) fileInputRef.current.value = '';
       } else {
@@ -153,14 +159,14 @@ const Offers = () => {
     const autoId = `SRV-${nextNum}`;
     setConvertFields({
       serviceNo: autoId,
-      checker: '',
+      checker: 'Ea Pmmpl',
       tdsAmount: '0',
       remark: '',
-      vendor: offer.vendor || '',
+      vendor: '',
       firmName: offer.firmName || 'All',
-      description: offer.description || '',
+      description: '',
       location: offer.location || '',
-      amount: offer.amount || ''
+      amount: ''
     });
     setIsConvertModalOpen(true);
   };
@@ -191,7 +197,7 @@ const Offers = () => {
 
       if (serviceRes.success) {
         // 2. Mark offer status as Completed
-        await updateOffer(selectedOfferForConvert.sheetRowIndex, { status: 'Completed' });
+        await updateOffer(selectedOfferForConvert.sheetRowIndex, { status: '' });
         setIsConvertModalOpen(false);
         alert(`Successfully Completed Offer ${selectedOfferForConvert.id} to Service ${convertFields.serviceNo}!`);
       } else {
@@ -204,13 +210,14 @@ const Offers = () => {
     }
   };
 
+  const isDone = (status) => ['Complete', 'Completed', 'Converted'].includes(status);
+
   // Filter offers
   const filteredOffers = offers.filter(o => {
-    // Tab filter
     if (activeTab === 'active') {
-      if (o.status === 'Completed' || o.status === 'Converted') return false;
+      if (isDone(o.status)) return false;
     } else if (activeTab === 'history') {
-      if (o.status !== 'Completed' && o.status !== 'Converted') return false;
+      if (!isDone(o.status)) return false;
     }
 
     // Search filter
@@ -225,12 +232,25 @@ const Offers = () => {
     return true;
   });
 
+  const offersTabsConfig = [
+    { id: 'active', label: 'Active Offers', count: offers.filter(o => !isDone(o.status)).length, colorClass: 'bg-blue-100 text-blue-800' },
+    { id: 'history', label: 'History', count: offers.filter(o => isDone(o.status)).length, colorClass: 'bg-emerald-100 text-emerald-800' }
+  ];
+  const visibleTabs = getAllowedTabs(currentUser, 'Offers', offersTabsConfig);
+  const visibleTabIds = visibleTabs.map(t => t.id).join(',');
+
+  useEffect(() => {
+    if (visibleTabs.length > 0 && !visibleTabs.some(t => t.id === activeTab)) {
+      setActiveTab(visibleTabs[0].id);
+    }
+  }, [visibleTabIds, activeTab]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Offer Management</h1>
-          <p className="text-slate-500">Create, manage, and convert vendor service quotations.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Offer Management</h1>
+          <p className="text-gray-500">Create, manage, and convert vendor service quotations.</p>
         </div>
         <button
           onClick={() => {
@@ -242,11 +262,12 @@ const Offers = () => {
               location: '',
               amount: '',
               isOffer: 'Yes',
-              offerCopy: ''
+              offerCopy: '',
+              timestamp: new Date().toISOString()
             });
             setIsCreateModalOpen(true);
           }}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-95 font-medium"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl transition-all shadow-lg shadow-gray-900/20 active:scale-95 font-medium"
         >
           <Plus size={18} />
           <span>Create New Offer</span>
@@ -254,25 +275,22 @@ const Offers = () => {
       </div>
 
       {/* Tab Selector */}
-      <div className="flex border-b border-slate-200 gap-1 overflow-x-auto pb-px">
-        {[
-          { id: 'active', label: 'Active Offers', count: offers.filter(o => o.status !== 'Completed' && o.status !== 'Converted').length, colorClass: 'bg-blue-100 text-blue-800' },
-          { id: 'history', label: 'History', count: offers.filter(o => o.status === 'Completed' || o.status === 'Converted').length, colorClass: 'bg-emerald-100 text-emerald-800' }
-        ].map(tab => (
+      <div className="flex border-b border-gray-200 gap-1 overflow-x-auto pb-px">
+        {visibleTabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
               "px-5 py-4 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
               activeTab === tab.id
-                ? "border-blue-600 text-blue-600 font-bold"
-                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                ? "border-gray-900 text-gray-900 font-bold"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
             )}
           >
             <span>{tab.label}</span>
             <span className={cn(
               "px-2.5 py-0.5 text-xs font-bold rounded-full transition-colors",
-              activeTab === tab.id ? tab.colorClass : "bg-slate-100 text-slate-600"
+              activeTab === tab.id ? tab.colorClass : "bg-gray-100 text-gray-600"
             )}>
               {tab.count}
             </span>
@@ -280,60 +298,73 @@ const Offers = () => {
         ))}
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-4">
+      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center gap-4">
         <div className="relative flex-1 min-w-[240px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input
             type="text"
             placeholder="Search by offer no, vendor or location..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
           />
         </div>
       </div>
 
       {loading ? (
         <div className="py-12 flex flex-col items-center justify-center gap-2">
-          <Loader2 className="animate-spin text-blue-600" size={32} />
-          <p className="text-slate-400 text-sm">Fetching offers...</p>
+          <Loader2 className="animate-spin text-gray-900" size={32} />
+          <p className="text-gray-400 text-sm">Fetching offers...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Offer No</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Firm Name</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Vendor</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Location</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Offer Copy</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Timestamp</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer No</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm Name</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Is There An Offer</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer Copy</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-gray-200">
                 {filteredOffers.map((offer) => (
-                  <tr key={offer.sheetRowIndex} className="hover:bg-slate-50 transition-colors group">
-                    <td className="px-6 py-4 text-sm font-bold text-blue-600">{offer.id}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-600">{offer.firmName}</td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm font-semibold text-slate-900">{offer.vendor}</span>
+                  <tr key={offer.sheetRowIndex} className="hover:bg-gray-50 transition-colors group">
+                    <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
+                      {offer.timestamp ? new Date(offer.timestamp).toLocaleString() : '—'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 max-w-xs truncate">{offer.description}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{offer.location}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-slate-900">{formatCurrency(offer.amount)}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{offer.id}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-600">{offer.firmName}</td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-semibold text-gray-900">{offer.vendor}</span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">{offer.description}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{offer.location}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatCurrency(offer.amount)}</td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-full text-xs font-bold inline-block",
+                        offer.isOffer === 'Yes' ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"
+                      )}>
+                        {offer.isOffer || '—'}
+                      </span>
+                    </td>
                     <td className="px-6 py-4">
                       {offer.offerCopy ? (
-                        <a href={offer.offerCopy} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                        <a href={offer.offerCopy} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 transition-colors">
                           <FileText size={14} />
                           <span>View File</span>
                         </a>
                       ) : (
-                        <span className="text-xs text-slate-400 font-medium">—</span>
+                        <span className="text-xs text-gray-400 font-medium">—</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
@@ -341,24 +372,26 @@ const Offers = () => {
                         "px-2.5 py-1 rounded-full text-xs font-bold inline-block text-center min-w-[80px]",
                         offer.status === 'Approved' && "bg-emerald-100 text-emerald-700",
                         offer.status === 'Converted' && "bg-blue-100 text-blue-700",
-                        offer.status === 'Pending' && "bg-amber-100 text-amber-700"
+                        offer.status === 'Pending' && "bg-amber-100 text-amber-700",
+                        (offer.status === 'Complete' || offer.status === 'Completed') && "bg-gray-100 text-gray-600",
+                        !offer.status && "bg-gray-100 text-gray-400"
                       )}>
-                        {offer.status}
+                        {offer.status || '—'}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        {(offer.status === 'Pending' || offer.status === 'Approved') && (
+                        {!isDone(offer.status) && (
                           <button
                             onClick={() => openConvertModal(offer)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold transition-all border border-blue-100"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-xs font-bold transition-all border border-gray-200"
                           >
                             <ArrowRight size={13} />
                             <span>Review</span>
                           </button>
                         )}
                         {offer.status === 'Converted' && (
-                          <span className="text-xs text-slate-400 font-medium px-2 py-1.5">Converted</span>
+                          <span className="text-xs text-gray-400 font-medium px-2 py-1.5">Converted</span>
                         )}
                       </div>
                     </td>
@@ -366,7 +399,7 @@ const Offers = () => {
                 ))}
                 {filteredOffers.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-6 py-10 text-center text-slate-400 text-sm">
+                    <td colSpan={11} className="px-6 py-10 text-center text-gray-400 text-sm">
                       No offers found.
                     </td>
                   </tr>
@@ -379,17 +412,17 @@ const Offers = () => {
 
       {/* Create New Offer Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-100">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-gray-100">
+            <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-slate-800">Create New Offer</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Initialize a quotation/initial request</p>
+                <h3 className="font-bold text-gray-800">Create New Offer</h3>
+                <p className="text-xs text-gray-400 mt-0.5">All fields marked with * are required</p>
               </div>
               <button
                 disabled={isSaving}
                 onClick={() => setIsCreateModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 rounded-lg p-1 hover:bg-slate-100 transition-colors"
+                className="text-gray-400 hover:text-gray-600 rounded-lg p-1 hover:bg-white transition-colors"
               >
                 <X size={18} />
               </button>
@@ -405,12 +438,12 @@ const Offers = () => {
 
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">Firm Name</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase">Firm Name *</label>
                   <select
                     disabled={isSaving}
                     value={newOffer.firmName}
                     onChange={(e) => setNewOffer({ ...newOffer, firmName: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-gray-900/20 focus:border-transparent transition-all"
                   >
                     {currentUser?.role?.toLowerCase() === 'admin' && <option value="All">All</option>}
                     {allowedFirms.map((firm) => (
@@ -421,62 +454,62 @@ const Offers = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase">Vendor Name</label>
+                <label className="text-xs font-bold text-gray-700 uppercase">Vendor Name *</label>
                 <input
                   disabled={isSaving}
                   type="text"
-                  placeholder="e.g. Swift Services Ltd"
+                  placeholder="Enter vendor name"
                   value={newOffer.vendor}
                   onChange={(e) => setNewOffer({ ...newOffer, vendor: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-gray-900/20 focus:border-transparent transition-all"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase">Work Description</label>
+                <label className="text-xs font-bold text-gray-700 uppercase">Work Description *</label>
                 <textarea
                   disabled={isSaving}
-                  placeholder="Describe the scope of work..."
+                  placeholder="Enter work description"
                   value={newOffer.description}
                   onChange={(e) => setNewOffer({ ...newOffer, description: e.target.value })}
                   rows={2}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-gray-900/20 focus:border-transparent transition-all resize-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">Location</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase">Service Location *</label>
                   <input
                     disabled={isSaving}
                     type="text"
-                    placeholder="e.g. Mumbai"
+                    placeholder="Enter location"
                     value={newOffer.location}
                     onChange={(e) => setNewOffer({ ...newOffer, location: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-gray-900/20 focus:border-transparent transition-all"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">Amount (₹)</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase">Amount (₹) *</label>
                   <input
                     disabled={isSaving}
                     type="number"
                     placeholder="e.g. 50000"
                     value={newOffer.amount}
                     onChange={(e) => setNewOffer({ ...newOffer, amount: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-gray-900/20 focus:border-transparent transition-all"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">Is There An Offer?</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase">Is There An Offer? *</label>
                   <select
                     disabled={isSaving}
                     value={newOffer.isOffer}
                     onChange={(e) => setNewOffer({ ...newOffer, isOffer: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-gray-900/20 focus:border-transparent transition-all"
                   >
                     <option value="Yes">Yes</option>
                     <option value="No">No</option>
@@ -485,7 +518,7 @@ const Offers = () => {
 
                 {newOffer.isOffer === 'Yes' && (
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 uppercase">Offer Copy (Upload File)</label>
+                    <label className="text-xs font-bold text-gray-700 uppercase">Offer Copy</label>
 
                     {/* Hidden file input */}
                     <input
@@ -507,7 +540,7 @@ const Offers = () => {
                         <a href={uploadedFile.url} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-800">
                           <ExternalLink size={12} />
                         </a>
-                        <button type="button" onClick={() => { setUploadedFile(null); setNewOffer(prev => ({ ...prev, offerCopy: '' })); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="text-slate-400 hover:text-red-500">
+                        <button type="button" onClick={() => { setUploadedFile(null); setNewOffer(prev => ({ ...prev, offerCopy: '' })); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="text-gray-400 hover:text-red-500">
                           <X size={12} />
                         </button>
                       </div>
@@ -516,7 +549,7 @@ const Offers = () => {
                         type="button"
                         disabled={isSaving || isUploading}
                         onClick={() => fileInputRef.current?.click()}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-50 border-2 border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50/30 rounded-xl text-sm text-slate-500 hover:text-blue-600 transition-all"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-50 border-2 border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50 rounded-xl text-sm text-gray-500 hover:text-gray-900 transition-all"
                       >
                         {isUploading ? (
                           <>
@@ -544,14 +577,14 @@ const Offers = () => {
                   type="button"
                   disabled={isSaving}
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2.5 border border-slate-200 rounded-xl text-slate-600 text-sm hover:bg-slate-50 font-semibold transition-all"
+                  className="px-4 py-2.5 border border-gray-200 rounded-xl text-gray-700 text-sm hover:bg-gray-50 font-semibold transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-blue-600/10"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-gray-900/10"
                 >
                   {isSaving ? (
                     <>
@@ -570,17 +603,17 @@ const Offers = () => {
 
       {/* Convert to Service Modal */}
       {isConvertModalOpen && selectedOfferForConvert && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-100">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-gray-100">
+            <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-slate-800">Review</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Initialize a service record directly</p>
+                <h3 className="font-bold text-gray-800">Review Offer to Service</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Convert offer {selectedOfferForConvert.id} to service</p>
               </div>
               <button
                 disabled={isSaving}
                 onClick={() => setIsConvertModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 rounded-lg p-1 hover:bg-slate-100 transition-colors"
+                className="text-gray-400 hover:text-gray-600 rounded-lg p-1 hover:bg-white transition-colors"
               >
                 <X size={18} />
               </button>
@@ -589,11 +622,11 @@ const Offers = () => {
             <form onSubmit={handleConvertSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">Offer Ref No.</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase">Offer Ref No.</label>
                   <select
                     disabled={true}
                     value={selectedOfferForConvert.id}
-                    className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed"
+                    className="w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-500 cursor-not-allowed"
                   >
                     <option value={selectedOfferForConvert.id}>
                       {selectedOfferForConvert.id} - {selectedOfferForConvert.vendor}
@@ -604,12 +637,12 @@ const Offers = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">Firm Name</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase">Firm Name *</label>
                   <select
                     disabled={isSaving}
                     value={convertFields.firmName}
                     onChange={(e) => setConvertFields({ ...convertFields, firmName: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white"
                   >
                     {currentUser?.role?.toLowerCase() === 'admin' && <option value="All">All</option>}
                     {allowedFirms.map((firm) => (
@@ -618,88 +651,99 @@ const Offers = () => {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">Service Checker *</label>
-                  <input
+                  <label className="text-xs font-bold text-gray-700 uppercase">
+                    Service Checker *
+                  </label>
+
+                  <select
                     disabled={isSaving}
-                    type="text"
-                    placeholder="e.g. John Doe"
                     value={convertFields.checker}
-                    onChange={(e) => setConvertFields({ ...convertFields, checker: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                  />
+                    onChange={(e) =>
+                      setConvertFields({
+                        ...convertFields,
+                        checker: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                  >
+                    <option value="Ea Pmmpl">Ea Pmmpl</option>
+                    <option value="Ea Rkl">Ea Rkl</option>
+                    <option value="Ea Refrasynth">Ea Refrasynth</option>
+                    <option value="Ea Purab">Ea Purab</option>
+                  </select>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase">Vendor Name *</label>
+                <label className="text-xs font-bold text-gray-700 uppercase">Vendor Name *</label>
                 <input
                   disabled={isSaving}
                   type="text"
-                  placeholder="e.g. Global Logistics"
+                  placeholder="Enter vendor name"
                   value={convertFields.vendor}
                   onChange={(e) => setConvertFields({ ...convertFields, vendor: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase">Work Description *</label>
+                <label className="text-xs font-bold text-gray-700 uppercase">Work Description *</label>
                 <textarea
                   disabled={isSaving}
-                  placeholder="Specify scope of work..."
+                  placeholder="Enter work description"
                   value={convertFields.description}
                   onChange={(e) => setConvertFields({ ...convertFields, description: e.target.value })}
                   rows={2}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm resize-none"
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm resize-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">Location *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase">Service Location *</label>
                   <input
                     disabled={isSaving}
                     type="text"
-                    placeholder="e.g. Delhi"
+                    placeholder="Enter location"
                     value={convertFields.location}
                     onChange={(e) => setConvertFields({ ...convertFields, location: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">Amount (₹) *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase">Amount (₹) *</label>
                   <input
                     disabled={isSaving}
                     type="number"
-                    placeholder="e.g. 45000"
+                    placeholder="Enter amount"
                     value={convertFields.amount}
                     onChange={(e) => setConvertFields({ ...convertFields, amount: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">TDS Deduction Amount (₹)</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase">TDS Deduction Amount (₹)</label>
                   <input
                     disabled={isSaving}
                     type="number"
-                    placeholder="e.g. 1000"
+                    placeholder="Enter TDS amount"
                     value={convertFields.tdsAmount}
                     onChange={(e) => setConvertFields({ ...convertFields, tdsAmount: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">Remarks</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase">Remarks</label>
                   <input
                     disabled={isSaving}
                     type="text"
                     placeholder="Any remarks..."
                     value={convertFields.remark}
                     onChange={(e) => setConvertFields({ ...convertFields, remark: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
                   />
                 </div>
               </div>
@@ -709,14 +753,14 @@ const Offers = () => {
                   type="button"
                   disabled={isSaving}
                   onClick={() => setIsConvertModalOpen(false)}
-                  className="px-4 py-2.5 border border-slate-200 rounded-xl text-slate-600 text-sm hover:bg-slate-50 font-semibold transition-all"
+                  className="px-4 py-2.5 border border-gray-200 rounded-xl text-gray-700 text-sm hover:bg-gray-50 font-semibold transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-blue-600/10"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-gray-900/10"
                 >
                   {isSaving ? (
                     <>

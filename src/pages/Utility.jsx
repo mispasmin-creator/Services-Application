@@ -9,6 +9,7 @@ import {
 import useDataStore from '../store/useDataStore';
 import { cn, formatCurrency, uploadFileToDrive } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
+import { getAllowedTabs } from '../lib/permissions';
 
 const Utility = () => {
   const { user: currentUser } = useAuthStore();
@@ -568,6 +569,21 @@ const Utility = () => {
     return { totalExpenses, pendingApproval, approved, completed };
   })();
 
+  const utilityTabsConfig = [
+    { id: 'create', label: 'Utility Entries', count: utilities.length, colorClass: 'bg-gray-200 text-gray-800' },
+    { id: 'approval', label: 'Payment Approval', count: metrics.pendingApproval, colorClass: 'bg-amber-100 text-amber-800' },
+    { id: 'payment', label: 'Tally Entry', count: metrics.approved, colorClass: 'bg-indigo-100 text-indigo-800' },
+    { id: 'completed', label: 'Completed', count: metrics.completed, colorClass: 'bg-emerald-100 text-emerald-800' }
+  ];
+  const visibleTabs = getAllowedTabs(currentUser, 'Utility', utilityTabsConfig);
+  const visibleTabIds = visibleTabs.map(t => t.id).join(',');
+
+  useEffect(() => {
+    if (visibleTabs.length > 0 && !visibleTabs.some(t => t.id === activeTab)) {
+      setActiveTab(visibleTabs[0].id);
+    }
+  }, [visibleTabIds, activeTab]);
+
   // Filter & Search Logic
   const filteredUtilities = utilities.filter(u => {
     // Tab stage filter
@@ -786,14 +802,14 @@ const Utility = () => {
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto pb-12">
       {/* Header section with modern design */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-slate-200 text-slate-900 p-6 rounded-3xl shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-gray-200 text-gray-900 p-6 rounded-3xl shadow-sm">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Utility Expenses Workflow</h1>
-          <p className="text-slate-500 mt-1.5 text-sm font-medium">Verify bill generation, process management approvals, and entry payments in tally.</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">Utility Expenses Workflow</h1>
+          <p className="text-gray-500 mt-1.5 text-sm font-medium">Verify bill generation, process management approvals, and entry payments in tally.</p>
         </div>
         <button 
           onClick={openCreateModal}
-          className="flex items-center justify-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl transition-all shadow-lg shadow-blue-500/20 active:scale-95 font-semibold shrink-0 cursor-pointer"
+          className="flex items-center justify-center gap-2 px-5 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-2xl transition-all shadow-lg shadow-gray-900/20 active:scale-95 font-semibold shrink-0 cursor-pointer"
         >
           <Plus size={18} />
           <span>Create Utility Entry</span>
@@ -818,15 +834,15 @@ const Utility = () => {
       {/* Dynamic Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'Total Budget Managed', value: formatCurrency(metrics.totalExpenses), color: 'border-l-blue-600', bg: 'bg-blue-50/50', text: 'text-blue-700', icon: Database },
+          { label: 'Total Budget Managed', value: formatCurrency(metrics.totalExpenses), color: 'border-l-gray-900', bg: 'bg-gray-100', text: 'text-gray-700', icon: Database },
           { label: 'Pending Approval', value: metrics.pendingApproval, color: 'border-l-amber-500', bg: 'bg-amber-50/50', text: 'text-amber-700', icon: Clock },
           { label: 'Approved (Payment Queue)', value: metrics.approved, color: 'border-l-indigo-500', bg: 'bg-indigo-50/50', text: 'text-indigo-700', icon: CreditCard },
           { label: 'Completed Payments', value: metrics.completed, color: 'border-l-emerald-500', bg: 'bg-emerald-50/50', text: 'text-emerald-700', icon: CheckCircle2 }
         ].map((card, i) => (
-          <div key={i} className={cn("p-6 rounded-2xl border-l-4 bg-white border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:scale-[1.02]", card.color)}>
+          <div key={i} className={cn("p-6 rounded-2xl border-l-4 bg-white border border-gray-200 shadow-sm flex items-center justify-between transition-all hover:scale-[1.02]", card.color)}>
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{card.label}</p>
-              <h4 className="text-2xl font-bold text-slate-900">{card.value}</h4>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{card.label}</p>
+              <h4 className="text-2xl font-bold text-gray-900">{card.value}</h4>
             </div>
             <div className={cn("p-3 rounded-xl", card.bg, card.text)}>
               <card.icon size={22} />
@@ -836,27 +852,22 @@ const Utility = () => {
       </div>
 
       {/* Flow Stages Tab Selector */}
-      <div className="flex border-b border-slate-200 gap-1 overflow-x-auto pb-px">
-        {[
-          { id: 'create', label: 'Utility Entries', count: utilities.length, colorClass: 'bg-blue-100 text-blue-800' },
-          { id: 'approval', label: 'Payment Approval', count: metrics.pendingApproval, colorClass: 'bg-amber-100 text-amber-800' },
-          { id: 'payment', label: 'Tally Entry', count: metrics.approved, colorClass: 'bg-indigo-100 text-indigo-800' },
-          { id: 'completed', label: 'Completed', count: metrics.completed, colorClass: 'bg-emerald-100 text-emerald-800' }
-        ].map(tab => (
+      <div className="flex border-b border-gray-200 gap-1 overflow-x-auto pb-px">
+        {visibleTabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
               "px-5 py-4 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
               activeTab === tab.id
-                ? "border-blue-600 text-blue-600 font-bold"
-                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                ? "border-gray-900 text-gray-900 font-bold"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
             )}
           >
             <span>{tab.label}</span>
             <span className={cn(
               "px-2.5 py-0.5 text-xs font-bold rounded-full transition-colors",
-              activeTab === tab.id ? tab.colorClass : "bg-slate-100 text-slate-600"
+              activeTab === tab.id ? tab.colorClass : "bg-gray-100 text-gray-600"
             )}>
               {tab.count}
             </span>
@@ -865,21 +876,21 @@ const Utility = () => {
       </div>
 
       {/* Professional Data Table Component */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
         
         {/* Datatable Toolbar */}
-        <div className="p-5 border-b border-slate-200 bg-slate-50/50 space-y-4">
+        <div className="p-5 border-b border-gray-200 bg-gray-50/50 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             
             {/* Search Input */}
             <div className="relative flex-1 min-w-[300px] max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <Search className="absolute left-3 top-1/2 -trangray-y-1/2 text-gray-400" size={18} />
               <input 
                 type="text" 
                 placeholder="Search by ID, pay to, requester, or remarks..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
               />
             </div>
             
@@ -887,7 +898,7 @@ const Utility = () => {
             <div className="flex items-center gap-2.5">
               <button
                 onClick={handleExportExcel}
-                className="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer"
                 title="Export as CSV/Excel"
               >
                 <FileSpreadsheet size={15} className="text-emerald-600" />
@@ -895,7 +906,7 @@ const Utility = () => {
               </button>
               <button
                 onClick={handleExportPDF}
-                className="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer"
                 title="Print Report as PDF"
               >
                 <FileText size={15} className="text-rose-600" />
@@ -904,7 +915,7 @@ const Utility = () => {
               
               <button
                 onClick={() => fetchData()}
-                className="p-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 rounded-xl transition-all shadow-xs cursor-pointer"
+                className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shadow-xs cursor-pointer"
                 title="Refresh from Sheet"
               >
                 <RefreshCw size={15} className={cn(loading && "animate-spin")} />
@@ -913,8 +924,8 @@ const Utility = () => {
           </div>
 
           {/* Filtering row */}
-          <div className="flex flex-wrap items-center gap-3 text-xs pt-1 border-t border-slate-200/50">
-            <div className="flex items-center gap-1 text-slate-400 font-bold mr-1">
+          <div className="flex flex-wrap items-center gap-3 text-xs pt-1 border-t border-gray-200/50">
+            <div className="flex items-center gap-1 text-gray-400 font-bold mr-1">
               <Filter size={13} />
               <span>FILTERS:</span>
             </div>
@@ -923,7 +934,7 @@ const Utility = () => {
             <select
               value={deptFilter}
               onChange={(e) => setDeptFilter(e.target.value)}
-              className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-500"
+              className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:ring-1 focus:ring-gray-900/20"
             >
               <option value="">All Departments</option>
               {departments.map((dept, i) => (
@@ -935,7 +946,7 @@ const Utility = () => {
             <select
               value={groupHeadFilter}
               onChange={(e) => setGroupHeadFilter(e.target.value)}
-              className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-500"
+              className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:ring-1 focus:ring-gray-900/20"
             >
               <option value="">All Group Heads</option>
               {groupHeads.map((gh, i) => (
@@ -948,7 +959,7 @@ const Utility = () => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-500"
+                className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:ring-1 focus:ring-gray-900/20"
               >
                 <option value="">All Statuses</option>
                 <option value="Pending Approval">Pending Approval</option>
@@ -965,15 +976,15 @@ const Utility = () => {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-[11px] text-slate-600 focus:ring-1 focus:ring-blue-500"
+                className="px-2 py-1 bg-white border border-gray-200 rounded-lg text-[11px] text-gray-600 focus:ring-1 focus:ring-gray-900/20"
                 placeholder="From Date"
               />
-              <span className="text-slate-400">to</span>
+              <span className="text-gray-400">to</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-[11px] text-slate-600 focus:ring-1 focus:ring-blue-500"
+                className="px-2 py-1 bg-white border border-gray-200 rounded-lg text-[11px] text-gray-600 focus:ring-1 focus:ring-gray-900/20"
                 placeholder="To Date"
               />
             </div>
@@ -988,7 +999,7 @@ const Utility = () => {
                   setStartDate('');
                   setEndDate('');
                 }}
-                className="px-2.5 py-1 text-blue-600 hover:text-blue-800 font-semibold border border-blue-200 hover:border-blue-300 rounded-lg bg-blue-50/20 cursor-pointer"
+                className="px-2.5 py-1 text-gray-700 hover:text-gray-900 font-semibold border border-gray-300 hover:border-gray-400 rounded-lg bg-gray-50 cursor-pointer"
               >
                 Reset Filters
               </button>
@@ -996,8 +1007,8 @@ const Utility = () => {
 
             {/* Bulk actions triggers (only when rows selected) */}
             {selectedRows.length > 0 && (
-              <div className="ml-auto flex items-center gap-2 bg-blue-50/50 border border-blue-100 rounded-xl px-3 py-1 animate-pulse">
-                <span className="text-[11px] font-bold text-blue-700">{selectedRows.length} selected</span>
+              <div className="ml-auto flex items-center gap-2 bg-gray-100 border border-gray-200 rounded-xl px-3 py-1 animate-pulse">
+                <span className="text-[11px] font-bold text-gray-700">{selectedRows.length} selected</span>
                 
                 {activeTab === 'approval' && (
                   <button
@@ -1030,7 +1041,7 @@ const Utility = () => {
                 
                 <button
                   onClick={() => setSelectedRows([])}
-                  className="text-slate-400 hover:text-red-500 p-0.5"
+                  className="text-gray-400 hover:text-red-500 p-0.5"
                   title="Clear Selection"
                 >
                   <X size={12} />
@@ -1043,20 +1054,20 @@ const Utility = () => {
         {/* Data Table */}
         {loading && utilities.length === 0 ? (
           <div className="py-24 flex flex-col items-center justify-center gap-3 bg-white">
-            <Loader2 className="animate-spin text-blue-600" size={36} />
-            <p className="text-slate-400 text-sm font-semibold">Fetching utility records from Sheets...</p>
+            <Loader2 className="animate-spin text-gray-900" size={36} />
+            <p className="text-gray-400 text-sm font-semibold">Fetching utility records from Sheets...</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
+                <tr className="bg-gray-50 border-b border-gray-200">
                   {/* Selection Checkbox */}
                   {(activeTab === 'approval' || activeTab === 'payment') && (
                     <th className="w-12 px-6 py-4">
                       <input 
                         type="checkbox" 
-                        className="rounded-md border-slate-300 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                        className="rounded-md border-gray-300 focus:ring-gray-900/20 w-4 h-4 cursor-pointer"
                         onChange={handleSelectAll}
                         checked={
                           paginatedUtilities.length > 0 && 
@@ -1069,7 +1080,7 @@ const Utility = () => {
                   {/* Utility Number */}
                   <th 
                     onClick={() => handleSort('id')} 
-                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center gap-1">
                       <span>Utility No.</span>
@@ -1080,7 +1091,7 @@ const Utility = () => {
                   {/* Firm Name */}
                   <th 
                     onClick={() => handleSort('firmName')} 
-                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center gap-1">
                       <span>Firm Name</span>
@@ -1091,7 +1102,7 @@ const Utility = () => {
                   {/* Person Name */}
                   <th 
                     onClick={() => handleSort('personName')} 
-                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center gap-1">
                       <span>Person Name</span>
@@ -1102,7 +1113,7 @@ const Utility = () => {
                   {/* Department */}
                   <th 
                     onClick={() => handleSort('department')} 
-                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center gap-1">
                       <span>Department</span>
@@ -1113,7 +1124,7 @@ const Utility = () => {
                   {/* Group Head */}
                   <th 
                     onClick={() => handleSort('groupHead')} 
-                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center gap-1">
                       <span>Group Head</span>
@@ -1124,7 +1135,7 @@ const Utility = () => {
                   {/* Pay To */}
                   <th 
                     onClick={() => handleSort('payTo')} 
-                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center gap-1">
                       <span>Pay To</span>
@@ -1135,7 +1146,7 @@ const Utility = () => {
                   {/* Bill Amount */}
                   <th 
                     onClick={() => handleSort('amount')} 
-                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors text-right"
+                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right"
                   >
                     <div className="flex items-center gap-1 justify-end">
                       <span>Bill Amount</span>
@@ -1146,7 +1157,7 @@ const Utility = () => {
                   {/* TDS Amount */}
                   <th 
                     onClick={() => handleSort('tdsAmount')} 
-                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors text-right"
+                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right"
                   >
                     <div className="flex items-center gap-1 justify-end">
                       <span>TDS Amount</span>
@@ -1157,7 +1168,7 @@ const Utility = () => {
                   {/* Net Payable */}
                   <th 
                     onClick={() => handleSort('amountPaid')} 
-                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors text-right"
+                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right"
                   >
                     <div className="flex items-center gap-1 justify-end">
                       <span>Net Payable</span>
@@ -1168,7 +1179,7 @@ const Utility = () => {
                   {/* Bill Date */}
                   <th 
                     onClick={() => handleSort('billDate')} 
-                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center gap-1">
                       <span>Bill Date</span>
@@ -1179,7 +1190,7 @@ const Utility = () => {
                   {/* Due Date */}
                   <th 
                     onClick={() => handleSort('dueDate')} 
-                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center gap-1">
                       <span>Due Date</span>
@@ -1188,19 +1199,19 @@ const Utility = () => {
                   </th>
 
                   {/* Bill Copy */}
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
                     Bill Copy
                   </th>
 
                   {/* Remarks */}
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
                     Remarks
                   </th>
 
                   {/* Status */}
                   <th 
                     onClick={() => handleSort('status')} 
-                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors"
+                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center gap-1">
                       <span>Status</span>
@@ -1209,13 +1220,13 @@ const Utility = () => {
                   </th>
 
                   {/* Actions */}
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
                     Actions
                   </th>
                 </tr>
               </thead>
               
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-gray-200">
                 {paginatedUtilities.map((utility) => {
                   const isChecked = selectedRows.includes(utility.sheetRowIndex);
                   
@@ -1223,8 +1234,8 @@ const Utility = () => {
                     <tr 
                       key={utility.sheetRowIndex} 
                       className={cn(
-                        "hover:bg-slate-50/50 transition-colors group text-sm",
-                        isChecked && "bg-blue-50/20"
+                        "hover:bg-gray-50/50 transition-colors group text-sm",
+                        isChecked && "bg-gray-100"
                       )}
                     >
                       {/* Selection checkbox */}
@@ -1232,7 +1243,7 @@ const Utility = () => {
                         <td className="px-6 py-4">
                           <input 
                             type="checkbox" 
-                            className="rounded-md border-slate-300 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                            className="rounded-md border-gray-300 focus:ring-gray-900/20 w-4 h-4 cursor-pointer"
                             checked={isChecked}
                             onChange={(e) => handleSelectRow(e, utility.sheetRowIndex)}
                           />
@@ -1240,40 +1251,40 @@ const Utility = () => {
                       )}
                       
                       {/* ID with design */}
-                      <td className="px-6 py-4 font-bold text-slate-950 whitespace-nowrap">
+                      <td className="px-6 py-4 font-bold text-gray-950 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
-                          <Zap size={14} className="text-blue-500" />
+                          <Zap size={14} className="text-gray-700" />
                           <span>{utility.id}</span>
                         </div>
                       </td>
 
                       {/* Firm Name */}
-                      <td className="px-6 py-4 text-slate-800 font-medium whitespace-nowrap">
+                      <td className="px-6 py-4 text-gray-800 font-medium whitespace-nowrap">
                         {utility.firmName || '—'}
                       </td>
 
                       {/* Person Name */}
-                      <td className="px-6 py-4 text-slate-800 font-medium whitespace-nowrap">
+                      <td className="px-6 py-4 text-gray-800 font-medium whitespace-nowrap">
                         {utility.personName}
                       </td>
 
                       {/* Department */}
-                      <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
+                      <td className="px-6 py-4 text-gray-600 font-medium whitespace-nowrap">
                         {utility.department || '—'}
                       </td>
 
                       {/* Group Head */}
-                      <td className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap">
+                      <td className="px-6 py-4 text-gray-600 font-medium whitespace-nowrap">
                         {utility.groupHead || '—'}
                       </td>
 
                       {/* Pay To */}
-                      <td className="px-6 py-4 font-medium text-slate-700 whitespace-nowrap">
+                      <td className="px-6 py-4 font-medium text-gray-700 whitespace-nowrap">
                         {utility.payTo}
                       </td>
 
                       {/* Bill Amount */}
-                      <td className="px-6 py-4 text-right font-bold text-slate-900 whitespace-nowrap">
+                      <td className="px-6 py-4 text-right font-bold text-gray-900 whitespace-nowrap">
                         {formatCurrency(utility.amount)}
                       </td>
 
@@ -1288,12 +1299,12 @@ const Utility = () => {
                       </td>
 
                       {/* Bill Date */}
-                      <td className="px-6 py-4 text-slate-500 font-medium whitespace-nowrap">
+                      <td className="px-6 py-4 text-gray-500 font-medium whitespace-nowrap">
                         {utility.billDate ? utility.billDate.split('T')[0] : '—'}
                       </td>
 
                       {/* Due Date */}
-                      <td className="px-6 py-4 text-slate-500 font-medium whitespace-nowrap">
+                      <td className="px-6 py-4 text-gray-500 font-medium whitespace-nowrap">
                         {utility.dueDate ? utility.dueDate.split('T')[0] : '—'}
                       </td>
 
@@ -1304,18 +1315,18 @@ const Utility = () => {
                             href={utility.billImage} 
                             target="_blank" 
                             rel="noreferrer" 
-                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-bold hover:underline"
+                            className="inline-flex items-center gap-1 text-gray-700 hover:text-gray-900 font-bold hover:underline"
                           >
                             <Paperclip size={13} />
                             <span>View Bill</span>
                           </a>
                         ) : (
-                          <span className="text-slate-400 italic text-xs">No File</span>
+                          <span className="text-gray-400 italic text-xs">No File</span>
                         )}
                       </td>
 
                       {/* Remarks */}
-                      <td className="px-6 py-4 text-slate-500 max-w-[180px] truncate whitespace-nowrap" title={utility.remarks}>
+                      <td className="px-6 py-4 text-gray-500 max-w-[180px] truncate whitespace-nowrap" title={utility.remarks}>
                         {utility.remarks || '—'}
                       </td>
 
@@ -1327,7 +1338,7 @@ const Utility = () => {
                           utility.status === 'Approved' && "bg-indigo-50 text-indigo-700 border-indigo-100",
                           utility.status === 'Pending Approval' && "bg-amber-50 text-amber-700 border-amber-100",
                           utility.status === 'Rejected' && "bg-rose-50 text-rose-700 border-rose-100",
-                          utility.status === 'On Hold' && "bg-slate-100 text-slate-700 border-slate-200"
+                          utility.status === 'On Hold' && "bg-gray-100 text-gray-700 border-gray-200"
                         )}>
                           {utility.status}
                         </span>
@@ -1382,7 +1393,7 @@ const Utility = () => {
                                   delayDays: utility.delay1 || 0
                                 });
                               }}
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:text-slate-800 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-gray-800 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl text-xs font-bold transition-all cursor-pointer"
                               title="View details and timeline tracking"
                             >
                               <Eye size={14} />
@@ -1398,17 +1409,17 @@ const Utility = () => {
                 {/* Empty State */}
                 {totalItems === 0 && (
                   <tr>
-                    <td colSpan={16} className="px-6 py-16 text-center text-slate-400 bg-white">
+                    <td colSpan={16} className="px-6 py-16 text-center text-gray-400 bg-white">
                       <div className="flex flex-col items-center gap-3">
-                        <Database className="text-slate-200 animate-pulse" size={42} />
+                        <Database className="text-gray-200 animate-pulse" size={42} />
                         <div>
-                          <p className="font-bold text-slate-600 text-base">No utilities found</p>
-                          <p className="text-xs text-slate-400 mt-1">There are no utility expense entries matching current filter settings.</p>
+                          <p className="font-bold text-gray-600 text-base">No utilities found</p>
+                          <p className="text-xs text-gray-400 mt-1">There are no utility expense entries matching current filter settings.</p>
                         </div>
                         {activeTab === 'create' && (
                           <button
                             onClick={openCreateModal}
-                            className="mt-2 px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-xl hover:bg-blue-100 font-bold transition-all text-xs cursor-pointer"
+                            className="mt-2 px-4 py-2 bg-gray-100 text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-200 font-bold transition-all text-xs cursor-pointer"
                           >
                             Add New Record Now
                           </button>
@@ -1424,7 +1435,7 @@ const Utility = () => {
 
         {/* Datatable Pagination Controls */}
         {totalItems > 0 && (
-          <div className="p-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-500 bg-slate-50/30">
+          <div className="p-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-gray-500 bg-gray-50/30">
             <div className="flex items-center gap-2">
               <span>Show</span>
               <select
@@ -1433,7 +1444,7 @@ const Utility = () => {
                   setPageSize(e.target.value === 'all' ? totalItems : parseInt(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="px-2 py-1 bg-white border border-slate-200 rounded-md"
+                className="px-2 py-1 bg-white border border-gray-200 rounded-md"
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
@@ -1449,14 +1460,14 @@ const Utility = () => {
                 <button
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  className="p-1.5 border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 cursor-pointer"
+                  className="p-1.5 border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-40 cursor-pointer"
                 >
                   <ChevronLeft size={14} />
                 </button>
                 <button
                   disabled={currentPage === totalPages || totalPages === 0}
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  className="p-1.5 border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 cursor-pointer"
+                  className="p-1.5 border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-40 cursor-pointer"
                 >
                   <ChevronRight size={14} />
                 </button>
@@ -1468,20 +1479,20 @@ const Utility = () => {
 
       {/* -------------------- STEP 1 MODAL: CREATE UTILITY FORM -------------------- */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 text-slate-800 flex items-center justify-between">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-gray-200 flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 text-gray-800 flex items-center justify-between">
               <div>
-                <h3 className="font-extrabold text-lg flex items-center gap-2 text-slate-950">
+                <h3 className="font-extrabold text-lg flex items-center gap-2 text-gray-950">
                   <Zap className="text-yellow-500 fill-yellow-500" size={20} />
                   <span>STEP 1: Create Utility Record</span>
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">Define a new utility expense and attach the invoice bill</p>
+                <p className="text-xs text-gray-500 mt-0.5">Define a new utility expense and attach the invoice bill</p>
               </div>
               <button 
                 disabled={isSaving}
                 onClick={() => setIsCreateModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 rounded-xl p-1.5 hover:bg-slate-100 transition-colors"
+                className="text-gray-400 hover:text-gray-600 rounded-xl p-1.5 hover:bg-gray-100 transition-colors"
               >
                 <X size={18} />
               </button>
@@ -1498,21 +1509,21 @@ const Utility = () => {
               {/* Utility Number and Firm Name */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Utility Number (Auto Generated)</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Utility Number (Auto Generated)</label>
                   <input
                     type="text"
                     disabled
                     value={newUtility.id}
-                    className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-bold text-slate-600"
+                    className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm font-bold text-gray-600"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Firm Name *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Firm Name *</label>
                   <select
                     disabled={isSaving}
                     value={newUtility.firmName}
                     onChange={(e) => setNewUtility({...newUtility, firmName: e.target.value})}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-gray-900/20"
                     required
                   >
                     <option value="">Select Firm Name</option>
@@ -1526,24 +1537,24 @@ const Utility = () => {
               {/* Person Name and Department */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Person Name *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Person Name *</label>
                   <input
                     disabled={isSaving}
                     type="text"
                     placeholder="Enter requestor's name"
                     value={newUtility.personName}
                     onChange={(e) => setNewUtility({...newUtility, personName: e.target.value})}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-gray-900/20"
                     required
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Department *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Department *</label>
                   <select
                     disabled={isSaving}
                     value={newUtility.department}
                     onChange={(e) => setNewUtility({...newUtility, department: e.target.value})}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-gray-900/20"
                     required
                   >
                     <option value="">Select Department</option>
@@ -1557,12 +1568,12 @@ const Utility = () => {
               {/* Group Head and Pay To */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Group Head *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Group Head *</label>
                   <select
                     disabled={isSaving}
                     value={newUtility.groupHead}
                     onChange={(e) => setNewUtility({...newUtility, groupHead: e.target.value})}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-gray-900/20"
                     required
                   >
                     <option value="">Select Group Head</option>
@@ -1572,14 +1583,14 @@ const Utility = () => {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Pay To (Company/Vendor) *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Pay To (Company/Vendor) *</label>
                   <input
                     disabled={isSaving}
                     type="text"
                     placeholder="e.g. Tata Power / Airtel / Landlord"
                     value={newUtility.payTo}
                     onChange={(e) => setNewUtility({...newUtility, payTo: e.target.value})}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-gray-900/20"
                     required
                   />
                 </div>
@@ -1588,7 +1599,7 @@ const Utility = () => {
               {/* Bill Amount and TDS Deduction */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Bill Amount (₹) *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Bill Amount (₹) *</label>
                   <input
                     disabled={isSaving}
                     type="number"
@@ -1596,7 +1607,7 @@ const Utility = () => {
                     placeholder="Enter total bill amount"
                     value={newUtility.amount}
                     onChange={(e) => handleAmountChange(e.target.value, newUtility.tdsAmount)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:ring-2 focus:ring-gray-900/20"
                     required
                   />
                 </div>
@@ -1605,7 +1616,7 @@ const Utility = () => {
               {/* TDS and Amount to be paid calculation */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">TDS Deduction Amount (₹)</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">TDS Deduction Amount (₹)</label>
                   <input
                     disabled={isSaving}
                     type="number"
@@ -1613,16 +1624,16 @@ const Utility = () => {
                     placeholder="TDS amount if applicable"
                     value={newUtility.tdsAmount}
                     onChange={(e) => handleAmountChange(newUtility.amount, e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-rose-600 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-rose-600 focus:ring-2 focus:ring-gray-900/20"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Amount To Be Paid (Auto Calculated)</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Amount To Be Paid (Auto Calculated)</label>
                   <input
                     type="text"
                     disabled
                     value={formatCurrency(parseFloat(newUtility.amountPaid))}
-                    className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-extrabold text-emerald-700"
+                    className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm font-extrabold text-emerald-700"
                   />
                 </div>
               </div>
@@ -1630,24 +1641,24 @@ const Utility = () => {
               {/* Dates */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Bill Date *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Bill Date *</label>
                   <input
                     disabled={isSaving}
                     type="date"
                     value={newUtility.billDate}
                     onChange={(e) => setNewUtility({...newUtility, billDate: e.target.value})}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-gray-900/20"
                     required
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Due Date *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Due Date *</label>
                   <input
                     disabled={isSaving}
                     type="date"
                     value={newUtility.dueDate}
                     onChange={(e) => setNewUtility({...newUtility, dueDate: e.target.value})}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-gray-900/20"
                     required
                   />
                 </div>
@@ -1655,7 +1666,7 @@ const Utility = () => {
 
               {/* File Attachment Upload */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Bill Attachment Copy *</label>
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Bill Attachment Copy *</label>
                 
                 {/* Hidden input */}
                 <input
@@ -1697,18 +1708,18 @@ const Utility = () => {
                     type="button"
                     disabled={isUploading}
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-6 border-2 border-dashed border-slate-300 hover:border-blue-400 bg-slate-50 hover:bg-blue-50/20 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-500 hover:text-blue-600 transition-all cursor-pointer"
+                    className="w-full py-6 border-2 border-dashed border-gray-300 hover:border-gray-900 bg-gray-50 hover:bg-gray-100 rounded-2xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:text-gray-900 transition-all cursor-pointer"
                   >
                     {isUploading ? (
                       <>
-                        <Loader2 className="animate-spin text-blue-600" size={24} />
+                        <Loader2 className="animate-spin text-gray-900" size={24} />
                         <span className="text-xs font-bold">Uploading file to Google Drive...</span>
                       </>
                     ) : (
                       <>
-                        <Upload size={24} className="text-slate-400 group-hover:text-blue-600" />
+                        <Upload size={24} className="text-gray-400 group-hover:text-gray-900" />
                         <span className="text-xs font-bold">Click to upload bill image/invoice attachment (Max 10MB)</span>
-                        <span className="text-[10px] text-slate-400">PDF, JPG, JPEG, PNG formats accepted</span>
+                        <span className="text-[10px] text-gray-400">PDF, JPG, JPEG, PNG formats accepted</span>
                       </>
                     )}
                   </button>
@@ -1724,31 +1735,31 @@ const Utility = () => {
 
               {/* Remarks */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Remarks</label>
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Remarks</label>
                 <textarea
                   disabled={isSaving}
                   rows={2}
                   placeholder="Enter remarks/description for the utility bill"
                   value={newUtility.remarks}
                   onChange={(e) => setNewUtility({...newUtility, remarks: e.target.value})}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-gray-900/20"
                 />
               </div>
 
               {/* Buttons */}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+              <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   disabled={isSaving}
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-5 py-3 border border-slate-200 rounded-xl text-slate-700 font-semibold hover:bg-slate-50 transition-all cursor-pointer"
+                  className="px-5 py-3 border border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving || isUploading}
-                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-600/10 cursor-pointer"
+                  className="flex items-center gap-2 px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-bold transition-all shadow-lg shadow-gray-900/10 cursor-pointer"
                 >
                   {isSaving ? (
                     <>
@@ -1767,20 +1778,20 @@ const Utility = () => {
 
       {/* -------------------- STEP 2 MODAL: MANAGEMENT APPROVAL / DETAIL PREVIEW -------------------- */}
       {isDetailModalOpen && selectedUtility && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 text-slate-800 flex items-center justify-between">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-gray-200 flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 text-gray-800 flex items-center justify-between">
               <div>
-                <h3 className="font-extrabold text-lg flex items-center gap-2 text-slate-950">
+                <h3 className="font-extrabold text-lg flex items-center gap-2 text-gray-950">
                   <ShieldCheck className="text-emerald-600" size={20} />
                   <span>Utility Detail & Workflow Timeline ({selectedUtility.id})</span>
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">Verify and process utility bill payment release</p>
+                <p className="text-xs text-gray-500 mt-0.5">Verify and process utility bill payment release</p>
               </div>
               <button 
                 disabled={isSaving}
                 onClick={() => setIsDetailModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 rounded-xl p-1.5 hover:bg-slate-100 transition-colors"
+                className="text-gray-400 hover:text-gray-600 rounded-xl p-1.5 hover:bg-gray-100 transition-colors"
               >
                 <X size={18} />
               </button>
@@ -1798,22 +1809,22 @@ const Utility = () => {
 
                   {/* Unique Number (autofill, read-only) */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Unique Number</label>
+                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Unique Number</label>
                     <input
                       type="text"
                       disabled
                       value={selectedUtility.id}
-                      className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-600"
+                      className="w-full px-3.5 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-600"
                     />
                   </div>
 
                   {/* Fms Name dropdown */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">FMS Name *</label>
+                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">FMS Name *</label>
                     <select
                       value={approvalFields.fmsName}
                       onChange={(e) => setApprovalFields(prev => ({ ...prev, fmsName: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-1 focus:ring-gray-900/20 cursor-pointer"
                     >
                       <option value="">Select FMS Name</option>
                       {fmsNames && fmsNames.map((name, idx) => (
@@ -1824,11 +1835,11 @@ const Utility = () => {
 
                   {/* Status dropdown (Yes/No) */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Status *</label>
+                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Status *</label>
                     <select
                       value={approvalFields.approvalStatus}
                       onChange={(e) => setApprovalFields(prev => ({ ...prev, approvalStatus: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-1 focus:ring-gray-900/20 cursor-pointer"
                     >
                       <option value="">Select Status</option>
                       <option value="Yes">Yes</option>
@@ -1838,56 +1849,56 @@ const Utility = () => {
 
                   {/* If Yes is selected, show additional inputs */}
                   {approvalFields.approvalStatus === 'Yes' && (
-                    <div className="space-y-4 pt-2 border-t border-slate-100">
+                    <div className="space-y-4 pt-2 border-t border-gray-100">
                       {/* Details Input field */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Details *</label>
+                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Details *</label>
                         <input
                           type="text"
                           placeholder="Enter approval details"
                           value={approvalFields.details}
                           onChange={(e) => setApprovalFields(prev => ({ ...prev, details: e.target.value }))}
-                          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-500"
+                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs focus:ring-1 focus:ring-gray-900/20"
                         />
                       </div>
 
                       {/* Pay To (autofill, read-only) */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Pay To</label>
+                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Pay To</label>
                         <input
                           type="text"
                           disabled
                           value={selectedUtility.payTo || ''}
-                          className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-600"
+                          className="w-full px-3.5 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-600"
                         />
                       </div>
 
                       {/* Amount To Be Paid (autofill, read-only) */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Amount To Be Paid</label>
+                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Amount To Be Paid</label>
                         <input
                           type="text"
                           disabled
                           value={formatCurrency(selectedUtility.amountPaid)}
-                          className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-600"
+                          className="w-full px-3.5 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-600"
                         />
                       </div>
 
                       {/* Remarks */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Remarks</label>
+                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Remarks</label>
                         <textarea
                           placeholder="Enter remarks"
                           rows={3}
                           value={approvalFields.remarks}
                           onChange={(e) => setApprovalFields(prev => ({ ...prev, remarks: e.target.value }))}
-                          className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-500"
+                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs focus:ring-1 focus:ring-gray-900/20"
                         />
                       </div>
 
                       {/* Upload Attachment */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Upload Attachment</label>
+                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Upload Attachment</label>
                         <input
                           type="file"
                           ref={approvalFileInputRef}
@@ -1917,18 +1928,18 @@ const Utility = () => {
                             type="button"
                             disabled={isUploading}
                             onClick={() => approvalFileInputRef.current?.click()}
-                            className="w-full py-6 border-2 border-dashed border-slate-300 hover:border-blue-400 bg-slate-50 hover:bg-blue-50/20 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-500 hover:text-blue-600 transition-all cursor-pointer"
+                            className="w-full py-6 border-2 border-dashed border-gray-300 hover:border-gray-900 bg-gray-50 hover:bg-gray-100 rounded-2xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:text-gray-900 transition-all cursor-pointer"
                           >
                             {isUploading ? (
                               <>
-                                <Loader2 className="animate-spin text-blue-600" size={24} />
+                                <Loader2 className="animate-spin text-gray-900" size={24} />
                                 <span className="text-xs font-bold">Uploading file to Google Drive...</span>
                               </>
                             ) : (
                               <>
-                                <Upload size={24} className="text-slate-400 group-hover:text-blue-600" />
+                                <Upload size={24} className="text-gray-400 group-hover:text-gray-900" />
                                 <span className="text-xs font-bold">Click to upload attachment document (Max 10MB)</span>
-                                <span className="text-[10px] text-slate-400">PDF, JPG, JPEG, PNG formats accepted</span>
+                                <span className="text-[10px] text-gray-400">PDF, JPG, JPEG, PNG formats accepted</span>
                               </>
                             )}
                           </button>
@@ -1940,19 +1951,19 @@ const Utility = () => {
                     </div>
                   )}
 
-                  <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                     <button
                       type="button"
                       disabled={isSaving}
                       onClick={() => setIsDetailModalOpen(false)}
-                      className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                      className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs transition-all cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isSaving || isUploading}
-                      className="flex items-center gap-1.5 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer"
+                      className="flex items-center gap-1.5 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer"
                     >
                       {isSaving ? <Loader2 className="animate-spin" size={13} /> : <ShieldCheck size={14} />}
                       <span>{approvalFields.approvalStatus === 'Yes' ? 'Approve & Release' : 'Reject / Decline'}</span>
@@ -1962,56 +1973,56 @@ const Utility = () => {
               ) : (
                 <>
                   {/* Details grid */}
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-3 bg-slate-50 p-4 border border-slate-200 rounded-2xl text-xs">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3 bg-gray-50 p-4 border border-gray-200 rounded-2xl text-xs">
                     <div>
-                      <span className="text-slate-400 font-bold block uppercase tracking-wide">Requestor Name</span>
-                      <span className="text-slate-900 font-bold text-sm block mt-0.5">{selectedUtility.personName}</span>
+                      <span className="text-gray-400 font-bold block uppercase tracking-wide">Requestor Name</span>
+                      <span className="text-gray-900 font-bold text-sm block mt-0.5">{selectedUtility.personName}</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 font-bold block uppercase tracking-wide">Dept / Group Head</span>
-                      <span className="text-slate-700 font-semibold block mt-0.5">{selectedUtility.department} / {selectedUtility.groupHead}</span>
+                      <span className="text-gray-400 font-bold block uppercase tracking-wide">Dept / Group Head</span>
+                      <span className="text-gray-700 font-semibold block mt-0.5">{selectedUtility.department} / {selectedUtility.groupHead}</span>
                     </div>
-                    <div className="col-span-2 border-t border-slate-200/50 pt-2">
-                      <span className="text-slate-400 font-bold block uppercase tracking-wide">Pay To (Payee)</span>
-                      <span className="text-slate-900 font-bold text-sm block mt-0.5">{selectedUtility.payTo}</span>
+                    <div className="col-span-2 border-t border-gray-200/50 pt-2">
+                      <span className="text-gray-400 font-bold block uppercase tracking-wide">Pay To (Payee)</span>
+                      <span className="text-gray-900 font-bold text-sm block mt-0.5">{selectedUtility.payTo}</span>
                     </div>
-                    <div className="border-t border-slate-200/50 pt-2">
-                      <span className="text-slate-400 font-bold block uppercase tracking-wide">Bill date / Due Date</span>
-                      <span className="text-slate-700 font-semibold block mt-0.5">
+                    <div className="border-t border-gray-200/50 pt-2">
+                      <span className="text-gray-400 font-bold block uppercase tracking-wide">Bill date / Due Date</span>
+                      <span className="text-gray-700 font-semibold block mt-0.5">
                         {selectedUtility.billDate ? selectedUtility.billDate.split('T')[0] : '—'} / {selectedUtility.dueDate ? selectedUtility.dueDate.split('T')[0] : '—'}
                       </span>
                     </div>
-                    <div className="border-t border-slate-200/50 pt-2">
-                      <span className="text-slate-400 font-bold block uppercase tracking-wide">Status</span>
-                      <span className="text-blue-700 font-bold block mt-0.5">{selectedUtility.status}</span>
+                    <div className="border-t border-gray-200/50 pt-2">
+                      <span className="text-gray-400 font-bold block uppercase tracking-wide">Status</span>
+                      <span className="text-gray-700 font-bold block mt-0.5">{selectedUtility.status}</span>
                     </div>
-                    
+
                     {/* Financials block */}
-                    <div className="col-span-2 grid grid-cols-3 gap-2 bg-blue-50/30 p-3 rounded-xl border border-blue-100/50 mt-1">
+                    <div className="col-span-2 grid grid-cols-3 gap-2 bg-gray-100 p-3 rounded-xl border border-gray-200/50 mt-1">
                       <div>
-                        <span className="text-slate-400 font-bold block uppercase">Bill Amount</span>
-                        <span className="text-slate-800 font-bold text-xs">{formatCurrency(selectedUtility.amount)}</span>
+                        <span className="text-gray-400 font-bold block uppercase">Bill Amount</span>
+                        <span className="text-gray-800 font-bold text-xs">{formatCurrency(selectedUtility.amount)}</span>
                       </div>
                       <div>
-                        <span className="text-slate-400 font-bold block uppercase">TDS Deduct</span>
+                        <span className="text-gray-400 font-bold block uppercase">TDS Deduct</span>
                         <span className="text-rose-600 font-bold text-xs">-{formatCurrency(selectedUtility.tdsAmount)}</span>
                       </div>
                       <div>
-                        <span className="text-slate-400 font-bold block uppercase">Net Payable</span>
+                        <span className="text-gray-400 font-bold block uppercase">Net Payable</span>
                         <span className="text-emerald-700 font-extrabold text-sm">{formatCurrency(selectedUtility.amountPaid)}</span>
                       </div>
                     </div>
                     
                     {/* Bill Invoice Copy Link inside the details card */}
-                    <div className="col-span-2 border-t border-slate-200/50 pt-3 mt-1">
-                      <span className="text-slate-400 font-bold block uppercase tracking-wide">Bill Invoice Copy</span>
+                    <div className="col-span-2 border-t border-gray-200/50 pt-3 mt-1">
+                      <span className="text-gray-400 font-bold block uppercase tracking-wide">Bill Invoice Copy</span>
                       {selectedUtility.billImage ? (
                         <div className="mt-1.5">
                           <a 
                             href={selectedUtility.billImage} 
                             target="_blank" 
                             rel="noreferrer" 
-                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-gray-100 border border-gray-200 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
                           >
                             <Paperclip size={14} className="shrink-0" />
                             <span>View Bill Copy</span>
@@ -2019,7 +2030,7 @@ const Utility = () => {
                           </a>
                         </div>
                       ) : (
-                        <span className="text-slate-500 font-medium italic mt-1 block">No bill copy uploaded</span>
+                        <span className="text-gray-500 font-medium italic mt-1 block">No bill copy uploaded</span>
                       )}
                     </div>
                   </div>
@@ -2028,18 +2039,18 @@ const Utility = () => {
                   {selectedUtility.status === 'Completed' && (
                     <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-xl space-y-2 text-xs">
                       <span className="font-bold text-emerald-800 uppercase block tracking-wider">Recorded Payment Receipt Details</span>
-                      <div className="grid grid-cols-2 gap-y-1.5 font-medium text-slate-700">
+                      <div className="grid grid-cols-2 gap-y-1.5 font-medium text-gray-700">
                         <div className="flex justify-between pr-3">
                           <span>Payment No:</span>
-                          <span className="font-bold text-slate-900">{selectedUtility.paymentNo || '—'}</span>
+                          <span className="font-bold text-gray-900">{selectedUtility.paymentNo || '—'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Payment Mode:</span>
-                          <span className="font-bold text-slate-900">{selectedUtility.paymentMode || '—'}</span>
+                          <span className="font-bold text-gray-900">{selectedUtility.paymentMode || '—'}</span>
                         </div>
                         <div className="flex justify-between pr-3">
                           <span>UTR Ref ID:</span>
-                          <span className="font-bold text-blue-600 font-mono">{selectedUtility.transactionRef || '—'}</span>
+                          <span className="font-bold text-gray-900 font-mono">{selectedUtility.transactionRef || '—'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Payment Date:</span>
@@ -2060,25 +2071,25 @@ const Utility = () => {
 
                   {/* Display Fms Name, Details, and Approval Attachment if they exist */}
                   {(selectedUtility.fmsName || selectedUtility.details || selectedUtility.approvalAttachment) && (
-                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2 text-xs">
-                      <span className="font-bold text-slate-700 uppercase block tracking-wider">Management Approval Information</span>
-                      <div className="grid grid-cols-2 gap-y-1.5 font-medium text-slate-700">
+                    <div className="bg-gray-50 border border-gray-200 p-4 rounded-xl space-y-2 text-xs">
+                      <span className="font-bold text-gray-700 uppercase block tracking-wider">Management Approval Information</span>
+                      <div className="grid grid-cols-2 gap-y-1.5 font-medium text-gray-700">
                         {selectedUtility.fmsName && (
                           <div className="flex justify-between pr-3">
                             <span>FMS Name:</span>
-                            <span className="font-bold text-slate-900">{selectedUtility.fmsName}</span>
+                            <span className="font-bold text-gray-900">{selectedUtility.fmsName}</span>
                           </div>
                         )}
                         {selectedUtility.details && (
-                          <div className="flex justify-between col-span-2 border-t border-slate-100 pt-1.5 mt-1">
+                          <div className="flex justify-between col-span-2 border-t border-gray-100 pt-1.5 mt-1">
                             <span>Details:</span>
-                            <span className="font-semibold text-slate-800 text-right">{selectedUtility.details}</span>
+                            <span className="font-semibold text-gray-800 text-right">{selectedUtility.details}</span>
                           </div>
                         )}
                       </div>
                       {selectedUtility.approvalAttachment && (
-                        <div className="pt-1.5 border-t border-slate-200 mt-1.5">
-                          <a href={selectedUtility.approvalAttachment} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-blue-700 font-bold hover:underline">
+                        <div className="pt-1.5 border-t border-gray-200 mt-1.5">
+                          <a href={selectedUtility.approvalAttachment} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-gray-700 font-bold hover:underline">
                             <Paperclip size={12} />
                             <span>View Approval Attachment</span>
                             <ExternalLink size={10} />
@@ -2097,20 +2108,20 @@ const Utility = () => {
 
       {/* -------------------- STEP 3 MODAL: PAYMENT ENTRY FORM -------------------- */}
       {isPayModalOpen && selectedUtility && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-200">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 text-slate-800 flex items-center justify-between">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-gray-200">
+            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 text-gray-800 flex items-center justify-between">
               <div>
-                <h3 className="font-extrabold text-lg flex items-center gap-2 text-slate-950">
+                <h3 className="font-extrabold text-lg flex items-center gap-2 text-gray-950">
                   <CreditCard className="text-indigo-600" size={20} />
                   <span>STEP 3: Record Payment Entry</span>
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">{selectedUtility.id} — {selectedUtility.payTo}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{selectedUtility.id} — {selectedUtility.payTo}</p>
               </div>
               <button 
                 disabled={isSaving}
                 onClick={() => setIsPayModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 rounded-xl p-1.5 hover:bg-slate-100 transition-colors"
+                className="text-gray-400 hover:text-gray-600 rounded-xl p-1.5 hover:bg-gray-100 transition-colors"
               >
                 <X size={18} />
               </button>
@@ -2125,36 +2136,36 @@ const Utility = () => {
               )}
 
               {/* Financial Summary card */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs space-y-2">
-                <span className="font-bold text-slate-500 uppercase tracking-wide block">Bill Summary</span>
-                <div className="grid grid-cols-2 gap-y-1.5 font-medium text-slate-700">
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-xs space-y-2">
+                <span className="font-bold text-gray-500 uppercase tracking-wide block">Bill Summary</span>
+                <div className="grid grid-cols-2 gap-y-1.5 font-medium text-gray-700">
                   <span>Gross Bill Amount:</span>
-                  <span className="text-right font-bold text-slate-900">{formatCurrency(selectedUtility.amount)}</span>
+                  <span className="text-right font-bold text-gray-900">{formatCurrency(selectedUtility.amount)}</span>
                   <span>TDS Deducted:</span>
                   <span className="text-right font-bold text-rose-600">-{formatCurrency(selectedUtility.tdsAmount)}</span>
-                  <span className="border-t border-slate-200 pt-1.5 font-bold text-slate-900">Amount To Be Paid:</span>
-                  <span className="border-t border-slate-200 pt-1.5 text-right font-extrabold text-emerald-700 text-sm">{formatCurrency(selectedUtility.amountPaid)}</span>
+                  <span className="border-t border-gray-200 pt-1.5 font-bold text-gray-900">Amount To Be Paid:</span>
+                  <span className="border-t border-gray-200 pt-1.5 text-right font-extrabold text-emerald-700 text-sm">{formatCurrency(selectedUtility.amountPaid)}</span>
                 </div>
               </div>
 
               {/* Payment Number and Date */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Payment No (Auto)</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Payment No (Auto)</label>
                   <input
                     type="text"
                     disabled
                     value={paymentFields.paymentNo}
-                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-600"
+                    className="w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-600"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Payment Date *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Payment Date *</label>
                   <input
                     type="date"
                     value={paymentFields.paymentDate}
                     onChange={(e) => setPaymentFields({...paymentFields, paymentDate: e.target.value})}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500"
                     required
                   />
                 </div>
@@ -2163,11 +2174,11 @@ const Utility = () => {
               {/* Mode and Transaction Ref */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Payment Mode *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Payment Mode *</label>
                   <select
                     value={paymentFields.paymentMode}
                     onChange={(e) => setPaymentFields({...paymentFields, paymentMode: e.target.value})}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500"
                     required
                   >
                     <option value="Bank Transfer">Bank Transfer</option>
@@ -2179,30 +2190,30 @@ const Utility = () => {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Transaction Reference *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Transaction Reference *</label>
                   <input
                     type="text"
                     placeholder="Enter UTR / UPI Transaction ID"
                     value={paymentFields.transactionRef}
                     onChange={(e) => setPaymentFields({...paymentFields, transactionRef: e.target.value})}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-1 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono focus:ring-1 focus:ring-indigo-500"
                     required
                   />
                 </div>
               </div>
 
               {/* Timelines tracking display */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-[11px] grid grid-cols-3 gap-2">
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 text-[11px] grid grid-cols-3 gap-2">
                 <div>
-                  <span className="text-slate-400 block font-bold uppercase">Planned Date</span>
-                  <span className="font-semibold text-slate-800">{paymentFields.plannedDate}</span>
+                  <span className="text-gray-400 block font-bold uppercase">Planned Date</span>
+                  <span className="font-semibold text-gray-800">{paymentFields.plannedDate}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block font-bold uppercase">Actual Date</span>
-                  <span className="font-semibold text-slate-800">{paymentFields.actualDate}</span>
+                  <span className="text-gray-400 block font-bold uppercase">Actual Date</span>
+                  <span className="font-semibold text-gray-800">{paymentFields.actualDate}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block font-bold uppercase">Calculated Delay</span>
+                  <span className="text-gray-400 block font-bold uppercase">Calculated Delay</span>
                   <span className={cn("font-bold block", paymentFields.delayDays > 0 ? "text-rose-600" : "text-emerald-700")}>
                     {paymentFields.delayDays} Days
                   </span>
@@ -2211,7 +2222,7 @@ const Utility = () => {
 
               {/* Upload Payment Proof attachment */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Payment Proof Upload</label>
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Payment Proof Upload</label>
                 
                 <input
                   ref={payFileInputRef}
@@ -2230,7 +2241,7 @@ const Utility = () => {
                     <button 
                       type="button" 
                       onClick={() => setPaymentFields(prev => ({ ...prev, paymentAttachment: '' }))}
-                      className="text-slate-400 hover:text-red-500 font-bold cursor-pointer"
+                      className="text-gray-400 hover:text-red-500 font-bold cursor-pointer"
                     >
                       Remove
                     </button>
@@ -2240,7 +2251,7 @@ const Utility = () => {
                     type="button"
                     disabled={isUploading}
                     onClick={() => payFileInputRef.current?.click()}
-                    className="w-full py-4 border-2 border-dashed border-slate-300 hover:border-indigo-400 bg-slate-50 hover:bg-indigo-50/10 rounded-xl flex items-center justify-center gap-2 text-slate-500 text-xs font-bold cursor-pointer"
+                    className="w-full py-4 border-2 border-dashed border-gray-300 hover:border-indigo-400 bg-gray-50 hover:bg-indigo-50/10 rounded-xl flex items-center justify-center gap-2 text-gray-500 text-xs font-bold cursor-pointer"
                   >
                     {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
                     <span>{isUploading ? 'Uploading proof...' : 'Upload Payment Receipt Copy'}</span>
@@ -2250,23 +2261,23 @@ const Utility = () => {
 
               {/* Remarks */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Remarks</label>
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Remarks</label>
                 <input
                   type="text"
                   placeholder="Payment remarks details..."
                   value={paymentFields.paymentRemarks}
                   onChange={(e) => setPaymentFields({...paymentFields, paymentRemarks: e.target.value})}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
 
               {/* Buttons */}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+              <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   disabled={isSaving}
                   onClick={() => setIsPayModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -2285,10 +2296,10 @@ const Utility = () => {
 
       {/* -------------------- IMAGE PREVIEW LIGHTBOX -------------------- */}
       {isImagePreviewOpen && selectedUtility && (
-        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-950/80 z-50 flex items-center justify-center p-4">
           <button 
             onClick={() => setIsImagePreviewOpen(false)}
-            className="absolute top-4 right-4 bg-slate-900/50 hover:bg-slate-800 text-white p-2.5 rounded-full border border-slate-800 cursor-pointer"
+            className="absolute top-4 right-4 bg-gray-900/50 hover:bg-gray-800 text-white p-2.5 rounded-full border border-gray-800 cursor-pointer"
           >
             <X size={24} />
           </button>
@@ -2302,14 +2313,14 @@ const Utility = () => {
 
       {/* -------------------- BULK APPROVAL CONFIRMATION MODAL -------------------- */}
       {isBulkApproveModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 text-center space-y-4">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-200 text-center space-y-4">
             <div className="mx-auto w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500">
               <ShieldCheck size={28} />
             </div>
             <div>
-              <h3 className="font-extrabold text-slate-900 text-base">Bulk Approve Utilities</h3>
-              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+              <h3 className="font-extrabold text-gray-900 text-base">Bulk Approve Utilities</h3>
+              <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
                 Are you sure you want to approve all <b>{utilities.filter(u => selectedRows.includes(u.sheetRowIndex) && u.status === 'Pending Approval').length} selected</b> pending utilities? Approved records will move to the Payment Queue.
               </p>
             </div>
@@ -2317,7 +2328,7 @@ const Utility = () => {
               <button
                 disabled={isSaving}
                 onClick={() => setIsBulkApproveModalOpen(false)}
-                className="flex-1 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                className="flex-1 py-2.5 border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 cursor-pointer"
               >
                 Decline
               </button>
@@ -2335,20 +2346,20 @@ const Utility = () => {
 
       {/* -------------------- BULK PAYMENT MODAL -------------------- */}
       {isBulkPayModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-200">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 text-slate-800 flex items-center justify-between">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-gray-200">
+            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 text-gray-800 flex items-center justify-between">
               <div>
-                <h3 className="font-extrabold text-base flex items-center gap-2 text-slate-950">
+                <h3 className="font-extrabold text-base flex items-center gap-2 text-gray-950">
                   <CreditCard className="text-indigo-600" size={18} />
                   <span>Bulk Payment Queue Release</span>
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">Recording payment for {utilities.filter(u => selectedRows.includes(u.sheetRowIndex) && u.status === 'Approved').length} selected items</p>
+                <p className="text-xs text-gray-500 mt-0.5">Recording payment for {utilities.filter(u => selectedRows.includes(u.sheetRowIndex) && u.status === 'Approved').length} selected items</p>
               </div>
               <button 
                 disabled={isSaving}
                 onClick={() => setIsBulkPayModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 hover:bg-slate-100 transition-colors"
+                className="text-gray-400 hover:text-gray-600 rounded-lg p-1.5 hover:bg-gray-100 transition-colors"
               >
                 <X size={18} />
               </button>
@@ -2357,11 +2368,11 @@ const Utility = () => {
             <form onSubmit={handleBulkPaymentSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Payment Mode *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Payment Mode *</label>
                   <select
                     value={bulkPaymentFields.paymentMode}
                     onChange={(e) => setBulkPaymentFields({...bulkPaymentFields, paymentMode: e.target.value})}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs"
                     required
                   >
                     <option value="Bank Transfer">Bank Transfer</option>
@@ -2372,32 +2383,32 @@ const Utility = () => {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Payment Date *</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Payment Date *</label>
                   <input
                     type="date"
                     value={bulkPaymentFields.paymentDate}
                     onChange={(e) => setBulkPaymentFields({...bulkPaymentFields, paymentDate: e.target.value})}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs"
                     required
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Transaction Reference ID *</label>
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Transaction Reference ID *</label>
                 <input
                   type="text"
                   placeholder="Enter common transaction reference"
                   value={bulkPaymentFields.transactionRef}
                   onChange={(e) => setBulkPaymentFields({...bulkPaymentFields, transactionRef: e.target.value})}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono"
                   required
                 />
               </div>
 
               {/* Upload Proof */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Upload Payment Receipt Copy</label>
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Upload Payment Receipt Copy</label>
                 
                 <input
                   ref={bulkPayFileInputRef}
@@ -2416,7 +2427,7 @@ const Utility = () => {
                     <button 
                       type="button" 
                       onClick={() => setBulkPaymentFields(prev => ({ ...prev, paymentAttachment: '' }))}
-                      className="text-slate-400 hover:text-red-500 font-bold cursor-pointer"
+                      className="text-gray-400 hover:text-red-500 font-bold cursor-pointer"
                     >
                       Remove
                     </button>
@@ -2426,7 +2437,7 @@ const Utility = () => {
                     type="button"
                     disabled={isUploading}
                     onClick={() => bulkPayFileInputRef.current?.click()}
-                    className="w-full py-4 border-2 border-dashed border-slate-300 hover:border-indigo-400 bg-slate-50 hover:bg-indigo-50/10 rounded-xl flex items-center justify-center gap-2 text-slate-500 text-xs font-bold cursor-pointer"
+                    className="w-full py-4 border-2 border-dashed border-gray-300 hover:border-indigo-400 bg-gray-50 hover:bg-indigo-50/10 rounded-xl flex items-center justify-center gap-2 text-gray-500 text-xs font-bold cursor-pointer"
                   >
                     {isUploading ? <Loader2 size={14} className="animate-spin text-indigo-600" /> : <Upload size={14} />}
                     <span>{isUploading ? 'Uploading proof...' : 'Upload receipt file'}</span>
@@ -2435,23 +2446,23 @@ const Utility = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Remarks</label>
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Remarks</label>
                 <input
                   type="text"
                   placeholder="Bulk payment remarks..."
                   value={bulkPaymentFields.paymentRemarks}
                   onChange={(e) => setBulkPaymentFields({...bulkPaymentFields, paymentRemarks: e.target.value})}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs"
                 />
               </div>
 
               {/* Buttons */}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+              <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   disabled={isSaving}
                   onClick={() => setIsBulkPayModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 cursor-pointer"
+                  className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-bold hover:bg-gray-50 cursor-pointer"
                 >
                   Cancel
                 </button>

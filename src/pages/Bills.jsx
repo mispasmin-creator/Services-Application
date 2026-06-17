@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
-import { 
-  Search, Receipt, Loader2, Eye, ExternalLink, 
+import React, { useState, useEffect } from 'react';
+import {
+  Search, Receipt, Loader2, Eye, ExternalLink,
   AlertTriangle, CheckCircle2, Clock, FileText, Zap, Wrench, X
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
 import { cn, formatCurrency } from '../lib/utils';
+import useAuthStore from '../store/useAuthStore';
+import { getAllowedTabs } from '../lib/permissions';
 
 const Bills = () => {
+  const { user: currentUser } = useAuthStore();
   const { services, utilities, loading, updateService, updateUtility } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('All'); // All, Service, Utility
@@ -104,36 +107,47 @@ const Bills = () => {
 
   const totalServiceBills = serviceBills.length;
   const totalUtilityBills = utilityBills.length;
-  const pendingVerification = allBills.filter(b => 
+  const pendingVerification = allBills.filter(b =>
     b.type === 'Service' ? b.billStatus !== 'Verified' : b.billStatus === 'Bill Received'
   ).length;
+
+  const billsTabsConfig = [
+    { id: 'active', label: 'Active Bills', count: serviceBills.filter(b => b.billStatus !== 'Verified' && b.billStatus !== 'Approved').length + utilityBills.filter(b => b.billStatus !== 'Verified' && b.billStatus !== 'Approved').length, colorClass: 'bg-amber-100 text-amber-800' },
+    { id: 'history', label: 'History', count: serviceBills.filter(b => b.billStatus === 'Verified' || b.billStatus === 'Approved').length + utilityBills.filter(b => b.billStatus === 'Verified' || b.billStatus === 'Approved').length, colorClass: 'bg-emerald-100 text-emerald-800' }
+  ];
+  const visibleTabs = getAllowedTabs(currentUser, 'Bills', billsTabsConfig);
+  const visibleTabIds = visibleTabs.map(t => t.id).join(',');
+
+  useEffect(() => {
+    if (visibleTabs.length > 0 && !visibleTabs.some(t => t.id === activeTab)) {
+      setActiveTab(visibleTabs[0].id);
+    }
+  }, [visibleTabIds, activeTab]);
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Centralized Bills</h1>
-        <p className="text-slate-500">Unified view of all Service and Utility bills for upload, verification, and tracking.</p>
+        <h1 className="text-2xl font-bold text-gray-900">Centralized Bills</h1>
+        <p className="text-gray-500">Unified view of all Service and Utility bills for upload, verification, and tracking.</p>
       </div>
 
       {/* Tab Selector */}
-      <div className="flex border-b border-slate-200 gap-1 overflow-x-auto pb-px">
-        {[
-          { id: 'active', label: 'Active Bills', count: serviceBills.filter(b => b.billStatus !== 'Verified' && b.billStatus !== 'Approved').length + utilityBills.filter(b => b.billStatus !== 'Verified' && b.billStatus !== 'Approved').length, colorClass: 'bg-amber-100 text-amber-800' },
-          { id: 'history', label: 'History', count: serviceBills.filter(b => b.billStatus === 'Verified' || b.billStatus === 'Approved').length + utilityBills.filter(b => b.billStatus === 'Verified' || b.billStatus === 'Approved').length, colorClass: 'bg-emerald-100 text-emerald-800' }
-        ].map(tab => (
+      <div className="flex border-b border-gray-200 gap-1 overflow-x-auto pb-px">
+        {visibleTabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
               "px-5 py-4 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
               activeTab === tab.id
-                ? "border-blue-600 text-blue-600 font-bold"
-                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                ? "border-gray-900 text-gray-900 font-bold"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
             )}
           >
             <span>{tab.label}</span>
             <span className={cn(
               "px-2.5 py-0.5 text-xs font-bold rounded-full transition-colors",
-              activeTab === tab.id ? tab.colorClass : "bg-slate-100 text-slate-600"
+              activeTab === tab.id ? tab.colorClass : "bg-gray-100 text-gray-600"
             )}>
               {tab.count}
             </span>
@@ -143,30 +157,30 @@ const Bills = () => {
 
       {/* Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-blue-500 border border-slate-200 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Service Bills</p>
-          <h4 className="text-2xl font-bold text-slate-900 mt-1">{totalServiceBills}</h4>
+        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-blue-500 border border-gray-200 shadow-sm">
+          <p className="text-sm font-medium text-gray-500">Service Bills</p>
+          <h4 className="text-2xl font-bold text-gray-900 mt-1">{totalServiceBills}</h4>
         </div>
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-purple-500 border border-slate-200 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Utility Bills</p>
-          <h4 className="text-2xl font-bold text-slate-900 mt-1">{totalUtilityBills}</h4>
+        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-purple-500 border border-gray-200 shadow-sm">
+          <p className="text-sm font-medium text-gray-500">Utility Bills</p>
+          <h4 className="text-2xl font-bold text-gray-900 mt-1">{totalUtilityBills}</h4>
         </div>
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-amber-500 border border-slate-200 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Pending Verification</p>
-          <h4 className="text-2xl font-bold text-slate-900 mt-1">{pendingVerification}</h4>
+        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-amber-500 border border-gray-200 shadow-sm">
+          <p className="text-sm font-medium text-gray-500">Pending Verification</p>
+          <h4 className="text-2xl font-bold text-gray-900 mt-1">{pendingVerification}</h4>
         </div>
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-4">
+      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center gap-4">
         <div className="relative flex-1 min-w-[240px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search by ID, vendor, bill number..." 
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Search by ID, vendor, bill number..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -176,9 +190,9 @@ const Bills = () => {
               onClick={() => setFilterType(type)}
               className={cn(
                 "px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
-                filterType === type 
-                  ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/10" 
-                  : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                filterType === type
+                  ? "bg-gray-900 text-white border-gray-900 shadow-lg shadow-gray-900/10"
+                  : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
               )}
             >
               {type}
@@ -190,33 +204,33 @@ const Bills = () => {
       {/* Bills Table */}
       {loading ? (
         <div className="py-12 flex flex-col items-center justify-center gap-2">
-          <Loader2 className="animate-spin text-blue-600" size={32} />
-          <p className="text-slate-400 text-sm">Loading bills...</p>
+          <Loader2 className="animate-spin text-gray-900" size={32} />
+          <p className="text-gray-400 text-sm">Loading bills...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Reference</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Pay To</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Bill Copy</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Reference</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Pay To</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Copy</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-gray-200">
                 {allBills.map((bill, index) => (
-                  <tr key={`${bill.type}-${bill.sheetRowIndex}-${index}`} className="hover:bg-slate-50 transition-colors">
+                  <tr key={`${bill.type}-${bill.sheetRowIndex}-${index}`} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <span className={cn(
                         "px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1 w-fit",
-                        bill.type === 'Service' 
-                          ? "bg-blue-50 text-blue-600 border border-blue-100" 
-                          : "bg-purple-50 text-purple-600 border border-purple-100"
+                        bill.type === 'Service'
+                          ? "bg-gray-100 text-gray-700 border-gray-200"
+                          : "bg-gray-900 text-white border-gray-900"
                       )}>
                         {bill.type === 'Service' ? <Wrench size={10} /> : <Zap size={10} />}
                         {bill.type}
@@ -224,29 +238,26 @@ const Bills = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
-                        <span className={cn(
-                          "text-sm font-bold",
-                          bill.type === 'Service' ? "text-blue-600" : "text-purple-600"
-                        )}>{bill.id}</span>
-                        {bill.billRef && <span className="text-xs text-slate-400 mt-0.5">Bill: {bill.billRef}</span>}
+                        <span className="text-sm font-bold text-gray-900">{bill.id}</span>
+                        {bill.billRef && <span className="text-xs text-gray-400 mt-0.5">Bill: {bill.billRef}</span>}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-900">{bill.paidTo}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-slate-900">{formatCurrency(bill.amount)}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{bill.paidTo}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatCurrency(bill.amount)}</td>
                     <td className="px-6 py-4">
                       {bill.billUrl ? (
-                        <a 
-                          href={bill.billUrl} 
-                          target="_blank" 
+                        <a
+                          href={bill.billUrl}
+                          target="_blank"
                           rel="noreferrer"
-                          className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-semibold"
+                          className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-900 font-semibold"
                         >
                           <Eye size={13} />
                           <span>Preview</span>
                           <ExternalLink size={11} />
                         </a>
                       ) : (
-                        <span className="text-xs text-slate-400 font-medium">No bill uploaded</span>
+                        <span className="text-xs text-gray-400 font-medium">No bill uploaded</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
@@ -257,7 +268,7 @@ const Bills = () => {
                         bill.billStatus === 'Bill Uploaded' && "bg-blue-100 text-blue-700",
                         bill.billStatus === 'Bill Received' && "bg-amber-100 text-amber-700",
                         bill.billStatus === 'Awaiting Bill' && "bg-red-50 text-red-500",
-                        !['Verified', 'Approved', 'Bill Uploaded', 'Bill Received', 'Awaiting Bill'].includes(bill.billStatus) && "bg-slate-100 text-slate-600"
+                        !['Verified', 'Approved', 'Bill Uploaded', 'Bill Received', 'Awaiting Bill'].includes(bill.billStatus) && "bg-gray-100 text-gray-600"
                       )}>
                         {bill.billStatus || 'Unknown'}
                       </span>
@@ -291,7 +302,7 @@ const Bills = () => {
                 ))}
                 {allBills.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-10 text-center text-slate-400 text-sm">
+                    <td colSpan={7} className="px-6 py-10 text-center text-gray-400 text-sm">
                       No bills found.
                     </td>
                   </tr>
@@ -304,96 +315,96 @@ const Bills = () => {
       
       {/* Verify / Approve Modal */}
       {isVerifyModalOpen && selectedBillForVerify && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-gray-100">
+            <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-slate-800 text-sm md:text-base">
+                <h3 className="font-bold text-gray-800 text-sm md:text-base">
                   {selectedBillForVerify.type === 'Service' ? 'Verify Service Bill' : 'Approve Utility Bill'}
                 </h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">Please review the details below before proceeding</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">Please review the details below before proceeding</p>
               </div>
               <button
                 disabled={isSaving}
                 onClick={() => setIsVerifyModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 rounded-lg p-1 hover:bg-slate-100 transition-colors"
+                className="text-gray-400 hover:text-gray-600 rounded-lg p-1 hover:bg-white transition-colors"
               >
                 <X size={16} />
               </button>
             </div>
 
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              <div className="space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs">
-                <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                  <span className="text-slate-400 font-semibold uppercase">Reference ID</span>
-                  <span className="text-slate-800 font-bold">{selectedBillForVerify.id}</span>
+              <div className="space-y-2.5 bg-gray-50 p-4 rounded-xl border border-gray-100 text-xs">
+                <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
+                  <span className="text-gray-400 font-semibold uppercase">Reference ID</span>
+                  <span className="text-gray-800 font-bold">{selectedBillForVerify.id}</span>
                 </div>
-                <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                  <span className="text-slate-400 font-semibold uppercase">Type</span>
-                  <span className="text-slate-800 font-bold">{selectedBillForVerify.type}</span>
+                <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
+                  <span className="text-gray-400 font-semibold uppercase">Type</span>
+                  <span className="text-gray-800 font-bold">{selectedBillForVerify.type}</span>
                 </div>
-                <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                  <span className="text-slate-400 font-semibold uppercase">Pay To / Vendor</span>
-                  <span className="text-slate-800 font-bold">{selectedBillForVerify.paidTo}</span>
+                <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
+                  <span className="text-gray-400 font-semibold uppercase">Pay To / Vendor</span>
+                  <span className="text-gray-800 font-bold">{selectedBillForVerify.paidTo}</span>
                 </div>
                 {selectedBillForVerify.type === 'Service' && (
                   <>
-                    <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold uppercase">Firm Name</span>
-                      <span className="text-slate-800 font-bold">{selectedBillForVerify.firmName}</span>
+                    <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
+                      <span className="text-gray-400 font-semibold uppercase">Firm Name</span>
+                      <span className="text-gray-800 font-bold">{selectedBillForVerify.firmName}</span>
                     </div>
-                    <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold uppercase">Service Checker</span>
-                      <span className="text-slate-800 font-bold">{selectedBillForVerify.checker}</span>
+                    <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
+                      <span className="text-gray-400 font-semibold uppercase">Service Checker</span>
+                      <span className="text-gray-800 font-bold">{selectedBillForVerify.checker}</span>
                     </div>
-                    <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold uppercase">Planned Start Date</span>
-                      <span className="text-slate-800 font-bold">{selectedBillForVerify.planned1 || '—'}</span>
+                    <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
+                      <span className="text-gray-400 font-semibold uppercase">Planned Start Date</span>
+                      <span className="text-gray-800 font-bold">{selectedBillForVerify.planned1 || '—'}</span>
                     </div>
-                    <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold uppercase">Actual Start Date</span>
-                      <span className="text-slate-800 font-bold">{selectedBillForVerify.actual1 || '—'}</span>
+                    <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
+                      <span className="text-gray-400 font-semibold uppercase">Actual Start Date</span>
+                      <span className="text-gray-800 font-bold">{selectedBillForVerify.actual1 || '—'}</span>
                     </div>
-                    <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold uppercase">Planned End Date</span>
-                      <span className="text-slate-800 font-bold">{selectedBillForVerify.planned2 || '—'}</span>
+                    <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
+                      <span className="text-gray-400 font-semibold uppercase">Planned End Date</span>
+                      <span className="text-gray-800 font-bold">{selectedBillForVerify.planned2 || '—'}</span>
                     </div>
-                    <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold uppercase">Actual End Date</span>
-                      <span className="text-slate-800 font-bold">{selectedBillForVerify.actual2 || '—'}</span>
+                    <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
+                      <span className="text-gray-400 font-semibold uppercase">Actual End Date</span>
+                      <span className="text-gray-800 font-bold">{selectedBillForVerify.actual2 || '—'}</span>
                     </div>
                   </>
                 )}
                 {selectedBillForVerify.type === 'Utility' && (
-                  <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                    <span className="text-slate-400 font-semibold uppercase">Department</span>
-                    <span className="text-slate-800 font-bold">{selectedBillForVerify.department}</span>
+                  <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
+                    <span className="text-gray-400 font-semibold uppercase">Department</span>
+                    <span className="text-gray-800 font-bold">{selectedBillForVerify.department}</span>
                   </div>
                 )}
-                <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                  <span className="text-slate-400 font-semibold uppercase">Bill Reference</span>
-                  <span className="text-slate-800 font-bold">{selectedBillForVerify.billRef || '—'}</span>
+                <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
+                  <span className="text-gray-400 font-semibold uppercase">Bill Reference</span>
+                  <span className="text-gray-800 font-bold">{selectedBillForVerify.billRef || '—'}</span>
                 </div>
-                <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                  <span className="text-slate-400 font-semibold uppercase">Total Amount</span>
-                  <span className="text-slate-800 font-bold">{formatCurrency(selectedBillForVerify.amount)}</span>
+                <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
+                  <span className="text-gray-400 font-semibold uppercase">Total Amount</span>
+                  <span className="text-gray-800 font-bold">{formatCurrency(selectedBillForVerify.amount)}</span>
                 </div>
                 {selectedBillForVerify.tdsAmount !== undefined && selectedBillForVerify.tdsAmount > 0 && (
-                  <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                    <span className="text-slate-400 font-semibold uppercase">TDS Deduction</span>
+                  <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
+                    <span className="text-gray-400 font-semibold uppercase">TDS Deduction</span>
                     <span className="text-rose-600 font-bold">- {formatCurrency(selectedBillForVerify.tdsAmount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between border-b border-slate-200/50 pb-1.5">
-                  <span className="text-slate-400 font-semibold uppercase">Net Payable</span>
+                <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
+                  <span className="text-gray-400 font-semibold uppercase">Net Payable</span>
                   <span className="text-emerald-700 font-bold">
                     {formatCurrency(selectedBillForVerify.amount - (selectedBillForVerify.tdsAmount || 0))}
                   </span>
                 </div>
                 {(selectedBillForVerify.remark || selectedBillForVerify.remarks) && (
                   <div className="flex justify-between">
-                    <span className="text-slate-400 font-semibold uppercase">Remarks</span>
-                    <span className="text-slate-600 font-medium text-right max-w-[200px] truncate" title={selectedBillForVerify.remark || selectedBillForVerify.remarks}>
+                    <span className="text-gray-400 font-semibold uppercase">Remarks</span>
+                    <span className="text-gray-600 font-medium text-right max-w-[200px] truncate" title={selectedBillForVerify.remark || selectedBillForVerify.remarks}>
                       {selectedBillForVerify.remark || selectedBillForVerify.remarks}
                     </span>
                   </div>
@@ -406,10 +417,10 @@ const Bills = () => {
                     <FileText size={15} className="text-blue-600 shrink-0" />
                     <span className="text-[11px] text-blue-800 font-semibold">Attached Bill Invoice</span>
                   </div>
-                  <a 
-                    href={selectedBillForVerify.billUrl} 
-                    target="_blank" 
-                    rel="noreferrer" 
+                  <a
+                    href={selectedBillForVerify.billUrl}
+                    target="_blank"
+                    rel="noreferrer"
                     className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-bold cursor-pointer"
                   >
                     <span>View Bill</span>
@@ -419,12 +430,12 @@ const Bills = () => {
               )}
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+            <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-200 flex items-center justify-end gap-3">
               <button
                 type="button"
                 disabled={isSaving}
                 onClick={() => setIsVerifyModalOpen(false)}
-                className="px-4 py-2.5 border border-slate-200 rounded-xl text-slate-600 text-xs hover:bg-slate-50 font-semibold transition-all"
+                className="px-4 py-2.5 border border-gray-200 rounded-xl text-gray-700 text-xs hover:bg-gray-50 font-semibold transition-all"
               >
                 Cancel
               </button>

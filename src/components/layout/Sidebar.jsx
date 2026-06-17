@@ -1,37 +1,41 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Wrench, 
+import {
+  LayoutDashboard,
+  FileText,
+  Wrench,
   Zap,
-  Receipt, 
-  CreditCard, 
-  Database, 
-  Users, 
+  Receipt,
+  CreditCard,
+  Database,
+  Users,
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Menu
+  Menu,
+  ClipboardList
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import useAuthStore from '../../store/useAuthStore';
 import useDataStore from '../../store/useDataStore';
+import { hasPageAccess } from '../../lib/permissions';
 
 const menuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: FileText, label: 'Offers', path: '/offers' },
-  { icon: Wrench, label: 'Services', path: '/services' },
-  { icon: Receipt, label: 'Bills', path: '/bills' },
-  { icon: CreditCard, label: 'Payments', path: '/payments' },
-  { icon: Database, label: 'Tally', path: '/tally' },
-  { icon: Zap, label: 'Utility', path: '/utility' },
-  { icon: Users, label: 'User Management', path: '/users' },
+  { key: 'Dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { key: 'Offers', icon: FileText, label: 'Offers', path: '/offers' },
+  { key: 'Services', icon: Wrench, label: 'Services', path: '/services' },
+  { key: 'Bills', icon: Receipt, label: 'Bills', path: '/bills' },
+  { key: 'Payments', icon: CreditCard, label: 'Payments', path: '/payments' },
+  { key: 'Tally', icon: Database, label: 'Tally', path: '/tally' },
+  { key: 'Utility', icon: Zap, label: 'Utility', path: '/utility' },
+  { key: 'Reports', icon: ClipboardList, label: 'Reports', path: '/reports' },
+  { key: 'Users', icon: Users, label: 'User Management', path: '/users' },
 ];
 
 const Sidebar = ({ collapsed, setCollapsed }) => {
   const { user, logout } = useAuthStore();
   const clearData = useDataStore(state => state.clearData);
+  const visibleMenuItems = menuItems.filter(item => hasPageAccess(user, item.key));
 
   const handleLogout = () => {
     clearData();
@@ -41,38 +45,38 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
   return (
     <aside 
       className={cn(
-        "fixed left-0 top-0 h-screen bg-white text-slate-800 transition-all duration-300 z-50 border-r border-slate-200",
+        "fixed left-0 top-0 h-screen bg-white text-gray-800 transition-all duration-300 z-50 border-r border-gray-200 shadow-sm",
         collapsed ? "w-20" : "w-64"
       )}
     >
-      <div className="flex items-center justify-between p-6 border-b border-slate-100">
+      <div className="flex items-center justify-between p-6 border-b border-gray-100">
         {!collapsed && (
-          <span className="text-xl font-bold bg-linear-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+          <span className="text-xl font-bold text-gray-900">
             Service FMS
           </span>
         )}
         <button 
           onClick={() => setCollapsed(!collapsed)}
-          className="p-1 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+          className="p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 rounded-lg transition-colors"
         >
           {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
       </div>
 
       <nav className="mt-6 px-3 space-y-1">
-        {menuItems.map((item) => (
+        {visibleMenuItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) => cn(
-              "flex items-center gap-4 px-3 py-3 rounded-lg transition-all duration-200 group",
+              "flex items-center gap-4 px-3 py-3 rounded-xl transition-all duration-200 group",
               isActive 
-                ? "bg-blue-600 text-white shadow-lg shadow-blue-600/10" 
-                : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                ? "bg-gray-900 text-white shadow-lg shadow-gray-900/10" 
+                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
             )}
           >
             <item.icon size={20} className={cn("shrink-0", collapsed && "mx-auto")} />
-            {!collapsed && <span className="font-medium">{item.label}</span>}
+            {!collapsed && <span className="font-medium text-sm">{item.label}</span>}
           </NavLink>
         ))}
       </nav>
@@ -80,21 +84,21 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
       <div className="absolute bottom-6 left-0 w-full px-3 space-y-4">
         {/* Logged in User Profile Info */}
         <div className={cn(
-          "flex items-center gap-3 p-2 bg-slate-50 border border-slate-100 rounded-xl",
-          collapsed && "justify-center p-1.5"
+          "flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl",
+          collapsed && "justify-center p-2"
         )}>
           <div className="relative shrink-0">
             <img 
               src={user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`} 
               alt="User avatar" 
-              className="w-9 h-9 rounded-lg bg-white border border-slate-200 shadow-xs object-cover"
+              className="w-10 h-10 rounded-xl bg-white border border-gray-200 shadow-sm object-cover"
             />
-            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></div>
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-slate-800 truncate leading-tight">{user?.name}</p>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">{user?.role}</p>
+              <p className="text-sm font-semibold text-gray-900 truncate leading-tight">{user?.name}</p>
+              <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mt-0.5">{user?.role}</p>
             </div>
           )}
         </div>
@@ -103,12 +107,12 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
         <button 
           onClick={handleLogout}
           className={cn(
-            "flex items-center gap-4 px-3 py-3 w-full rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all group cursor-pointer",
+            "flex items-center gap-4 px-3 py-3 w-full rounded-xl text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all group cursor-pointer",
             collapsed && "justify-center"
           )}
         >
           <LogOut size={20} className="shrink-0" />
-          {!collapsed && <span className="font-medium">Logout</span>}
+          {!collapsed && <span className="font-medium text-sm">Logout</span>}
         </button>
       </div>
     </aside>
