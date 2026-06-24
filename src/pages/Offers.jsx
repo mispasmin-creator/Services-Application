@@ -322,7 +322,7 @@ const Offers = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Timestamp</th>
+                  {/* <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Timestamp</th> */}
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer No</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm Name</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
@@ -338,9 +338,9 @@ const Offers = () => {
               <tbody className="divide-y divide-gray-200">
                 {filteredOffers.map((offer) => (
                   <tr key={offer.sheetRowIndex} className="hover:bg-gray-50 transition-colors group">
-                    <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
+                    {/* <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
                       {offer.timestamp ? new Date(offer.timestamp).toLocaleString() : '—'}
-                    </td>
+                    </td> */}
                     <td className="px-6 py-4 text-sm font-bold text-gray-900">{offer.id}</td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-600">{offer.firmName}</td>
                     <td className="px-6 py-4">
@@ -608,7 +608,7 @@ const Offers = () => {
             <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-200 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-gray-800">Review Offer to Service</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Convert offer {selectedOfferForConvert.id} to service</p>
+                {/* <p className="text-xs text-gray-400 mt-0.5">Convert offer {selectedOfferForConvert.id} to service</p> */}
               </div>
               <button
                 disabled={isSaving}

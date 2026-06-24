@@ -327,18 +327,24 @@ const useDataStore = create((set, get) => ({
 
   addOffer: async (offer) => {
     const headers = get().offerHeaders;
-    const rowDataArray = headers.map(header => {
-      if (header === 'Timestamp') return new Date().toLocaleString();
-      if (header === 'OROffer No.') return offer.id;
-      if (header === 'Firm Name') return offer.firmName;
-      if (header === 'Vendor Name') return offer.vendor;
-      if (header === 'Work Description') return offer.description;
-      if (header === 'Service Location') return offer.location;
-      if (header === 'Amount') return offer.amount;
-      if (header === 'Is There An Offer') return offer.isOffer || 'Yes';
-      if (header === 'Offer Copy') return offer.offerCopy || '';
-      return ''; // all other columns (Amount To Be Paid, Outstanding Amount, Status, etc.) — formula columns, do not overwrite
-    });
+    const offerColumnMap = {
+      'Timestamp': new Date().toLocaleString(),
+      'OROffer No.': offer.id,
+      'Firm Name': offer.firmName,
+      'Vendor Name': offer.vendor,
+      'Work Description': offer.description,
+      'Service Location': offer.location,
+      'Amount': offer.amount,
+      'Is There An Offer': offer.isOffer || 'Yes',
+      'Offer Copy': offer.offerCopy || '',
+    };
+    // Only submit to the 9 matching columns — trim array at last matched column so formula columns are never touched
+    const fullArray = headers.map(header => Object.prototype.hasOwnProperty.call(offerColumnMap, header) ? offerColumnMap[header] : null);
+    let lastMatchIdx = -1;
+    for (let i = fullArray.length - 1; i >= 0; i--) {
+      if (fullArray[i] !== null) { lastMatchIdx = i; break; }
+    }
+    const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? '' : v);
     const res = await get().saveRow('OFFER', 'insert', null, rowDataArray);
     if (res.success) {
       await get().fetchData();

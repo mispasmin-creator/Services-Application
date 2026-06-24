@@ -12,9 +12,8 @@ import { getAllowedTabs } from '../lib/permissions';
 
 const Tally = () => {
   const { user: currentUser } = useAuthStore();
-  const { services, utilities, loading, updateService, updateUtility } = useDataStore();
+  const { services, loading, updateService } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('All');
   const [activeTab, setActiveTab] = useState('audit'); // 'audit', 'rectify', 'tally', 'completed'
   const [isSaving, setIsSaving] = useState(false);
   
@@ -33,9 +32,9 @@ const Tally = () => {
   const [tallyDate, setTallyDate] = useState('');
   const [tallyRemarks, setTallyRemarks] = useState('');
 
-  // Collect items that are paid but not yet in Tally or already Completed
+  // Show services where bill has been uploaded (same as Bills → History)
   const serviceTally = services
-    .filter(s => s.status4 === 'Paid' || s.status === 'Tally Pending' || s.status5 === 'Completed' || s.status === 'Completed' || s.actual5)
+    .filter(s => !!s.billCopy)
     .map(s => ({
       ...s,
       type: 'Service',
@@ -45,18 +44,7 @@ const Tally = () => {
       netAmount: s.amount - (s.tdsAmount || 0),
     }));
 
-  const utilityTally = utilities
-    .filter(u => u.status === 'Paid' || u.status === 'Completed' || u.actual2)
-    .map(u => ({
-      ...u,
-      type: 'Utility',
-      paidTo: u.payTo,
-      tallyStatus: (u.status === 'Completed' || u.actual2) ? 'Completed' : 'Tally Pending',
-      tallyVoucher: u.delay2 || '',
-      netAmount: u.amount - (u.tdsAmount || 0),
-    }));
-
-  const allTally = [...serviceTally, ...utilityTally];
+  const allTally = [...serviceTally];
 
   // Map items with audit status and comments
   const mappedTally = allTally.map(item => {
@@ -106,11 +94,8 @@ const Tally = () => {
     };
   });
 
-  // Filter based on Type and Search Term
+  // Filter based on Search Term
   let filteredTally = mappedTally;
-  if (filterType !== 'All') {
-    filteredTally = filteredTally.filter(t => t.type === filterType);
-  }
   if (searchTerm) {
     filteredTally = filteredTally.filter(t =>
       t.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -188,11 +173,6 @@ const Tally = () => {
           status3: status,
           remarks3: remarks || (status === 'Audited' ? 'Approved in Audit' : '')
         });
-      } else {
-        await updateUtility(selectedItem.sheetRowIndex, {
-          planned2: status,
-          remarks: remarks || (status === 'Audited' ? 'Approved in Audit' : '')
-        });
       }
       setIsAuditModalOpen(false);
       alert(`Entry ${selectedItem.id} audit state updated to ${status === 'Audited' ? 'Done' : 'Rectify'}!`);
@@ -223,11 +203,6 @@ const Tally = () => {
           status4: 'Audited',
           remarks4: remarksText
         });
-      } else {
-        await updateUtility(selectedItem.sheetRowIndex, {
-          planned2: 'Audited',
-          remarks: remarksText
-        });
       }
       setIsRectifyModalOpen(false);
       alert(`Entry ${selectedItem.id} marked as Rectified & sent to Tally Entry!`);
@@ -254,12 +229,6 @@ const Tally = () => {
           actual5: tallyDate,
           status5: 'Completed',
           remarks5: remarksText
-        });
-      } else {
-        await updateUtility(selectedItem.sheetRowIndex, {
-          status: 'Completed',
-          actual2: tallyDate,
-          delay2: remarksText
         });
       }
       setIsTallyModalOpen(false);
@@ -322,22 +291,6 @@ const Tally = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
           />
-        </div>
-        <div className="flex items-center gap-2">
-          {['All', 'Service', 'Utility'].map(type => (
-            <button
-              key={type}
-              onClick={() => setFilterType(type)}
-              className={cn(
-                "px-4 py-2 rounded-xl text-sm font-semibold transition-all border cursor-pointer",
-                filterType === type 
-                  ? "bg-gray-900 text-white border-gray-900 shadow-md shadow-gray-900/10"
-                  : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
-              )}
-            >
-              {type}
-            </button>
-          ))}
         </div>
       </div>
 

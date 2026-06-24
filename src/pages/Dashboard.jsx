@@ -34,15 +34,22 @@ import useDataStore from '../store/useDataStore';
 import { cn, formatCurrency } from '../lib/utils';
 import WorkflowVisualizer from '../components/dashboard/WorkflowVisualizer';
 
-const COLORS = ['#1a1a1a', '#4a4a4a', '#7a7a7a', '#aaaaaa'];
+const COLORS = ['#4a5c2a', '#7a9445', '#d97706', '#7c3aed'];
 
-const StatCard = ({ title, value, icon: Icon, subtitle, trend, trendValue }) => {
+const statConfigs = [
+  { gradient: 'linear-gradient(135deg,#4a5c2a,#5d7234)', shadow: 'rgba(74,92,42,0.35)' },
+  { gradient: 'linear-gradient(135deg,#0d9488,#0f766e)', shadow: 'rgba(13,148,136,0.30)' },
+  { gradient: 'linear-gradient(135deg,#d97706,#b45309)', shadow: 'rgba(217,119,6,0.30)' },
+  { gradient: 'linear-gradient(135deg,#7c3aed,#5b21b6)', shadow: 'rgba(124,58,237,0.28)' },
+];
+
+const StatCard = ({ title, value, icon: Icon, subtitle, trend, trendValue, colorIdx = 0 }) => {
+  const cfg = statConfigs[colorIdx % statConfigs.length];
   const getTrendIcon = () => {
     if (trend === 'up') return <ArrowUpRight size={14} className="text-emerald-600" />;
     if (trend === 'down') return <ArrowDownRight size={14} className="text-red-600" />;
     return <Minus size={14} className="text-gray-400" />;
   };
-
   const getTrendColor = () => {
     if (trend === 'up') return 'text-emerald-600 bg-emerald-50';
     if (trend === 'down') return 'text-red-600 bg-red-50';
@@ -50,24 +57,24 @@ const StatCard = ({ title, value, icon: Icon, subtitle, trend, trendValue }) => 
   };
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 group">
-      <div className="flex items-start justify-between">
+    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 group overflow-hidden relative">
+      <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-5 -translate-y-8 translate-x-8"
+        style={{ background: cfg.gradient }} />
+      <div className="flex items-start justify-between relative">
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{title}</p>
-          <h3 className="text-2xl font-bold text-gray-900 tracking-tight">{value}</h3>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{title}</p>
+          <h3 className="text-3xl font-bold text-slate-900 tracking-tight">{value}</h3>
           {subtitle && (
-            <p className="text-xs text-gray-400 mt-1.5 font-medium truncate">{subtitle}</p>
+            <p className="text-xs text-slate-400 mt-1.5 font-medium truncate">{subtitle}</p>
           )}
         </div>
-        <div className={cn(
-          "p-3 rounded-xl transition-all duration-300 group-hover:scale-110 group-hover:shadow-md",
-          "bg-gray-900"
-        )}>
+        <div className="p-3 rounded-2xl transition-all duration-300 group-hover:scale-110 shrink-0"
+          style={{ background: cfg.gradient, boxShadow: `0 8px 20px ${cfg.shadow}` }}>
           <Icon size={20} className="text-white" />
         </div>
       </div>
       {trend && (
-        <div className="mt-3 flex items-center gap-1.5">
+        <div className="mt-4 flex items-center gap-1.5">
           <span className={cn(
             "inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold",
             getTrendColor()
@@ -75,7 +82,7 @@ const StatCard = ({ title, value, icon: Icon, subtitle, trend, trendValue }) => 
             {getTrendIcon()}
             {trendValue}
           </span>
-          <span className="text-[10px] text-gray-400 font-medium">vs last month</span>
+          <span className="text-[10px] text-slate-400 font-medium">vs last month</span>
         </div>
       )}
     </div>
@@ -89,10 +96,11 @@ const Dashboard = () => {
     return (
       <div className="h-[60vh] flex flex-col items-center justify-center gap-3">
         <div className="relative">
-          <div className="w-16 h-16 border-4 border-gray-200 rounded-full"></div>
-          <div className="absolute top-0 left-0 w-16 h-16 border-4 border-gray-900 rounded-full border-t-transparent animate-spin"></div>
+          <div className="w-16 h-16 border-4 border-gray-100 rounded-full"></div>
+          <div className="absolute top-0 left-0 w-16 h-16 border-4 rounded-full border-t-transparent animate-spin"
+            style={{ borderColor: '#4a5c2a', borderTopColor: 'transparent' }}></div>
         </div>
-        <p className="text-gray-500 font-medium text-sm animate-pulse">Loading dashboard overview...</p>
+        <p className="font-medium text-sm animate-pulse" style={{ color: '#7a9445' }}>Loading dashboard overview...</p>
       </div>
     );
   }
@@ -206,11 +214,12 @@ const Dashboard = () => {
           <p className="text-sm text-gray-500 mt-1">Real-time insights from your business operations</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl border border-gray-200">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-            <span className="text-xs font-medium text-gray-600">Live</span>
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl border" style={{ background: '#f2f5ea', borderColor: '#c6d4a0' }}>
+            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#4a5c2a' }}></div>
+            <span className="text-xs font-semibold" style={{ color: '#4a5c2a' }}>Live</span>
           </div>
-          <div className="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-semibold">
+          <div className="px-4 py-2 text-white rounded-xl text-sm font-bold shadow-lg"
+            style={{ background: 'linear-gradient(135deg, #4a5c2a 0%, #5d7234 100%)', boxShadow: '0 4px 14px rgba(74,92,42,0.35)' }}>
             {completionRate}% Complete
           </div>
         </div>
@@ -218,34 +227,34 @@ const Dashboard = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          title="Total Pending" 
-          value={totalPending} 
-          icon={Clock} 
+        <StatCard colorIdx={0}
+          title="Total Pending"
+          value={totalPending}
+          icon={Clock}
           subtitle={`${totalPendingServices} Services · ${totalPendingUtilities} Utilities`}
           trend={trends.pending.trend}
           trendValue={trends.pending.value}
         />
-        <StatCard 
-          title="Total Completed" 
-          value={totalCompleted} 
-          icon={CheckCircle2} 
+        <StatCard colorIdx={1}
+          title="Total Completed"
+          value={totalCompleted}
+          icon={CheckCircle2}
           subtitle={`${totalCompletedServices} Services · ${totalCompletedUtilities} Utilities`}
           trend={trends.completed.trend}
           trendValue={trends.completed.value}
         />
-        <StatCard 
-          title="Payment Pending" 
-          value={paymentPending} 
-          icon={IndianRupee} 
-          subtitle={`₹${formatCurrency(paymentPendingServices * 1000)} · ${paymentPendingServices} services`}
+        <StatCard colorIdx={2}
+          title="Payment Pending"
+          value={paymentPending}
+          icon={IndianRupee}
+          subtitle={`${paymentPendingServices} services awaiting payment`}
           trend={trends.payment.trend}
           trendValue={trends.payment.value}
         />
-        <StatCard 
-          title="Utility Pending" 
-          value={utilityPending} 
-          icon={Zap} 
+        <StatCard colorIdx={3}
+          title="Utility Pending"
+          value={utilityPending}
+          icon={Zap}
           subtitle="Office & utility expenses"
           trend={trends.utility.trend}
           trendValue={trends.utility.value}
@@ -270,10 +279,11 @@ const Dashboard = () => {
             </div>
             <div className="flex items-center gap-2 mt-2 sm:mt-0">
               <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 bg-gray-900 rounded-full"></div>
-                <span className="text-[10px] text-gray-500 font-medium">Expenses</span>
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#4a5c2a' }}></div>
+                <span className="text-[10px] font-semibold" style={{ color: '#4a5c2a' }}>Expenses</span>
               </div>
-              <span className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-1 text-[10px] text-gray-500 font-medium">
+              <span className="rounded-lg px-3 py-1 text-[10px] font-semibold border"
+                style={{ background: '#f2f5ea', borderColor: '#c6d4a0', color: '#5d7234' }}>
                 Last 6 Months
               </span>
             </div>
@@ -283,23 +293,23 @@ const Dashboard = () => {
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1a1a1a" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="#1a1a1a" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#4a5c2a" stopOpacity={0.22}/>
+                    <stop offset="95%" stopColor="#4a5c2a" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 500}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 500}} />
-                <Tooltip 
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e9eedd" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#7a9445', fontSize: 11, fontWeight: 600}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#7a9445', fontSize: 11, fontWeight: 600}} />
+                <Tooltip
                   formatter={(value) => [formatCurrency(value), 'Expense']}
-                  contentStyle={{ 
-                    borderRadius: '12px', 
-                    border: '1px solid #e5e7eb', 
-                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                  contentStyle={{
+                    borderRadius: '12px',
+                    border: '1px solid #c6d4a0',
+                    boxShadow: '0 10px 24px rgba(74,92,42,0.12)',
                     backgroundColor: 'white'
                   }}
                 />
-                <Area type="monotone" dataKey="expense" stroke="#1a1a1a" strokeWidth={2.5} fillOpacity={1} fill="url(#colorExpense)" />
+                <Area type="monotone" dataKey="expense" stroke="#4a5c2a" strokeWidth={2.5} fillOpacity={1} fill="url(#colorExpense)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -382,12 +392,11 @@ const Dashboard = () => {
               {recentActivities.map((act, index) => (
                 <tr key={index} className="hover:bg-gray-50/50 transition-colors group">
                   <td className="px-6 py-4">
-                    <span className={cn(
-                      "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase border",
-                      act.type === 'Service' 
-                        ? "bg-gray-100 text-gray-700 border-gray-200" 
-                        : "bg-gray-900 text-white border-gray-900"
-                    )}>
+                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase border"
+                      style={act.type === 'Service'
+                        ? { background: '#f2f5ea', color: '#4a5c2a', borderColor: '#c6d4a0' }
+                        : { background: 'linear-gradient(135deg,#4a5c2a,#5d7234)', color: 'white', borderColor: '#4a5c2a' }
+                      }>
                       {act.type}
                     </span>
                   </td>

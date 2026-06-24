@@ -1,1 +1,168 @@
 @import "tailwindcss";
+
+/* ════════════════════════════════════════════════
+   BRAND PALETTE  —  Olive Green (#4a5c2a)
+════════════════════════════════════════════════ */
+:root {
+  --brand:         #4a5c2a;
+  --brand-dark:    #3a4820;
+  --brand-mid:     #5d7234;
+  --brand-light:   #7a9445;
+  --brand-xlight:  #a8c86b;
+  --brand-50:      #f2f5ea;
+  --brand-100:     #e4ebd0;
+  --brand-200:     #c6d4a0;
+}
+
+/* ════════════════════════════════════════════════
+   BASE
+════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  background-color: var(--brand-50);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ════════════════════════════════════════════════
+   SCROLLBAR
+════════════════════════════════════════════════ */
+* { scrollbar-width: thin; scrollbar-color: var(--brand-200) transparent; }
+*::-webkit-scrollbar { width: 5px; height: 5px; }
+*::-webkit-scrollbar-thumb { background: var(--brand-200); border-radius: 99px; }
+
+/* ════════════════════════════════════════════════
+   PAGE HEADINGS  →  dark olive instead of plain black
+════════════════════════════════════════════════ */
+h1.text-gray-900,
+h1.font-bold { color: var(--brand-dark) !important; }
+
+/* ════════════════════════════════════════════════
+   PRIMARY BUTTONS  (bg-gray-900 used everywhere)
+════════════════════════════════════════════════ */
+button.bg-gray-900,
+a.bg-gray-900 {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-mid) 100%) !important;
+  box-shadow: 0 4px 14px rgba(74,92,42,0.32) !important;
+  transition: all 0.18s ease !important;
+}
+button.bg-gray-900:hover,
+button.hover\:bg-gray-800:hover,
+a.hover\:bg-gray-800:hover {
+  background: linear-gradient(135deg, var(--brand-dark) 0%, var(--brand) 100%) !important;
+  box-shadow: 0 6px 20px rgba(74,92,42,0.45) !important;
+  transform: translateY(-1px) !important;
+}
+button.bg-gray-900:active { transform: translateY(0) !important; }
+
+/* ════════════════════════════════════════════════
+   ACTIVE TABS  —  border-b-2 border-gray-900 text-gray-900
+════════════════════════════════════════════════ */
+.border-gray-900            { border-color: var(--brand) !important; }
+button.border-gray-900      { color: var(--brand) !important; }
+
+/* ════════════════════════════════════════════════
+   SUMMARY CARD LEFT ACCENT BORDER
+════════════════════════════════════════════════ */
+.border-l-gray-900 { border-left-color: var(--brand) !important; }
+
+/* ════════════════════════════════════════════════
+   INPUT FOCUS  —  olive ring everywhere
+════════════════════════════════════════════════ */
+input:focus, select:focus, textarea:focus {
+  outline: none !important;
+  border-color: var(--brand) !important;
+  box-shadow: 0 0 0 3px rgba(74,92,42,0.15) !important;
+}
+.focus\:border-gray-900:focus { border-color: var(--brand) !important; }
+
+/* ════════════════════════════════════════════════
+   LOADING SPINNERS  →  olive
+════════════════════════════════════════════════ */
+.animate-spin { color: var(--brand) !important; }
+
+/* ════════════════════════════════════════════════
+   TABLE HEADERS  —  soft olive gradient
+════════════════════════════════════════════════ */
+thead tr {
+  background: linear-gradient(90deg, var(--brand-50) 0%, var(--brand-100) 100%) !important;
+  border-bottom: 1.5px solid var(--brand-200) !important;
+}
+thead th {
+  color: var(--brand-dark) !important;
+  letter-spacing: 0.06em !important;
+}
+
+/* ════════════════════════════════════════════════
+   TABLE ROW HOVER  —  faint olive wash
+════════════════════════════════════════════════ */
+tbody tr:hover { background-color: rgba(74,92,42,0.04) !important; }
+
+/* ════════════════════════════════════════════════
+   DIVIDERS  —  olive tint
+════════════════════════════════════════════════ */
+.divide-gray-100 > * + *,
+.divide-gray-200 > * + * { border-color: rgba(74,92,42,0.09) !important; }
+.border-gray-100  { border-color: rgba(74,92,42,0.10) !important; }
+.border-gray-200  { border-color: rgba(74,92,42,0.15) !important; }
+
+/* ════════════════════════════════════════════════
+   CARD HOVER GLOW
+════════════════════════════════════════════════ */
+.rounded-2xl.bg-white,
+.rounded-xl.bg-white  { transition: box-shadow 0.22s ease; }
+.rounded-2xl.bg-white:hover,
+.rounded-xl.bg-white:hover {
+  box-shadow: 0 8px 32px rgba(74,92,42,0.11) !important;
+}
+
+/* ════════════════════════════════════════════════
+   HOVER LINKS  (View File, file links, etc.)
+════════════════════════════════════════════════ */
+.hover\:text-gray-900:hover,
+a.hover\:text-gray-900:hover { color: var(--brand) !important; }
+
+/* indigo breadcrumb leftover  →  olive */
+.hover\:text-indigo-500:hover { color: var(--brand) !important; }
+
+/* ════════════════════════════════════════════════
+   DASHED UPLOAD BUTTON HOVER BORDER
+════════════════════════════════════════════════ */
+.hover\:border-gray-400:hover { border-color: var(--brand-light) !important; }
+.hover\:bg-white:hover       { background-color: var(--brand-50) !important; }
+
+/* ════════════════════════════════════════════════
+   STAT CARD ICON BACKGROUNDS
+════════════════════════════════════════════════ */
+.bg-gray-900.p-3 {
+  background: linear-gradient(135deg, var(--brand), var(--brand-mid)) !important;
+  box-shadow: 0 6px 18px rgba(74,92,42,0.38) !important;
+}
+
+/* ════════════════════════════════════════════════
+   CHECKBOX / RADIO ACCENT
+════════════════════════════════════════════════ */
+input[type="checkbox"],
+input[type="radio"] { accent-color: var(--brand); }
+
+/* ════════════════════════════════════════════════
+   TEXT SELECTION HIGHLIGHT
+════════════════════════════════════════════════ */
+::selection {
+  background-color: rgba(74,92,42,0.18);
+  color: var(--brand-dark);
+}
+
+/* ════════════════════════════════════════════════
+   MODAL HEADER BAR  —  faint olive tint
+════════════════════════════════════════════════ */
+.px-6.py-4.bg-gray-50.border-b {
+  background: linear-gradient(90deg, var(--brand-50), #fafafa) !important;
+}
+
+/* ════════════════════════════════════════════════
+   EMPTY STATE  —  muted olive icon
+════════════════════════════════════════════════ */
+.py-12.flex.flex-col.items-center svg {
+  color: var(--brand-200) !important;
+}

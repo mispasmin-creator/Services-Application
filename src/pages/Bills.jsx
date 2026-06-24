@@ -1,103 +1,63 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  Search, Receipt, Loader2, Eye, ExternalLink,
-  AlertTriangle, CheckCircle2, Clock, FileText, Zap, Wrench, X
+  Search, Loader2, FileText, X,
+  Upload, Paperclip, ExternalLink
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency } from '../lib/utils';
+import { cn, formatCurrency, uploadFileToDrive } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
 
 const Bills = () => {
   const { user: currentUser } = useAuthStore();
-  const { services, utilities, loading, updateService, updateUtility } = useDataStore();
+  const { services, loading, updateService } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('All'); // All, Service, Utility
-  const [activeTab, setActiveTab] = useState('active'); // active, history
+  const [activeTab, setActiveTab] = useState('active');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Aggregate bills from Services and Utilities
-  const serviceBills = services
-    .map(s => ({
-      ...s,
-      type: 'Service',
-      billRef: s.billNo,
-      billUrl: s.billCopy,
-      paidTo: s.vendor,
-      date: s.date,
-      billStatus: (s.actual1 && !s.planned1) || s.status3 === 'Verified' ? 'Verified' : (s.billCopy ? 'Bill Uploaded' : 'Awaiting Bill'),
-    }));
+  // ── Upload Bill modal ────────────────────────────────────────────
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [selectedForUpload, setSelectedForUpload] = useState(null);
+  const [billForm, setBillForm] = useState({ billNo: '', billCopy: '' });
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef(null);
 
-  const utilityBills = utilities
-    .map(u => ({
-      ...u,
-      type: 'Utility',
-      billRef: u.id,
-      billUrl: u.billImage,
-      paidTo: u.payTo,
-      date: u.billDate || u.date,
-      billStatus: u.status,
-    }));
 
-  let allBills = [...serviceBills, ...utilityBills];
-
-  // Filter by activeTab (Active vs History)
-  if (activeTab === 'active') {
-    allBills = allBills.filter(b => b.billStatus !== 'Verified' && b.billStatus !== 'Approved');
-  } else if (activeTab === 'history') {
-    allBills = allBills.filter(b => b.billStatus === 'Verified' || b.billStatus === 'Approved');
-  }
-
-  // Filter by type
-  if (filterType !== 'All') {
-    allBills = allBills.filter(b => b.type === filterType);
-  }
-
-  // Filter by search
-  if (searchTerm) {
-    allBills = allBills.filter(b =>
-      b.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (b.paidTo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (b.billRef || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }
-
-  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
-  const [selectedBillForVerify, setSelectedBillForVerify] = useState(null);
-
-  const openVerifyModal = (bill) => {
-    setSelectedBillForVerify(bill);
-    setIsVerifyModalOpen(true);
+  const openUploadModal = (s) => {
+    setSelectedForUpload(s);
+    setBillForm({ billNo: s.billNo || '', billCopy: s.billCopy || '' });
+    setUploadedFile(s.billCopy ? { name: 'Current Bill Copy', url: s.billCopy } : null);
+    setUploadError('');
+    setIsUploadModalOpen(true);
   };
 
-  const handleVerifySubmit = async () => {
-    if (!selectedBillForVerify) return;
+  const handleFileUpload = async (file) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { setUploadError('File too large. Max 10MB.'); return; }
+    setIsUploading(true);
+    setUploadError('');
+    try {
+      const url = await uploadFileToDrive(file);
+      setUploadedFile({ name: file.name, url });
+      setBillForm(prev => ({ ...prev, billCopy: url }));
+    } catch (err) {
+      setUploadError('Upload error: ' + err.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSaveBill = async (e) => {
+    e.preventDefault();
     setIsSaving(true);
     try {
-      if (selectedBillForVerify.type === 'Service') {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        const realDateTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-
-        await updateService(selectedBillForVerify.sheetRowIndex, {
-          actual1: realDateTime,
-          planned1: ''
-        });
-        alert(`Service ${selectedBillForVerify.id} bill verified successfully!`);
-      } else {
-        const today = new Date().toISOString().split('T')[0];
-        await updateUtility(selectedBillForVerify.sheetRowIndex, {
-          status: 'Approved',
-          actual1: today
-        });
-        alert(`Utility ${selectedBillForVerify.id} bill approved successfully!`);
-      }
-      setIsVerifyModalOpen(false);
+      await updateService(selectedForUpload.sheetRowIndex, {
+        billNo: billForm.billNo,
+        billCopy: billForm.billCopy,
+      });
+      setIsUploadModalOpen(false);
     } catch (err) {
       alert(`Error: ${err.message}`);
     } finally {
@@ -105,17 +65,50 @@ const Bills = () => {
     }
   };
 
-  const totalServiceBills = serviceBills.length;
-  const totalUtilityBills = utilityBills.length;
-  const pendingVerification = allBills.filter(b =>
-    b.type === 'Service' ? b.billStatus !== 'Verified' : b.billStatus === 'Bill Received'
-  ).length;
+  // billStatus helper — History = billCopy uploaded
+  const getBillStatus = (s) => {
+    if (s.billCopy) return 'Bill Uploaded';
+    return 'Awaiting Bill';
+  };
+
+  const getBillStatusColor = (status) => {
+    if (status === 'Bill Uploaded') return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+    return 'bg-red-50 text-red-500 border border-red-100';
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'Completed':       return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+      case 'Payment Pending': return 'bg-rose-100 text-rose-700 border border-rose-200';
+      case 'Bill Received':   return 'bg-indigo-100 text-indigo-700 border border-indigo-200';
+      case 'Work Started':    return 'bg-blue-100 text-blue-700 border border-blue-200';
+      default:                return 'bg-gray-100 text-gray-700 border border-gray-200';
+    }
+  };
+
+  // Filtered service list
+  const filteredServices = services.filter(s => {
+    if (activeTab === 'active'  &&  s.billCopy) return false;
+    if (activeTab === 'history' && !s.billCopy) return false;
+
+    const term = searchTerm.toLowerCase();
+    return (
+      s.id.toLowerCase().includes(term) ||
+      s.offerNo.toLowerCase().includes(term) ||
+      s.vendor.toLowerCase().includes(term) ||
+      s.firmName.toLowerCase().includes(term) ||
+      (s.billNo || '').toLowerCase().includes(term)
+    );
+  });
+
+  const activeCount  = services.filter(s => !s.billCopy).length;
+  const historyCount = services.filter(s => !!s.billCopy).length;
 
   const billsTabsConfig = [
-    { id: 'active', label: 'Active Bills', count: serviceBills.filter(b => b.billStatus !== 'Verified' && b.billStatus !== 'Approved').length + utilityBills.filter(b => b.billStatus !== 'Verified' && b.billStatus !== 'Approved').length, colorClass: 'bg-amber-100 text-amber-800' },
-    { id: 'history', label: 'History', count: serviceBills.filter(b => b.billStatus === 'Verified' || b.billStatus === 'Approved').length + utilityBills.filter(b => b.billStatus === 'Verified' || b.billStatus === 'Approved').length, colorClass: 'bg-emerald-100 text-emerald-800' }
+    { id: 'active',  label: 'Active Bills', count: activeCount,  colorClass: 'bg-amber-100 text-amber-800'    },
+    { id: 'history', label: 'History',      count: historyCount, colorClass: 'bg-emerald-100 text-emerald-800' },
   ];
-  const visibleTabs = getAllowedTabs(currentUser, 'Bills', billsTabsConfig);
+  const visibleTabs   = getAllowedTabs(currentUser, 'Bills', billsTabsConfig);
   const visibleTabIds = visibleTabs.map(t => t.id).join(',');
 
   useEffect(() => {
@@ -128,10 +121,10 @@ const Bills = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Centralized Bills</h1>
-        <p className="text-gray-500">Unified view of all Service and Utility bills for upload, verification, and tracking.</p>
+        <p className="text-gray-500">Upload, verify and track all service bills.</p>
       </div>
 
-      {/* Tab Selector */}
+      {/* Tabs */}
       <div className="flex border-b border-gray-200 gap-1 overflow-x-auto pb-px">
         {visibleTabs.map(tab => (
           <button
@@ -155,53 +148,33 @@ const Bills = () => {
         ))}
       </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-blue-500 border border-gray-200 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">Service Bills</p>
-          <h4 className="text-2xl font-bold text-gray-900 mt-1">{totalServiceBills}</h4>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white p-5 rounded-2xl border-l-4 border-l-red-400 border border-gray-200 shadow-sm">
+          <p className="text-sm font-medium text-gray-500">Awaiting Bill</p>
+          <h4 className="text-2xl font-bold text-gray-900 mt-1">{activeCount}</h4>
         </div>
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-purple-500 border border-gray-200 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">Utility Bills</p>
-          <h4 className="text-2xl font-bold text-gray-900 mt-1">{totalUtilityBills}</h4>
-        </div>
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-amber-500 border border-gray-200 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">Pending Verification</p>
-          <h4 className="text-2xl font-bold text-gray-900 mt-1">{pendingVerification}</h4>
+        <div className="bg-white p-5 rounded-2xl border-l-4 border-l-emerald-600 border border-gray-200 shadow-sm">
+          <p className="text-sm font-medium text-gray-500">Bill Uploaded</p>
+          <h4 className="text-2xl font-bold text-gray-900 mt-1">{historyCount}</h4>
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center gap-4">
-        <div className="relative flex-1 min-w-[240px]">
+      {/* Search */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input
             type="text"
-            placeholder="Search by ID, vendor, bill number..."
+            placeholder="Search by service no, offer no, vendor, firm or bill no..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
           />
         </div>
-        <div className="flex items-center gap-2">
-          {['All', 'Service', 'Utility'].map(type => (
-            <button
-              key={type}
-              onClick={() => setFilterType(type)}
-              className={cn(
-                "px-4 py-2 rounded-xl text-sm font-semibold transition-all border",
-                filterType === type
-                  ? "bg-gray-900 text-white border-gray-900 shadow-lg shadow-gray-900/10"
-                  : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
-              )}
-            >
-              {type}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* Bills Table */}
+      {/* Table */}
       {loading ? (
         <div className="py-12 flex flex-col items-center justify-center gap-2">
           <Loader2 className="animate-spin text-gray-900" size={32} />
@@ -213,96 +186,73 @@ const Bills = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Reference</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Pay To</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Copy</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Offer No.</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Service No.</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Firm Name</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Checker</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Amount</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">TDS</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Vendor</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Location</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Service Status</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill No.</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Copy</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Status</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right whitespace-nowrap">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {allBills.map((bill, index) => (
-                  <tr key={`${bill.type}-${bill.sheetRowIndex}-${index}`} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <span className={cn(
-                        "px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1 w-fit",
-                        bill.type === 'Service'
-                          ? "bg-gray-100 text-gray-700 border-gray-200"
-                          : "bg-gray-900 text-white border-gray-900"
-                      )}>
-                        {bill.type === 'Service' ? <Wrench size={10} /> : <Zap size={10} />}
-                        {bill.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-gray-900">{bill.id}</span>
-                        {bill.billRef && <span className="text-xs text-gray-400 mt-0.5">Bill: {bill.billRef}</span>}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{bill.paidTo}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatCurrency(bill.amount)}</td>
-                    <td className="px-6 py-4">
-                      {bill.billUrl ? (
-                        <a
-                          href={bill.billUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-900 font-semibold"
-                        >
-                          <Eye size={13} />
-                          <span>Preview</span>
-                          <ExternalLink size={11} />
-                        </a>
-                      ) : (
-                        <span className="text-xs text-gray-400 font-medium">No bill uploaded</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={cn(
-                        "px-2.5 py-1 rounded-full text-xs font-bold inline-block",
-                        bill.billStatus === 'Verified' && "bg-emerald-100 text-emerald-700",
-                        bill.billStatus === 'Approved' && "bg-indigo-100 text-indigo-700",
-                        bill.billStatus === 'Bill Uploaded' && "bg-blue-100 text-blue-700",
-                        bill.billStatus === 'Bill Received' && "bg-amber-100 text-amber-700",
-                        bill.billStatus === 'Awaiting Bill' && "bg-red-50 text-red-500",
-                        !['Verified', 'Approved', 'Bill Uploaded', 'Bill Received', 'Awaiting Bill'].includes(bill.billStatus) && "bg-gray-100 text-gray-600"
-                      )}>
-                        {bill.billStatus || 'Unknown'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {bill.type === 'Service' && bill.billCopy && bill.billStatus !== 'Verified' && (
-                        <button
-                          disabled={isSaving}
-                          onClick={() => openVerifyModal(bill)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold transition-all border border-emerald-100 ml-auto"
-                        >
-                          <CheckCircle2 size={13} />
-                          <span>Verify</span>
-                        </button>
-                      )}
-                      {bill.type === 'Utility' && bill.billStatus === 'Bill Received' && (
-                        <button
-                          disabled={isSaving}
-                          onClick={() => openVerifyModal(bill)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-all border border-indigo-100 ml-auto"
-                        >
-                          <CheckCircle2 size={13} />
-                          <span>Approve</span>
-                        </button>
-                      )}
-                      {((bill.type === 'Service' && bill.billStatus === 'Verified') || (bill.type === 'Utility' && bill.billStatus === 'Approved')) && (
-                        <span className="text-xs text-emerald-600 font-bold px-2 py-1.5">✓ Done</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {allBills.length === 0 && (
+                {filteredServices.map((s) => {
+                  const billStatus = getBillStatus(s);
+                  return (
+                    <tr key={s.sheetRowIndex} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-4 text-sm font-semibold text-gray-600 whitespace-nowrap">{s.offerNo}</td>
+                      <td className="px-4 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{s.id}</td>
+                      <td className="px-4 py-4 text-sm text-gray-600 font-medium whitespace-nowrap">{s.firmName}</td>
+                      <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{s.checker}</td>
+                      <td className="px-4 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{formatCurrency(s.amount)}</td>
+                      <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{formatCurrency(s.tdsAmount)}</td>
+                      <td className="px-4 py-4 text-sm text-gray-800 font-medium whitespace-nowrap">{s.vendor}</td>
+                      <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{s.location}</td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className={cn("px-2.5 py-1 text-xs font-semibold rounded-full", getStatusColor(s.status))}>
+                          {s.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-700 font-medium whitespace-nowrap">{s.billNo || '—'}</td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        {s.billCopy ? (
+                          <a href={s.billCopy} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 transition-colors">
+                            <FileText size={14} /><span>View</span>
+                          </a>
+                        ) : <span className="text-xs text-gray-400">—</span>}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className={cn("px-2.5 py-1 text-xs font-semibold rounded-full", getBillStatusColor(billStatus))}>
+                          {billStatus}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-right whitespace-nowrap">
+                        {billStatus === 'Awaiting Bill' && (
+                          <button onClick={() => openUploadModal(s)} disabled={isSaving}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-all ml-auto">
+                            <Upload size={13} /><span>Upload Bill</span>
+                          </button>
+                        )}
+                        {billStatus === 'Bill Uploaded' && (
+                          <button onClick={() => openUploadModal(s)} disabled={isSaving}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition-all ml-auto">
+                            <Upload size={13} /><span>Edit Bill</span>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredServices.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-10 text-center text-gray-400 text-sm">
+                    <td colSpan={13} className="px-6 py-10 text-center text-gray-400 text-sm">
                       No bills found.
                     </td>
                   </tr>
@@ -312,152 +262,78 @@ const Bills = () => {
           </div>
         </div>
       )}
-      
-      {/* Verify / Approve Modal */}
-      {isVerifyModalOpen && selectedBillForVerify && (
+
+      {/* ── Upload Bill Modal ──────────────────────────────────── */}
+      {isUploadModalOpen && selectedForUpload && (
         <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-gray-100">
-            <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-200 flex items-center justify-between">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-gray-100">
+            <div className="px-6 py-4 border-b border-indigo-100 flex items-center justify-between"
+              style={{ background: 'linear-gradient(90deg, #eef2ff, #f5f3ff)' }}>
               <div>
-                <h3 className="font-bold text-gray-800 text-sm md:text-base">
-                  {selectedBillForVerify.type === 'Service' ? 'Verify Service Bill' : 'Approve Utility Bill'}
-                </h3>
-                <p className="text-[10px] text-gray-400 mt-0.5">Please review the details below before proceeding</p>
+                <h3 className="font-bold text-indigo-900">Upload Bill — {selectedForUpload.id}</h3>
+                <p className="text-xs text-indigo-500 mt-0.5">Enter bill number and upload bill copy</p>
               </div>
-              <button
-                disabled={isSaving}
-                onClick={() => setIsVerifyModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 rounded-lg p-1 hover:bg-white transition-colors"
-              >
-                <X size={16} />
+              <button disabled={isSaving} onClick={() => setIsUploadModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 rounded-lg p-1 hover:bg-gray-100 transition-colors">
+                <X size={18} />
               </button>
             </div>
-
-            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              <div className="space-y-2.5 bg-gray-50 p-4 rounded-xl border border-gray-100 text-xs">
-                <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
-                  <span className="text-gray-400 font-semibold uppercase">Reference ID</span>
-                  <span className="text-gray-800 font-bold">{selectedBillForVerify.id}</span>
+            <form onSubmit={handleSaveBill} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-xl text-sm">
+                <div>
+                  <span className="text-gray-400 text-xs uppercase font-bold">Vendor</span>
+                  <p className="font-semibold text-gray-800 mt-0.5">{selectedForUpload.vendor}</p>
                 </div>
-                <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
-                  <span className="text-gray-400 font-semibold uppercase">Type</span>
-                  <span className="text-gray-800 font-bold">{selectedBillForVerify.type}</span>
+                <div>
+                  <span className="text-gray-400 text-xs uppercase font-bold">Net Payable</span>
+                  <p className="font-bold text-emerald-700 mt-0.5">
+                    {formatCurrency(selectedForUpload.amount - (selectedForUpload.tdsAmount || 0))}
+                  </p>
                 </div>
-                <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
-                  <span className="text-gray-400 font-semibold uppercase">Pay To / Vendor</span>
-                  <span className="text-gray-800 font-bold">{selectedBillForVerify.paidTo}</span>
-                </div>
-                {selectedBillForVerify.type === 'Service' && (
-                  <>
-                    <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
-                      <span className="text-gray-400 font-semibold uppercase">Firm Name</span>
-                      <span className="text-gray-800 font-bold">{selectedBillForVerify.firmName}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
-                      <span className="text-gray-400 font-semibold uppercase">Service Checker</span>
-                      <span className="text-gray-800 font-bold">{selectedBillForVerify.checker}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
-                      <span className="text-gray-400 font-semibold uppercase">Planned Start Date</span>
-                      <span className="text-gray-800 font-bold">{selectedBillForVerify.planned1 || '—'}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
-                      <span className="text-gray-400 font-semibold uppercase">Actual Start Date</span>
-                      <span className="text-gray-800 font-bold">{selectedBillForVerify.actual1 || '—'}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
-                      <span className="text-gray-400 font-semibold uppercase">Planned End Date</span>
-                      <span className="text-gray-800 font-bold">{selectedBillForVerify.planned2 || '—'}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
-                      <span className="text-gray-400 font-semibold uppercase">Actual End Date</span>
-                      <span className="text-gray-800 font-bold">{selectedBillForVerify.actual2 || '—'}</span>
-                    </div>
-                  </>
-                )}
-                {selectedBillForVerify.type === 'Utility' && (
-                  <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
-                    <span className="text-gray-400 font-semibold uppercase">Department</span>
-                    <span className="text-gray-800 font-bold">{selectedBillForVerify.department}</span>
-                  </div>
-                )}
-                <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
-                  <span className="text-gray-400 font-semibold uppercase">Bill Reference</span>
-                  <span className="text-gray-800 font-bold">{selectedBillForVerify.billRef || '—'}</span>
-                </div>
-                <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
-                  <span className="text-gray-400 font-semibold uppercase">Total Amount</span>
-                  <span className="text-gray-800 font-bold">{formatCurrency(selectedBillForVerify.amount)}</span>
-                </div>
-                {selectedBillForVerify.tdsAmount !== undefined && selectedBillForVerify.tdsAmount > 0 && (
-                  <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
-                    <span className="text-gray-400 font-semibold uppercase">TDS Deduction</span>
-                    <span className="text-rose-600 font-bold">- {formatCurrency(selectedBillForVerify.tdsAmount)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between border-b border-gray-200/50 pb-1.5">
-                  <span className="text-gray-400 font-semibold uppercase">Net Payable</span>
-                  <span className="text-emerald-700 font-bold">
-                    {formatCurrency(selectedBillForVerify.amount - (selectedBillForVerify.tdsAmount || 0))}
-                  </span>
-                </div>
-                {(selectedBillForVerify.remark || selectedBillForVerify.remarks) && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 font-semibold uppercase">Remarks</span>
-                    <span className="text-gray-600 font-medium text-right max-w-[200px] truncate" title={selectedBillForVerify.remark || selectedBillForVerify.remarks}>
-                      {selectedBillForVerify.remark || selectedBillForVerify.remarks}
-                    </span>
-                  </div>
-                )}
               </div>
 
-              {selectedBillForVerify.billUrl && (
-                <div className="flex items-center justify-between p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
-                  <div className="flex items-center gap-2">
-                    <FileText size={15} className="text-blue-600 shrink-0" />
-                    <span className="text-[11px] text-blue-800 font-semibold">Attached Bill Invoice</span>
-                  </div>
-                  <a
-                    href={selectedBillForVerify.billUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-bold cursor-pointer"
-                  >
-                    <span>View Bill</span>
-                    <ExternalLink size={10} />
-                  </a>
-                </div>
-              )}
-            </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 uppercase">Bill No.</label>
+                <input disabled={isSaving} type="text" placeholder="e.g. TAX/2026/099"
+                  value={billForm.billNo}
+                  onChange={(e) => setBillForm(prev => ({ ...prev, billNo: e.target.value }))}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all" />
+              </div>
 
-            <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-200 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                disabled={isSaving}
-                onClick={() => setIsVerifyModalOpen(false)}
-                className="px-4 py-2.5 border border-gray-200 rounded-xl text-gray-700 text-xs hover:bg-gray-50 font-semibold transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isSaving}
-                onClick={handleVerifySubmit}
-                className="flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-600/10 transition-all active:scale-95 cursor-pointer"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="animate-spin" size={14} />
-                    <span>Processing...</span>
-                  </>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 uppercase">Bill Copy</label>
+                <input ref={fileInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); }} />
+                {uploadedFile ? (
+                  <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                    <Paperclip size={15} className="text-emerald-600 shrink-0" />
+                    <span className="text-sm text-emerald-700 font-semibold truncate flex-1">{uploadedFile.name}</span>
+                    <a href={uploadedFile.url} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-800 shrink-0"><ExternalLink size={14} /></a>
+                    <button type="button" onClick={() => { setUploadedFile(null); setBillForm(prev => ({ ...prev, billCopy: '' })); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                      className="text-gray-400 hover:text-red-500 shrink-0"><X size={14} /></button>
+                  </div>
                 ) : (
-                  <>
-                    <CheckCircle2 size={14} />
-                    <span>{selectedBillForVerify.type === 'Service' ? 'Verify & Proceed' : 'Approve & Proceed'}</span>
-                  </>
+                  <button type="button" disabled={isSaving || isUploading} onClick={() => fileInputRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50 rounded-xl text-sm text-gray-500 hover:text-indigo-700 transition-all">
+                    {isUploading
+                      ? <><Loader2 size={15} className="animate-spin" /><span className="font-medium">Uploading...</span></>
+                      : <><Upload size={15} /><span className="font-medium">Click to upload bill copy</span></>}
+                  </button>
                 )}
-              </button>
-            </div>
+                {uploadError && <p className="text-xs text-red-500 font-medium">{uploadError}</p>}
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
+                <button type="button" disabled={isSaving} onClick={() => setIsUploadModalOpen(false)}
+                  className="px-4 py-2.5 border border-gray-200 rounded-xl text-gray-600 text-sm hover:bg-gray-50 font-semibold transition-all">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSaving}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-gray-900/10">
+                  {isSaving ? <><Loader2 className="animate-spin" size={16} /><span>Saving...</span></> : <><FileText size={15} /><span>Save Bill</span></>}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
