@@ -21,14 +21,11 @@ const menuItems = [
   { key: 'Users',      icon: Users,            label: 'User Management', path: '/users' },
 ];
 
-/* Logo SVG — olive arch logo */
-const LogoIcon = ({ size = 28, color = "white" }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <path
-      fill={color}
-      fillRule="evenodd"
-      d="M 13 88 L 13 44 A 37 37 0 0 1 87 44 L 87 88 Z M 27 88 L 27 45 A 23 23 0 0 1 73 45 L 73 63 L 52 63 L 52 88 Z"
-    />
+/* Logo — bold "S" text icon */
+const LogoIcon = ({ size = 28 }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+    <text x="16" y="25" fontFamily="Arial Black, Arial, sans-serif" fontSize="26" fontWeight="900"
+      textAnchor="middle" fill="white" letterSpacing="-1">S</text>
   </svg>
 );
 
@@ -46,9 +43,9 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
     <aside
       className={cn(
         "fixed left-0 top-0 h-screen transition-all duration-300 z-50 flex flex-col",
-        collapsed ? "w-20" : "w-64"
+        collapsed ? "w-20" : "w-72"
       )}
-      style={{ background: 'linear-gradient(180deg, #344a1c 0%, #435e24 100%)' }}
+      style={{ background: 'linear-gradient(180deg, #0f2444 0%, #1e3a5f 100%)' }}
     >
       {/* ── Logo / Brand ── */}
       <div className={cn(
@@ -59,7 +56,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
         {!collapsed && (
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: '#4a5c2a', boxShadow: '0 4px 12px rgba(74,92,42,0.5)' }}>
+              style={{ background: '#1e3a5f', boxShadow: '0 4px 12px rgba(30,58,95,0.5)' }}>
               <LogoIcon size={22} />
             </div>
             <div>
@@ -70,7 +67,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
         )}
         {collapsed && (
           <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: '#4a5c2a', boxShadow: '0 4px 12px rgba(74,92,42,0.5)' }}>
+            style={{ background: '#1e3a5f', boxShadow: '0 4px 12px rgba(30,58,95,0.5)' }}>
             <LogoIcon size={22} />
           </div>
         )}
@@ -114,8 +111,8 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
                 : "text-white/45 hover:text-white hover:bg-white/8"
             )}
             style={({ isActive }) => isActive ? {
-              background: 'linear-gradient(135deg, #668036 0%, #697e3e 100%)',
-              boxShadow: '0 4px 14px rgba(74,92,42,0.45)'
+              background: 'linear-gradient(135deg, #2d5282 0%, #3b82b0 100%)',
+              boxShadow: '0 4px 14px rgba(30,58,95,0.45)'
             } : {}}
           >
             <item.icon size={18} className={cn("shrink-0", collapsed && "mx-auto")} />
@@ -138,12 +135,12 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
               style={{ border: '2px solid rgba(255,255,255,0.15)' }}
             />
             <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 rounded-full"
-              style={{ borderColor: '#344a1c' }} />
+              style={{ borderColor: '#0f2444' }} />
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-white truncate leading-tight">{user?.name}</p>
-              <p className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: '#7a9445' }}>{user?.role}</p>
+              <p className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: '#63b3ed' }}>{user?.role}</p>
             </div>
           )}
         </div>

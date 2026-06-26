@@ -1,22 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-
-  <!-- Olive green background with rounded corners -->
-  <rect width="64" height="64" rx="13" fill="#4a5c2a"/>
-
-  <!-- Subtle inner highlight (top-left glow for depth) -->
-  <rect width="64" height="64" rx="13" fill="url(#shine)" opacity="0.18"/>
-
   <defs>
-    <radialGradient id="shine" cx="30%" cy="20%" r="60%">
-      <stop offset="0%" stop-color="white"/>
-      <stop offset="100%" stop-color="transparent"/>
-    </radialGradient>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#162d4a"/>
+      <stop offset="100%" stop-color="#2d5282"/>
+    </linearGradient>
   </defs>
-
-  <!-- White outer arch — walls + arched top -->
-  <path fill="white" d="M 8 57 L 8 27 A 24 24 0 0 1 56 27 L 56 57 Z"/>
-
-  <!-- Olive inner cutout — creates the arch opening and right-side notch -->
-  <path fill="#4a5c2a" d="M 17 57 L 17 30 A 15 15 0 0 1 47 30 L 47 41 L 33 41 L 33 57 Z"/>
-
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <text x="32" y="47" font-family="Arial Black, Arial, sans-serif" font-size="42" font-weight="900" text-anchor="middle" fill="white" letter-spacing="-1">S</text>
 </svg>

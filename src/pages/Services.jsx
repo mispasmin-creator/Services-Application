@@ -154,7 +154,10 @@ const Services = () => {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   {activeTab === 'payment' && (
-                    <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Done</th>
+                    <>
+                      <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Done</th>
+                      <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Action</th>
+                    </>
                   )}
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Offer No.</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Service No.</th>
@@ -169,7 +172,6 @@ const Services = () => {
                     <>
                       <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill No.</th>
                       <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Copy</th>
-                      <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right whitespace-nowrap">Action</th>
                     </>
                   )}
                   {activeTab === 'history' && (
@@ -185,19 +187,31 @@ const Services = () => {
               <tbody className="divide-y divide-gray-200">
                 {filteredServices.map((service) => (
                   <tr key={service.sheetRowIndex} className="hover:bg-gray-50 transition-colors">
-                    {/* Checkbox column — Make Payment tab only */}
+                    {/* Checkbox + Action — first columns on Make Payment tab */}
                     {activeTab === 'payment' && (
-                      <td className="px-4 py-4">
-                        <input
-                          type="checkbox"
-                          checked={false}
-                          onChange={() => openConfirm(service)}
-                          disabled={isSaving}
-                          title="Mark payment as done"
-                          className="w-4 h-4 rounded cursor-pointer"
-                          style={{ accentColor: '#4a5c2a' }}
-                        />
-                      </td>
+                      <>
+                        <td className="px-4 py-4">
+                          <input
+                            type="checkbox"
+                            checked={false}
+                            onChange={() => openConfirm(service)}
+                            disabled={isSaving}
+                            title="Mark payment as done"
+                            className="w-4 h-4 rounded cursor-pointer"
+                            style={{ accentColor: '#1e3a5f' }}
+                          />
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {service.paymentForm ? (
+                            <a href={service.paymentForm} target="_blank" rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-lg text-xs font-bold text-amber-700 transition-all">
+                              <CreditCard size={13} /><span>Payment Form</span>
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+                      </>
                     )}
 
                     <td className="px-4 py-4 text-sm font-semibold text-gray-600 whitespace-nowrap">{service.offerNo}</td>
@@ -224,16 +238,6 @@ const Services = () => {
                               <FileText size={14} /><span>View</span>
                             </a>
                           ) : <span className="text-xs text-gray-400">—</span>}
-                        </td>
-                        <td className="px-4 py-4 text-right whitespace-nowrap">
-                          {service.paymentForm ? (
-                            <a href={service.paymentForm} target="_blank" rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-lg text-xs font-bold text-amber-700 transition-all">
-                              <CreditCard size={13} /><span>Payment Form</span>
-                            </a>
-                          ) : (
-                            <span className="text-xs text-gray-400">—</span>
-                          )}
                         </td>
                       </>
                     )}

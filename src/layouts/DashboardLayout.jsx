@@ -11,9 +11,9 @@ const Breadcrumbs = () => {
 
   return (
     <nav className="flex items-center gap-1.5 text-sm mb-6">
-      <Link to="/" className="transition-colors" style={{ color: '#7a9445' }}
-        onMouseEnter={e => e.currentTarget.style.color='#4a5c2a'}
-        onMouseLeave={e => e.currentTarget.style.color='#7a9445'}>
+      <Link to="/" className="transition-colors" style={{ color: '#3b82b0' }}
+        onMouseEnter={e => e.currentTarget.style.color='#1e3a5f'}
+        onMouseLeave={e => e.currentTarget.style.color='#3b82b0'}>
         <Home size={15} />
       </Link>
       {pathnames.map((name, index) => {
@@ -21,13 +21,13 @@ const Breadcrumbs = () => {
         const isLast = index === pathnames.length - 1;
         return (
           <React.Fragment key={name}>
-            <ChevronRight size={13} style={{ color: '#c6d4a0' }} />
+            <ChevronRight size={13} style={{ color: '#bfdbfe' }} />
             {isLast ? (
-              <span className="font-semibold capitalize" style={{ color: '#3a4820' }}>{name}</span>
+              <span className="font-semibold capitalize" style={{ color: '#162d4a' }}>{name}</span>
             ) : (
-              <Link to={routeTo} className="capitalize transition-colors" style={{ color: '#7a9445' }}
-                onMouseEnter={e => e.currentTarget.style.color='#4a5c2a'}
-                onMouseLeave={e => e.currentTarget.style.color='#7a9445'}>
+              <Link to={routeTo} className="capitalize transition-colors" style={{ color: '#3b82b0' }}
+                onMouseEnter={e => e.currentTarget.style.color='#1e3a5f'}
+                onMouseLeave={e => e.currentTarget.style.color='#3b82b0'}>
                 {name}
               </Link>
             )}
@@ -43,12 +43,12 @@ const DashboardLayout = () => {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen" style={{ background: '#f4f6ee' }}>
+    <div className="min-h-screen" style={{ background: '#eff6ff' }}>
       <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
 
       <div className={cn(
         "transition-all duration-300 min-h-screen flex flex-col",
-        collapsed ? "pl-20" : "pl-64"
+        collapsed ? "pl-20" : "pl-72"
       )}>
         <main className="flex-1 p-8">
           <div className="max-w-7xl mx-auto">
@@ -68,7 +68,7 @@ const DashboardLayout = () => {
         </main>
 
         <footer className="py-4 px-8 text-center text-xs font-medium"
-          style={{ borderTop: '1px solid rgba(74,92,42,0.12)', color: '#a8c86b' }}>
+          style={{ borderTop: '1px solid rgba(30,58,95,0.12)', color: '#63b3ed' }}>
           © 2026 Service FMS Enterprise. All rights reserved.
         </footer>
       </div>

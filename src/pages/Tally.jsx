@@ -330,128 +330,120 @@ const Tally = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Reference ID</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Paid To / Vendor</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Amount</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">TDS</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Net Amount</th>
-                  
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Offer No.</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Service No.</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Firm Name</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Checker</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Amount</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">TDS</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Net Amount</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Vendor</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Location</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill No.</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Copy</th>
                   {activeTab === 'rectify' && (
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Rectification Reason</th>
+                    <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Rectification Reason</th>
                   )}
                   {activeTab === 'completed' && (
                     <>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Voucher No</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Tally Date</th>
+                      <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Voucher No.</th>
+                      <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Tally Date</th>
                     </>
                   )}
-
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right whitespace-nowrap">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {activeTabItems.map((item, index) => (
                   <tr key={`tally-stage-${item.type}-${item.sheetRowIndex}-${index}`} className="hover:bg-gray-50/70 transition-colors">
-                    {/* Item Type */}
-                    <td className="px-6 py-4">
-                      <span className={cn(
-                        "px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1 w-fit",
-                        item.type === 'Service'
-                          ? "bg-gray-100 text-gray-700 border-gray-200"
-                          : "bg-gray-900 text-white border-gray-900"
-                      )}>
-                        {item.type === 'Service' ? <Wrench size={10} /> : <Zap size={10} />}
-                        {item.type}
-                      </span>
-                    </td>
-                    
-                    {/* Reference ID */}
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{item.id}</td>
-                    
-                    {/* Paid To */}
-                    <td className="px-6 py-4 text-sm font-medium text-gray-600">{item.paidTo}</td>
-                    
-                    {/* Bill Amount */}
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatCurrency(item.amount)}</td>
-                    
-                    {/* TDS */}
-                    <td className="px-6 py-4 text-sm text-rose-600 font-semibold">
+                    <td className="px-4 py-4 text-sm font-semibold text-gray-600 whitespace-nowrap">{item.offerNo || '—'}</td>
+                    <td className="px-4 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{item.id}</td>
+                    <td className="px-4 py-4 text-sm text-gray-600 font-medium whitespace-nowrap">{item.firmName || '—'}</td>
+                    <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{item.checker || '—'}</td>
+                    <td className="px-4 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{formatCurrency(item.amount)}</td>
+                    <td className="px-4 py-4 text-sm text-rose-600 font-semibold whitespace-nowrap">
                       {item.tdsAmount ? `- ${formatCurrency(item.tdsAmount)}` : '—'}
                     </td>
-                    
-                    {/* Net Amount */}
-                    <td className="px-6 py-4 text-sm font-bold text-emerald-700">{formatCurrency(item.netAmount)}</td>
-                    
-                    {/* Conditional Columns depending on active tab */}
+                    <td className="px-4 py-4 text-sm font-bold text-emerald-700 whitespace-nowrap">{formatCurrency(item.netAmount)}</td>
+                    <td className="px-4 py-4 text-sm text-gray-800 font-medium whitespace-nowrap">{item.vendor || '—'}</td>
+                    <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{item.location || '—'}</td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className={cn(
+                        "px-2.5 py-1 text-xs font-semibold rounded-full",
+                        item.status === 'Completed'       ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                        item.status === 'Payment Pending' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
+                        item.status === 'Bill Received'   ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' :
+                        item.status === 'Tally Pending'   ? 'bg-purple-100 text-purple-700 border border-purple-200' :
+                        'bg-gray-100 text-gray-700 border border-gray-200'
+                      )}>
+                        {item.status || '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-gray-700 font-medium whitespace-nowrap">{item.billNo || '—'}</td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      {item.billCopy ? (
+                        <a href={item.billCopy} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 transition-colors">
+                          <Eye size={13} /><span>View</span>
+                        </a>
+                      ) : <span className="text-xs text-gray-400">—</span>}
+                    </td>
+
                     {activeTab === 'rectify' && (
-                      <td className="px-6 py-4 text-xs font-semibold text-rose-600 bg-rose-50/30 max-w-xs truncate" title={item.auditRemarks}>
+                      <td className="px-4 py-4 text-xs font-semibold text-rose-600 max-w-xs whitespace-nowrap" title={item.auditRemarks}>
                         <div className="flex items-center gap-1">
                           <AlertTriangle size={12} className="shrink-0" />
-                          <span>{item.auditRemarks || 'Needs corrections'}</span>
+                          <span className="truncate max-w-[160px]">{item.auditRemarks || 'Needs corrections'}</span>
                         </div>
                       </td>
                     )}
                     {activeTab === 'completed' && (
                       <>
-                        <td className="px-6 py-4 text-sm font-bold text-gray-700">
-                          {item.tallyVoucher || <span className="text-gray-300 italic">N/A</span>}
+                        <td className="px-4 py-4 text-sm font-bold text-gray-700 whitespace-nowrap">
+                          {item.tallyVoucher || <span className="text-gray-300 italic text-xs">N/A</span>}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 font-medium">
-                          {item.actual5 || item.actual2 || '—'}
+                        <td className="px-4 py-4 text-sm text-gray-500 font-medium whitespace-nowrap">
+                          {item.actual5 || '—'}
                         </td>
                       </>
                     )}
 
-                    {/* Action Button */}
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-4 text-right whitespace-nowrap">
                       {activeTab === 'audit' && (
-                        <button
-                          onClick={() => openAuditModal(item)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                        >
-                          <ShieldAlert size={13} />
-                          <span>Verify Audit</span>
+                        <button onClick={() => openAuditModal(item)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-bold transition-all cursor-pointer">
+                          <ShieldAlert size={13} /><span>Verify Audit</span>
                         </button>
                       )}
-                      
                       {activeTab === 'rectify' && (
-                        <button
-                          onClick={() => openRectifyModal(item)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                        >
-                          <CheckSquare size={13} />
-                          <span>Resolve</span>
+                        <button onClick={() => openRectifyModal(item)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all cursor-pointer">
+                          <CheckSquare size={13} /><span>Resolve</span>
                         </button>
                       )}
-                      
                       {activeTab === 'tally' && (
-                        <button
-                          onClick={() => openTallyModal(item)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                        >
-                          <BookOpen size={13} />
-                          <span>Enter Tally</span>
+                        <button onClick={() => openTallyModal(item)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-all cursor-pointer">
+                          <BookOpen size={13} /><span>Enter Tally</span>
                         </button>
                       )}
-                      
                       {activeTab === 'completed' && (
                         <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-bold px-2 py-1">
-                          <CheckCircle2 size={13} />
-                          <span>Tallied</span>
+                          <CheckCircle2 size={13} /><span>Tallied</span>
                         </span>
                       )}
                     </td>
                   </tr>
                 ))}
-                
+
                 {activeTabItems.length === 0 && (
                   <tr>
-                    <td colSpan={activeTab === 'rectify' ? 8 : (activeTab === 'completed' ? 9 : 7)} className="px-6 py-12 text-center text-gray-400 text-sm">
+                    <td colSpan={15} className="px-6 py-12 text-center text-gray-400 text-sm">
                       <div className="flex flex-col items-center gap-2">
                         <Database className="text-gray-300" size={32} />
                         <p className="font-semibold text-gray-400">No records found in this stage.</p>
-                        <p className="text-xs text-gray-300">Filtered entries mapped to '{activeTab}' are currently empty.</p>
+                        <p className="text-xs text-gray-300">Entries mapped to '{activeTab}' are currently empty.</p>
                       </div>
                     </td>
                   </tr>

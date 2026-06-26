@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 /* ════════════════════════════════════════════════
-   BRAND PALETTE  —  Olive Green (#4a5c2a)
+   BRAND PALETTE  —  Navy Blue (#1e3a5f)
 ════════════════════════════════════════════════ */
 :root {
-  --brand:         #4a5c2a;
-  --brand-dark:    #3a4820;
-  --brand-mid:     #5d7234;
-  --brand-light:   #7a9445;
-  --brand-xlight:  #a8c86b;
-  --brand-50:      #f2f5ea;
-  --brand-100:     #e4ebd0;
-  --brand-200:     #c6d4a0;
+  --brand:         #1e3a5f;
+  --brand-dark:    #162d4a;
+  --brand-mid:     #2d5282;
+  --brand-light:   #3b82b0;
+  --brand-xlight:  #63b3ed;
+  --brand-50:      #eff6ff;
+  --brand-100:     #dbeafe;
+  --brand-200:     #bfdbfe;
 }
 
 /* ════════════════════════════════════════════════
@@ -32,7 +32,7 @@ body {
 *::-webkit-scrollbar-thumb { background: var(--brand-200); border-radius: 99px; }
 
 /* ════════════════════════════════════════════════
-   PAGE HEADINGS  →  dark olive instead of plain black
+   PAGE HEADINGS
 ════════════════════════════════════════════════ */
 h1.text-gray-900,
 h1.font-bold { color: var(--brand-dark) !important; }
@@ -43,20 +43,20 @@ h1.font-bold { color: var(--brand-dark) !important; }
 button.bg-gray-900,
 a.bg-gray-900 {
   background: linear-gradient(135deg, var(--brand) 0%, var(--brand-mid) 100%) !important;
-  box-shadow: 0 4px 14px rgba(74,92,42,0.32) !important;
+  box-shadow: 0 4px 14px rgba(30,58,95,0.32) !important;
   transition: all 0.18s ease !important;
 }
 button.bg-gray-900:hover,
 button.hover\:bg-gray-800:hover,
 a.hover\:bg-gray-800:hover {
   background: linear-gradient(135deg, var(--brand-dark) 0%, var(--brand) 100%) !important;
-  box-shadow: 0 6px 20px rgba(74,92,42,0.45) !important;
+  box-shadow: 0 6px 20px rgba(30,58,95,0.45) !important;
   transform: translateY(-1px) !important;
 }
 button.bg-gray-900:active { transform: translateY(0) !important; }
 
 /* ════════════════════════════════════════════════
-   ACTIVE TABS  —  border-b-2 border-gray-900 text-gray-900
+   ACTIVE TABS
 ════════════════════════════════════════════════ */
 .border-gray-900            { border-color: var(--brand) !important; }
 button.border-gray-900      { color: var(--brand) !important; }
@@ -67,62 +67,104 @@ button.border-gray-900      { color: var(--brand) !important; }
 .border-l-gray-900 { border-left-color: var(--brand) !important; }
 
 /* ════════════════════════════════════════════════
-   INPUT FOCUS  —  olive ring everywhere
+   INPUT FOCUS  —  navy ring everywhere
 ════════════════════════════════════════════════ */
 input:focus, select:focus, textarea:focus {
   outline: none !important;
   border-color: var(--brand) !important;
-  box-shadow: 0 0 0 3px rgba(74,92,42,0.15) !important;
+  box-shadow: 0 0 0 3px rgba(30,58,95,0.15) !important;
 }
 .focus\:border-gray-900:focus { border-color: var(--brand) !important; }
 
 /* ════════════════════════════════════════════════
-   LOADING SPINNERS  →  olive
+   LOADING SPINNERS
 ════════════════════════════════════════════════ */
 .animate-spin { color: var(--brand) !important; }
 
 /* ════════════════════════════════════════════════
-   TABLE HEADERS  —  soft olive gradient
+   TABLE CONTAINER  —  premium card with border
+════════════════════════════════════════════════ */
+.bg-white.rounded-2xl.overflow-hidden,
+.bg-white.rounded-2xl.border.overflow-hidden {
+  border: 1px solid rgba(30,58,95,0.13) !important;
+  box-shadow: 0 2px 8px rgba(30,58,95,0.07), 0 8px 24px rgba(30,58,95,0.05) !important;
+  overflow: hidden;
+}
+
+table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  width: 100%;
+}
+
+/* ════════════════════════════════════════════════
+   TABLE HEADERS  —  premium sticky navy header
 ════════════════════════════════════════════════ */
 thead tr {
-  background: linear-gradient(90deg, var(--brand-50) 0%, var(--brand-100) 100%) !important;
-  border-bottom: 1.5px solid var(--brand-200) !important;
+  background: linear-gradient(90deg, #e8f0fe 0%, #dbeafe 60%, #e0eeff 100%) !important;
+  border-bottom: 2px solid var(--brand-200) !important;
 }
 thead th {
   color: var(--brand-dark) !important;
-  letter-spacing: 0.06em !important;
+  letter-spacing: 0.07em !important;
+  font-size: 0.7rem !important;
+  font-weight: 800 !important;
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 /* ════════════════════════════════════════════════
-   TABLE ROW HOVER  —  faint olive wash
+   TABLE ROWS  —  zebra + smooth hover
 ════════════════════════════════════════════════ */
-tbody tr:hover { background-color: rgba(74,92,42,0.04) !important; }
+tbody tr:nth-child(even) {
+  background-color: rgba(30,58,95,0.025) !important;
+}
+tbody tr {
+  transition: background-color 0.14s ease, box-shadow 0.14s ease !important;
+  border-bottom: 1px solid rgba(30,58,95,0.07) !important;
+}
+tbody tr:hover {
+  background-color: rgba(30,58,95,0.06) !important;
+  box-shadow: inset 3px 0 0 var(--brand) !important;
+}
+tbody tr:last-child { border-bottom: none !important; }
 
 /* ════════════════════════════════════════════════
-   DIVIDERS  —  olive tint
+   TABLE CELLS
+════════════════════════════════════════════════ */
+tbody td {
+  vertical-align: middle !important;
+}
+
+/* ════════════════════════════════════════════════
+   DIVIDERS  —  navy tint
 ════════════════════════════════════════════════ */
 .divide-gray-100 > * + *,
-.divide-gray-200 > * + * { border-color: rgba(74,92,42,0.09) !important; }
-.border-gray-100  { border-color: rgba(74,92,42,0.10) !important; }
-.border-gray-200  { border-color: rgba(74,92,42,0.15) !important; }
+.divide-gray-200 > * + * { border-color: rgba(30,58,95,0.08) !important; }
+.border-gray-100  { border-color: rgba(30,58,95,0.10) !important; }
+.border-gray-200  { border-color: rgba(30,58,95,0.14) !important; }
 
 /* ════════════════════════════════════════════════
-   CARD HOVER GLOW
+   CARD  —  premium shadow
 ════════════════════════════════════════════════ */
 .rounded-2xl.bg-white,
-.rounded-xl.bg-white  { transition: box-shadow 0.22s ease; }
+.rounded-xl.bg-white  {
+  transition: box-shadow 0.22s ease;
+  box-shadow: 0 1px 4px rgba(30,58,95,0.06), 0 4px 16px rgba(30,58,95,0.06) !important;
+}
 .rounded-2xl.bg-white:hover,
 .rounded-xl.bg-white:hover {
-  box-shadow: 0 8px 32px rgba(74,92,42,0.11) !important;
+  box-shadow: 0 4px 12px rgba(30,58,95,0.10), 0 12px 32px rgba(30,58,95,0.09) !important;
 }
 
 /* ════════════════════════════════════════════════
-   HOVER LINKS  (View File, file links, etc.)
+   HOVER LINKS
 ════════════════════════════════════════════════ */
 .hover\:text-gray-900:hover,
 a.hover\:text-gray-900:hover { color: var(--brand) !important; }
-
-/* indigo breadcrumb leftover  →  olive */
 .hover\:text-indigo-500:hover { color: var(--brand) !important; }
 
 /* ════════════════════════════════════════════════
@@ -136,7 +178,7 @@ a.hover\:text-gray-900:hover { color: var(--brand) !important; }
 ════════════════════════════════════════════════ */
 .bg-gray-900.p-3 {
   background: linear-gradient(135deg, var(--brand), var(--brand-mid)) !important;
-  box-shadow: 0 6px 18px rgba(74,92,42,0.38) !important;
+  box-shadow: 0 6px 18px rgba(30,58,95,0.38) !important;
 }
 
 /* ════════════════════════════════════════════════
@@ -149,20 +191,74 @@ input[type="radio"] { accent-color: var(--brand); }
    TEXT SELECTION HIGHLIGHT
 ════════════════════════════════════════════════ */
 ::selection {
-  background-color: rgba(74,92,42,0.18);
+  background-color: rgba(30,58,95,0.18);
   color: var(--brand-dark);
 }
 
 /* ════════════════════════════════════════════════
-   MODAL HEADER BAR  —  faint olive tint
+   MODAL HEADER BAR
 ════════════════════════════════════════════════ */
 .px-6.py-4.bg-gray-50.border-b {
   background: linear-gradient(90deg, var(--brand-50), #fafafa) !important;
 }
 
 /* ════════════════════════════════════════════════
-   EMPTY STATE  —  muted olive icon
+   EMPTY STATE ICON
 ════════════════════════════════════════════════ */
 .py-12.flex.flex-col.items-center svg {
   color: var(--brand-200) !important;
+}
+
+/* ════════════════════════════════════════════════
+   STATUS BADGES  —  pill style
+════════════════════════════════════════════════ */
+.rounded-full.text-xs.font-semibold,
+.rounded-full.text-xs.font-bold {
+  letter-spacing: 0.02em !important;
+  font-size: 0.68rem !important;
+}
+
+/* ════════════════════════════════════════════════
+   ACTION BUTTONS in table  —  hover lift
+════════════════════════════════════════════════ */
+tbody td a[href],
+tbody td button {
+  transition: transform 0.12s ease, box-shadow 0.12s ease !important;
+}
+tbody td a[href]:hover,
+tbody td button:hover:not(:disabled) {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.10) !important;
+}
+
+/* ════════════════════════════════════════════════
+   SEARCH BAR  —  clean focus
+════════════════════════════════════════════════ */
+.bg-gray-50.border.border-gray-200.rounded-xl {
+  transition: border-color 0.15s, box-shadow 0.15s !important;
+}
+
+/* ════════════════════════════════════════════════
+   PAGE TITLE ROW  —  clean spacing
+════════════════════════════════════════════════ */
+h1.text-2xl { letter-spacing: -0.02em !important; }
+p.text-gray-500 { font-size: 0.875rem !important; }
+
+/* ════════════════════════════════════════════════
+   SUMMARY CARDS  —  number prominence
+════════════════════════════════════════════════ */
+h4.text-2xl.font-bold { letter-spacing: -0.03em !important; }
+
+/* ════════════════════════════════════════════════
+   TAB UNDERLINE  —  smooth indicator
+════════════════════════════════════════════════ */
+button.border-b-2 {
+  transition: color 0.15s ease, border-color 0.15s ease !important;
+}
+
+/* ════════════════════════════════════════════════
+   MODAL BACKDROP
+════════════════════════════════════════════════ */
+.backdrop-blur-sm {
+  backdrop-filter: blur(6px) !important;
 }
