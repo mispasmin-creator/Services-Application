@@ -43,7 +43,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
     <aside
       className={cn(
         "fixed left-0 top-0 h-screen transition-all duration-300 z-50 flex flex-col",
-        collapsed ? "w-20" : "w-72"
+        collapsed ? "w-20" : "w-80"
       )}
       style={{ background: 'linear-gradient(180deg, #0f2444 0%, #1e3a5f 100%)' }}
     >
