@@ -195,6 +195,7 @@ const Bills = () => {
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Vendor</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Location</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Service Status</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Planned Date</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill No.</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Copy</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Status</th>
@@ -218,6 +219,15 @@ const Bills = () => {
                         <span className={cn("px-2.5 py-1 text-xs font-semibold rounded-full", getStatusColor(s.status))}>
                           {s.status}
                         </span>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        {s.planned1 ? (
+                          <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full">
+                            {s.planned1}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-4 text-sm text-gray-700 font-medium whitespace-nowrap">{s.billNo || '—'}</td>
                       <td className="px-4 py-4 whitespace-nowrap">

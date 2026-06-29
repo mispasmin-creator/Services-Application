@@ -342,6 +342,7 @@ const Tally = () => {
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill No.</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Copy</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Planned Date</th>
                   {activeTab === 'rectify' && (
                     <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Rectification Reason</th>
                   )}
@@ -388,6 +389,22 @@ const Tally = () => {
                           <Eye size={13} /><span>View</span>
                         </a>
                       ) : <span className="text-xs text-gray-400">—</span>}
+                    </td>
+
+                    {/* Planned Date — stage-wise */}
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      {(() => {
+                        const planned =
+                          activeTab === 'audit'     ? item.planned3 :
+                          activeTab === 'rectify'   ? item.planned4 :
+                          activeTab === 'tally'     ? item.planned5 :
+                          activeTab === 'completed' ? item.planned5 : '';
+                        return planned ? (
+                          <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full">
+                            {planned}
+                          </span>
+                        ) : <span className="text-xs text-gray-400">—</span>;
+                      })()}
                     </td>
 
                     {activeTab === 'rectify' && (
