@@ -480,14 +480,17 @@ const Offers = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-700 uppercase">Service Location *</label>
-                  <input
+                  <select
                     disabled={isSaving}
-                    type="text"
-                    placeholder="Enter location"
                     value={newOffer.location}
                     onChange={(e) => setNewOffer({ ...newOffer, location: e.target.value })}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-gray-900/20 focus:border-transparent transition-all"
-                  />
+                  >
+                    <option value="">Select location...</option>
+                    {['A11 Home','B3 Home','Dm Tower','Factory Office','Iron Tailor','Kharagpur','Mdo Office','Personal','Purab Factory','Refrasynth Factory','Rourkela Factory','Rourkela Office','Shri Ram Business Park New'].map(loc => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-700 uppercase">Amount (₹) *</label>
@@ -701,14 +704,17 @@ const Offers = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-700 uppercase">Service Location *</label>
-                  <input
+                  <select
                     disabled={isSaving}
-                    type="text"
-                    placeholder="Enter location"
                     value={convertFields.location}
                     onChange={(e) => setConvertFields({ ...convertFields, location: e.target.value })}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
-                  />
+                  >
+                    <option value="">Select location...</option>
+                    {['A11 Home','B3 Home','Dm Tower','Factory Office','Iron Tailor','Kharagpur','Mdo Office','Personal','Purab Factory','Refrasynth Factory','Rourkela Factory','Rourkela Office','Shri Ram Business Park New'].map(loc => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-700 uppercase">Amount (₹) *</label>
