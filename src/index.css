@@ -1,80 +1,135 @@
 @import "tailwindcss";
 
 /* ════════════════════════════════════════════════
-   BRAND PALETTE  —  Navy Blue (#1e3a5f)
+   BRAND PALETTE  —  Navy Blue
 ════════════════════════════════════════════════ */
 :root {
   --brand:         #1e3a5f;
-  --brand-dark:    #162d4a;
+  --brand-dark:    #0f2444;
   --brand-mid:     #2d5282;
   --brand-light:   #3b82b0;
   --brand-xlight:  #63b3ed;
-  --brand-50:      #eff6ff;
+  --brand-50:      #f0f6ff;
   --brand-100:     #dbeafe;
   --brand-200:     #bfdbfe;
+
+  /* Accent colors */
+  --accent-teal:   #0d9488;
+  --accent-violet: #7c3aed;
+  --accent-amber:  #d97706;
+  --accent-rose:   #e11d48;
+  --accent-emerald:#059669;
+
+  /* Surface */
+  --surface:       #ffffff;
+  --surface-2:     #f8faff;
+  --surface-3:     #f0f6ff;
+
+  /* Shadows */
+  --shadow-sm:  0 1px 3px rgba(30,58,95,0.08), 0 1px 2px rgba(30,58,95,0.05);
+  --shadow-md:  0 4px 12px rgba(30,58,95,0.10), 0 2px 6px rgba(30,58,95,0.06);
+  --shadow-lg:  0 10px 28px rgba(30,58,95,0.13), 0 4px 12px rgba(30,58,95,0.07);
+  --shadow-xl:  0 20px 48px rgba(30,58,95,0.16), 0 8px 20px rgba(30,58,95,0.10);
+  --shadow-brand: 0 6px 20px rgba(30,58,95,0.40);
 }
 
 /* ════════════════════════════════════════════════
    BASE
 ════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; }
+
 body {
-  background-color: var(--brand-50);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--surface-3);
+  /* Subtle dot grid pattern */
+  background-image:
+    radial-gradient(circle at 20% 10%, rgba(30,58,95,0.04) 0%, transparent 60%),
+    radial-gradient(circle at 80% 90%, rgba(59,130,176,0.04) 0%, transparent 60%),
+    radial-gradient(rgba(30,58,95,0.035) 1px, transparent 1px);
+  background-size: auto, auto, 28px 28px;
 }
 
 /* ════════════════════════════════════════════════
    SCROLLBAR
 ════════════════════════════════════════════════ */
 * { scrollbar-width: thin; scrollbar-color: var(--brand-200) transparent; }
-*::-webkit-scrollbar { width: 5px; height: 5px; }
+*::-webkit-scrollbar       { width: 5px; height: 5px; }
+*::-webkit-scrollbar-track { background: transparent; }
 *::-webkit-scrollbar-thumb { background: var(--brand-200); border-radius: 99px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--brand-xlight); }
 
 /* ════════════════════════════════════════════════
-   PAGE HEADINGS
+   TEXT SELECTION
 ════════════════════════════════════════════════ */
-h1.text-gray-900,
-h1.font-bold { color: var(--brand-dark) !important; }
+::selection { background: rgba(30,58,95,0.15); color: var(--brand-dark); }
 
 /* ════════════════════════════════════════════════
-   PRIMARY BUTTONS  (bg-gray-900 used everywhere)
+   TYPOGRAPHY
+════════════════════════════════════════════════ */
+h1.text-gray-900, h1.font-bold     { color: var(--brand-dark) !important; }
+h1.text-2xl                        { letter-spacing: -0.025em !important; }
+h2, h3                             { letter-spacing: -0.015em; }
+h4.text-2xl.font-bold              { letter-spacing: -0.03em !important; }
+p.text-gray-500                    { font-size: 0.875rem !important; }
+
+/* ════════════════════════════════════════════════
+   PRIMARY BUTTONS
 ════════════════════════════════════════════════ */
 button.bg-gray-900,
 a.bg-gray-900 {
-  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-mid) 100%) !important;
-  box-shadow: 0 4px 14px rgba(30,58,95,0.32) !important;
-  transition: all 0.18s ease !important;
+  background: linear-gradient(135deg, var(--brand-dark) 0%, var(--brand) 50%, var(--brand-mid) 100%) !important;
+  box-shadow: var(--shadow-brand) !important;
+  transition: all 0.2s cubic-bezier(0.4,0,0.2,1) !important;
+  position: relative;
+  overflow: hidden;
+}
+button.bg-gray-900::after,
+a.bg-gray-900::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 60%);
+  pointer-events: none;
 }
 button.bg-gray-900:hover,
 button.hover\:bg-gray-800:hover,
 a.hover\:bg-gray-800:hover {
-  background: linear-gradient(135deg, var(--brand-dark) 0%, var(--brand) 100%) !important;
-  box-shadow: 0 6px 20px rgba(30,58,95,0.45) !important;
-  transform: translateY(-1px) !important;
+  box-shadow: 0 8px 28px rgba(30,58,95,0.55) !important;
+  transform: translateY(-2px) !important;
 }
-button.bg-gray-900:active { transform: translateY(0) !important; }
+button.bg-gray-900:active { transform: translateY(0) scale(0.99) !important; }
 
 /* ════════════════════════════════════════════════
    ACTIVE TABS
 ════════════════════════════════════════════════ */
-.border-gray-900            { border-color: var(--brand) !important; }
-button.border-gray-900      { color: var(--brand) !important; }
+.border-gray-900       { border-color: var(--brand) !important; }
+button.border-gray-900 { color: var(--brand) !important; }
+button.border-b-2      { transition: color 0.15s ease, border-color 0.15s ease !important; }
 
 /* ════════════════════════════════════════════════
-   SUMMARY CARD LEFT ACCENT BORDER
+   SUMMARY CARD LEFT ACCENT
 ════════════════════════════════════════════════ */
 .border-l-gray-900 { border-left-color: var(--brand) !important; }
 
 /* ════════════════════════════════════════════════
-   INPUT FOCUS  —  navy ring everywhere
+   INPUT FOCUS
 ════════════════════════════════════════════════ */
 input:focus, select:focus, textarea:focus {
   outline: none !important;
   border-color: var(--brand) !important;
-  box-shadow: 0 0 0 3px rgba(30,58,95,0.15) !important;
+  box-shadow: 0 0 0 3px rgba(30,58,95,0.12), 0 1px 4px rgba(30,58,95,0.08) !important;
+  background: white !important;
+  transition: all 0.15s ease !important;
 }
 .focus\:border-gray-900:focus { border-color: var(--brand) !important; }
+
+/* ════════════════════════════════════════════════
+   CHECKBOX / RADIO
+════════════════════════════════════════════════ */
+input[type="checkbox"],
+input[type="radio"] { accent-color: var(--brand); }
 
 /* ════════════════════════════════════════════════
    LOADING SPINNERS
@@ -82,13 +137,31 @@ input:focus, select:focus, textarea:focus {
 .animate-spin { color: var(--brand) !important; }
 
 /* ════════════════════════════════════════════════
-   TABLE CONTAINER  —  premium card with border
+   CARDS  —  premium glass-like surface
+════════════════════════════════════════════════ */
+.rounded-2xl.bg-white,
+.rounded-xl.bg-white {
+  transition: box-shadow 0.25s cubic-bezier(0.4,0,0.2,1), transform 0.25s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: var(--shadow-md) !important;
+  border: 1px solid rgba(30,58,95,0.09) !important;
+}
+.rounded-2xl.bg-white:hover,
+.rounded-xl.bg-white:hover {
+  box-shadow: var(--shadow-lg) !important;
+  transform: translateY(-1px);
+}
+
+/* ════════════════════════════════════════════════
+   TABLE WRAPPER
 ════════════════════════════════════════════════ */
 .bg-white.rounded-2xl.overflow-hidden,
 .bg-white.rounded-2xl.border.overflow-hidden {
-  border: 1px solid rgba(30,58,95,0.13) !important;
-  box-shadow: 0 2px 8px rgba(30,58,95,0.07), 0 8px 24px rgba(30,58,95,0.05) !important;
-  overflow: hidden;
+  border: 1px solid rgba(30,58,95,0.10) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+.bg-white.rounded-2xl.overflow-hidden:hover,
+.bg-white.rounded-2xl.border.overflow-hidden:hover {
+  box-shadow: var(--shadow-lg) !important;
 }
 
 table {
@@ -98,167 +171,143 @@ table {
 }
 
 /* ════════════════════════════════════════════════
-   TABLE HEADERS  —  premium sticky navy header
+   TABLE HEADER  —  navy gradient
 ════════════════════════════════════════════════ */
 thead tr {
-  background: linear-gradient(90deg, #e8f0fe 0%, #dbeafe 60%, #e0eeff 100%) !important;
-  border-bottom: 2px solid var(--brand-200) !important;
+  background: linear-gradient(90deg,
+    rgba(30,58,95,0.05) 0%,
+    rgba(59,130,176,0.07) 50%,
+    rgba(30,58,95,0.05) 100%) !important;
+  border-bottom: 2px solid rgba(30,58,95,0.12) !important;
 }
 thead th {
-  color: var(--brand-dark) !important;
-  letter-spacing: 0.07em !important;
-  font-size: 0.7rem !important;
+  color: var(--brand) !important;
+  letter-spacing: 0.08em !important;
+  font-size: 0.67rem !important;
   font-weight: 800 !important;
-  padding-top: 14px !important;
-  padding-bottom: 14px !important;
+  padding-top: 13px !important;
+  padding-bottom: 13px !important;
+  text-transform: uppercase;
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
+  backdrop-filter: blur(8px);
 }
 
 /* ════════════════════════════════════════════════
-   TABLE ROWS  —  zebra + smooth hover
+   TABLE ROWS  —  zebra + left-accent hover
 ════════════════════════════════════════════════ */
-tbody tr:nth-child(even) {
-  background-color: rgba(30,58,95,0.025) !important;
-}
 tbody tr {
-  transition: background-color 0.14s ease, box-shadow 0.14s ease !important;
-  border-bottom: 1px solid rgba(30,58,95,0.07) !important;
+  transition: background 0.13s ease, box-shadow 0.13s ease !important;
+  border-bottom: 1px solid rgba(30,58,95,0.055) !important;
 }
-tbody tr:hover {
-  background-color: rgba(30,58,95,0.06) !important;
+tbody tr:nth-child(even)  { background: rgba(30,58,95,0.018) !important; }
+tbody tr:hover            {
+  background: rgba(30,58,95,0.055) !important;
   box-shadow: inset 3px 0 0 var(--brand) !important;
 }
-tbody tr:last-child { border-bottom: none !important; }
+tbody tr:last-child        { border-bottom: none !important; }
+tbody td                   { vertical-align: middle !important; }
 
 /* ════════════════════════════════════════════════
-   TABLE CELLS
+   ACTION BUTTONS in table  —  hover lift
 ════════════════════════════════════════════════ */
-tbody td {
-  vertical-align: middle !important;
+tbody td button,
+tbody td a[href] {
+  transition: transform 0.12s ease, box-shadow 0.12s ease !important;
+}
+tbody td button:hover:not(:disabled),
+tbody td a[href]:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12) !important;
 }
 
 /* ════════════════════════════════════════════════
-   DIVIDERS  —  navy tint
+   STATUS BADGES
+════════════════════════════════════════════════ */
+.rounded-full.text-xs.font-semibold,
+.rounded-full.text-xs.font-bold {
+  letter-spacing: 0.03em !important;
+  font-size: 0.67rem !important;
+  font-weight: 700 !important;
+}
+
+/* ════════════════════════════════════════════════
+   DIVIDERS
 ════════════════════════════════════════════════ */
 .divide-gray-100 > * + *,
-.divide-gray-200 > * + * { border-color: rgba(30,58,95,0.08) !important; }
-.border-gray-100  { border-color: rgba(30,58,95,0.10) !important; }
-.border-gray-200  { border-color: rgba(30,58,95,0.14) !important; }
-
-/* ════════════════════════════════════════════════
-   CARD  —  premium shadow
-════════════════════════════════════════════════ */
-.rounded-2xl.bg-white,
-.rounded-xl.bg-white  {
-  transition: box-shadow 0.22s ease;
-  box-shadow: 0 1px 4px rgba(30,58,95,0.06), 0 4px 16px rgba(30,58,95,0.06) !important;
-}
-.rounded-2xl.bg-white:hover,
-.rounded-xl.bg-white:hover {
-  box-shadow: 0 4px 12px rgba(30,58,95,0.10), 0 12px 32px rgba(30,58,95,0.09) !important;
-}
+.divide-gray-200 > * + *  { border-color: rgba(30,58,95,0.07) !important; }
+.border-gray-100           { border-color: rgba(30,58,95,0.08) !important; }
+.border-gray-200           { border-color: rgba(30,58,95,0.12) !important; }
 
 /* ════════════════════════════════════════════════
    HOVER LINKS
 ════════════════════════════════════════════════ */
 .hover\:text-gray-900:hover,
 a.hover\:text-gray-900:hover { color: var(--brand) !important; }
-.hover\:text-indigo-500:hover { color: var(--brand) !important; }
+.hover\:text-indigo-500:hover { color: var(--brand-light) !important; }
 
 /* ════════════════════════════════════════════════
-   DASHED UPLOAD BUTTON HOVER BORDER
+   UPLOAD / DASHED
 ════════════════════════════════════════════════ */
 .hover\:border-gray-400:hover { border-color: var(--brand-light) !important; }
-.hover\:bg-white:hover       { background-color: var(--brand-50) !important; }
+.hover\:bg-white:hover        { background: var(--brand-50) !important; }
 
 /* ════════════════════════════════════════════════
-   STAT CARD ICON BACKGROUNDS
+   STAT CARD ICON
 ════════════════════════════════════════════════ */
 .bg-gray-900.p-3 {
   background: linear-gradient(135deg, var(--brand), var(--brand-mid)) !important;
-  box-shadow: 0 6px 18px rgba(30,58,95,0.38) !important;
+  box-shadow: var(--shadow-brand) !important;
 }
 
 /* ════════════════════════════════════════════════
-   CHECKBOX / RADIO ACCENT
+   MODAL
 ════════════════════════════════════════════════ */
-input[type="checkbox"],
-input[type="radio"] { accent-color: var(--brand); }
-
-/* ════════════════════════════════════════════════
-   TEXT SELECTION HIGHLIGHT
-════════════════════════════════════════════════ */
-::selection {
-  background-color: rgba(30,58,95,0.18);
-  color: var(--brand-dark);
-}
-
-/* ════════════════════════════════════════════════
-   MODAL HEADER BAR
-════════════════════════════════════════════════ */
+.backdrop-blur-sm { backdrop-filter: blur(8px) saturate(1.4) !important; }
 .px-6.py-4.bg-gray-50.border-b {
-  background: linear-gradient(90deg, var(--brand-50), #fafafa) !important;
+  background: linear-gradient(90deg, var(--brand-50), #fafcff) !important;
 }
 
 /* ════════════════════════════════════════════════
-   EMPTY STATE ICON
-════════════════════════════════════════════════ */
-.py-12.flex.flex-col.items-center svg {
-  color: var(--brand-200) !important;
-}
-
-/* ════════════════════════════════════════════════
-   STATUS BADGES  —  pill style
-════════════════════════════════════════════════ */
-.rounded-full.text-xs.font-semibold,
-.rounded-full.text-xs.font-bold {
-  letter-spacing: 0.02em !important;
-  font-size: 0.68rem !important;
-}
-
-/* ════════════════════════════════════════════════
-   ACTION BUTTONS in table  —  hover lift
-════════════════════════════════════════════════ */
-tbody td a[href],
-tbody td button {
-  transition: transform 0.12s ease, box-shadow 0.12s ease !important;
-}
-tbody td a[href]:hover,
-tbody td button:hover:not(:disabled) {
-  transform: translateY(-1px) !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.10) !important;
-}
-
-/* ════════════════════════════════════════════════
-   SEARCH BAR  —  clean focus
+   SEARCH BAR
 ════════════════════════════════════════════════ */
 .bg-gray-50.border.border-gray-200.rounded-xl {
-  transition: border-color 0.15s, box-shadow 0.15s !important;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s !important;
+  background: var(--surface-2) !important;
+}
+.bg-gray-50.border.border-gray-200.rounded-xl:focus-within {
+  border-color: var(--brand-200) !important;
+  box-shadow: 0 0 0 3px rgba(30,58,95,0.08) !important;
+  background: white !important;
 }
 
 /* ════════════════════════════════════════════════
-   PAGE TITLE ROW  —  clean spacing
+   EMPTY STATE
 ════════════════════════════════════════════════ */
-h1.text-2xl { letter-spacing: -0.02em !important; }
-p.text-gray-500 { font-size: 0.875rem !important; }
+.py-12.flex.flex-col.items-center svg { color: var(--brand-200) !important; }
 
 /* ════════════════════════════════════════════════
-   SUMMARY CARDS  —  number prominence
+   PAGE ENTRY ANIMATION
 ════════════════════════════════════════════════ */
-h4.text-2xl.font-bold { letter-spacing: -0.03em !important; }
-
-/* ════════════════════════════════════════════════
-   TAB UNDERLINE  —  smooth indicator
-════════════════════════════════════════════════ */
-button.border-b-2 {
-  transition: color 0.15s ease, border-color 0.15s ease !important;
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+.space-y-7 > *, .space-y-8 > * {
+  animation: fadeInUp 0.35s cubic-bezier(0.4,0,0.2,1) both;
+}
+.space-y-7 > *:nth-child(1) { animation-delay: 0.03s; }
+.space-y-7 > *:nth-child(2) { animation-delay: 0.07s; }
+.space-y-7 > *:nth-child(3) { animation-delay: 0.11s; }
+.space-y-7 > *:nth-child(4) { animation-delay: 0.15s; }
+.space-y-7 > *:nth-child(5) { animation-delay: 0.19s; }
 
 /* ════════════════════════════════════════════════
-   MODAL BACKDROP
+   GLASSMORPHISM UTILITY
 ════════════════════════════════════════════════ */
-.backdrop-blur-sm {
-  backdrop-filter: blur(6px) !important;
+.glass {
+  background: rgba(255,255,255,0.72) !important;
+  backdrop-filter: blur(16px) saturate(1.8) !important;
+  border: 1px solid rgba(255,255,255,0.55) !important;
 }
