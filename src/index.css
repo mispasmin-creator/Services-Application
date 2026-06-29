@@ -157,11 +157,13 @@ input[type="radio"] { accent-color: var(--brand); }
 .bg-white.rounded-2xl.overflow-hidden,
 .bg-white.rounded-2xl.border.overflow-hidden {
   border: 1px solid rgba(30,58,95,0.10) !important;
-  box-shadow: var(--shadow-md) !important;
+  box-shadow: 0 2px 12px rgba(30,58,95,0.08), 0 8px 32px rgba(30,58,95,0.05) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
 }
 .bg-white.rounded-2xl.overflow-hidden:hover,
 .bg-white.rounded-2xl.border.overflow-hidden:hover {
-  box-shadow: var(--shadow-lg) !important;
+  box-shadow: 0 4px 20px rgba(30,58,95,0.12), 0 12px 40px rgba(30,58,95,0.08) !important;
 }
 
 table {
@@ -171,43 +173,46 @@ table {
 }
 
 /* ════════════════════════════════════════════════
-   TABLE HEADER  —  navy gradient
+   TABLE HEADER  —  deep navy premium
 ════════════════════════════════════════════════ */
 thead tr {
-  background: linear-gradient(90deg,
-    rgba(30,58,95,0.05) 0%,
-    rgba(59,130,176,0.07) 50%,
-    rgba(30,58,95,0.05) 100%) !important;
-  border-bottom: 2px solid rgba(30,58,95,0.12) !important;
+  background: linear-gradient(90deg, #0f2444 0%, #162d4a 40%, #1a3356 100%) !important;
+  border-bottom: 0 !important;
 }
 thead th {
-  color: var(--brand) !important;
-  letter-spacing: 0.08em !important;
-  font-size: 0.67rem !important;
+  color: rgba(255,255,255,0.75) !important;
+  letter-spacing: 0.09em !important;
+  font-size: 0.65rem !important;
   font-weight: 800 !important;
-  padding-top: 13px !important;
-  padding-bottom: 13px !important;
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
   text-transform: uppercase;
   position: sticky;
   top: 0;
   z-index: 2;
-  backdrop-filter: blur(8px);
+  white-space: nowrap;
 }
+thead th:first-child { padding-left: 20px !important; border-radius: 0; }
+thead th:last-child  { padding-right: 20px !important; }
 
 /* ════════════════════════════════════════════════
-   TABLE ROWS  —  zebra + left-accent hover
+   TABLE ROWS  —  zebra + bold navy hover
 ════════════════════════════════════════════════ */
 tbody tr {
-  transition: background 0.13s ease, box-shadow 0.13s ease !important;
-  border-bottom: 1px solid rgba(30,58,95,0.055) !important;
+  transition: background 0.12s ease, box-shadow 0.12s ease !important;
+  border-bottom: 1px solid rgba(30,58,95,0.06) !important;
 }
-tbody tr:nth-child(even)  { background: rgba(30,58,95,0.018) !important; }
-tbody tr:hover            {
-  background: rgba(30,58,95,0.055) !important;
-  box-shadow: inset 3px 0 0 var(--brand) !important;
+tbody tr:nth-child(even) { background: rgba(30,58,95,0.022) !important; }
+tbody tr:hover {
+  background: rgba(30,58,95,0.065) !important;
+  box-shadow: inset 4px 0 0 #1e3a5f !important;
 }
-tbody tr:last-child        { border-bottom: none !important; }
-tbody td                   { vertical-align: middle !important; }
+tbody tr:last-child { border-bottom: none !important; }
+tbody td {
+  vertical-align: middle !important;
+  padding-top: 13px !important;
+  padding-bottom: 13px !important;
+}
 
 /* ════════════════════════════════════════════════
    ACTION BUTTONS in table  —  hover lift

@@ -48,7 +48,7 @@ const DashboardLayout = () => {
 
       <div className={cn(
         "transition-all duration-300 min-h-screen flex flex-col",
-        collapsed ? "pl-20" : "pl-80"
+        collapsed ? "pl-[72px]" : "pl-[280px]"
       )}>
         <main className="flex-1 p-8">
           <div className="max-w-7xl mx-auto">
