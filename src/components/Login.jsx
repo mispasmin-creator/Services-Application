@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
 import { Shield, Zap, BarChart3, Lock, User } from 'lucide-react';
 
-const LogoMark = ({ size = 40, color = 'white' }) => (
-  <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <text x="20" y="31" fontFamily="Arial Black, Arial, sans-serif" fontSize="32"
-      fontWeight="900" textAnchor="middle" fill={color} letterSpacing="-2">S</text>
-  </svg>
+const LogoMark = ({ size = 40 }) => (
+  <img src="/logo.png" alt="logo" width={size} height={size} style={{ objectFit: 'contain' }} />
 );
 
 /* Animated floating orbs for left panel */

@@ -20,11 +20,8 @@ const menuItems = [
   { key: 'Users',      icon: Users,            label: 'User Management', path: '/users',      section: 'admin' },
 ];
 
-const LogoIcon = ({ size = 24 }) => (
-  <svg width={size} height={size} viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-    <text x="16" y="25" fontFamily="Arial Black, Arial, sans-serif" fontSize="26"
-      fontWeight="900" textAnchor="middle" fill="white" letterSpacing="-1">S</text>
-  </svg>
+const LogoIcon = ({ size = 28 }) => (
+  <img src="/logo.png" alt="logo" width={size} height={size} style={{ objectFit: 'contain' }} />
 );
 
 const SectionLabel = ({ label }) => (
