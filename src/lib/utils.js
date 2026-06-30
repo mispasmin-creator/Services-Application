@@ -20,6 +20,18 @@ export function formatCurrency(amount) {
   }).format(amount)
 }
 
+/* Returns current datetime as M/d/yyyy HH:mm:ss (24-hour, no leading zero on month/day) */
+export function nowDateTime() {
+  const now = new Date();
+  const M  = now.getMonth() + 1;
+  const d  = now.getDate();
+  const yyyy = now.getFullYear();
+  const HH = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  return `${M}/${d}/${yyyy} ${HH}:${mm}:${ss}`;
+}
+
 export async function uploadFileToDrive(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

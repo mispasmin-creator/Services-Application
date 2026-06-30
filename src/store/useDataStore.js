@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import useAuthStore from './useAuthStore';
+import { nowDateTime } from '../lib/utils';
 
 const apiUrl = import.meta.env.VITE_APPSCRIPT_URL;
 
@@ -328,7 +329,7 @@ const useDataStore = create((set, get) => ({
   addOffer: async (offer) => {
     const headers = get().offerHeaders;
     const offerColumnMap = {
-      'Timestamp': new Date().toLocaleString(),
+      'Timestamp': nowDateTime(),
       'OROffer No.': offer.id,
       'Firm Name': offer.firmName,
       'Vendor Name': offer.vendor,
@@ -358,7 +359,7 @@ const useDataStore = create((set, get) => ({
     const merged = { ...offer, ...updatedFields };
     const headers = get().offerHeaders;
     const rowDataArray = headers.map(header => {
-      if (header === 'Timestamp') return merged.timestamp || new Date().toLocaleString();
+      if (header === 'Timestamp') return merged.timestamp || nowDateTime();
       if (header === 'OROffer No.') return merged.id;
       if (header === 'Firm Name') return merged.firmName;
       if (header === 'Vendor Name') return merged.vendor;
@@ -382,7 +383,7 @@ const useDataStore = create((set, get) => ({
   addService: async (service) => {
     const headers = get().serviceHeaders;
     const rowDataArray = headers.map(header => {
-      if (header === 'Timestamp') return new Date().toLocaleString();
+      if (header === 'Timestamp') return nowDateTime();
       if (header === 'Offer No.') return service.offerNo;
       if (header === 'Service No.') return service.id;
       if (header === 'Firm Name') return service.firmName;
@@ -409,7 +410,7 @@ const useDataStore = create((set, get) => ({
     const headers = get().serviceHeaders;
     const rowDataArray = headers.map(header => {
       const norm = (header || '').replace(/\s+/g, '');
-      if (header === 'Timestamp') return merged.timestamp || new Date().toLocaleString();
+      if (header === 'Timestamp') return merged.timestamp || nowDateTime();
       if (header === 'Offer No.') return merged.offerNo;
       if (header === 'Service No.') return merged.id;
       if (header === 'Firm Name') return merged.firmName;
@@ -457,7 +458,7 @@ const useDataStore = create((set, get) => ({
   addUtility: async (utility) => {
     const headers = get().utilityHeaders;
     const rowDataArray = headers.map(header => {
-      if (header === 'Timestamp') return new Date().toLocaleString();
+      if (header === 'Timestamp') return nowDateTime();
       if (header === 'UT-Utility No.' || header === 'Utility No.') return utility.id;
       if (header === 'Firm Name') return utility.firmName || '';
       if (header === 'Person Name') return utility.personName;
@@ -492,7 +493,7 @@ const useDataStore = create((set, get) => ({
     const merged = { ...utility, ...updatedFields };
     const headers = get().utilityHeaders;
     const rowDataArray = headers.map(header => {
-      if (header === 'Timestamp') return merged.timestamp || new Date().toLocaleString();
+      if (header === 'Timestamp') return merged.timestamp || nowDateTime();
       if (header === 'UT-Utility No.' || header === 'Utility No.') return merged.id;
       if (header === 'Firm Name') return merged.firmName || '';
       if (header === 'Person Name') return merged.personName;

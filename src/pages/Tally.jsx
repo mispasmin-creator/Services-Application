@@ -6,7 +6,7 @@ import {
   ExternalLink, Eye, CheckSquare, RefreshCw
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency } from '../lib/utils';
+import { cn, formatCurrency, nowDateTime } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
 
@@ -159,17 +159,8 @@ const Tally = () => {
     setIsSaving(true);
     try {
       if (selectedItem.type === 'Service') {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        const realDateTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-
         await updateService(selectedItem.sheetRowIndex, {
-          actual3: realDateTime,
+          actual3: nowDateTime(),
           status3: status,
           remarks3: remarks || (status === 'Audited' ? 'Approved in Audit' : '')
         });
@@ -189,17 +180,8 @@ const Tally = () => {
     try {
       const remarksText = resolutionNote ? `Rectified: ${resolutionNote}` : 'Rectified and approved';
       if (selectedItem.type === 'Service') {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        const realDateTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-
         await updateService(selectedItem.sheetRowIndex, {
-          actual4: realDateTime,
+          actual4: nowDateTime(),
           status4: 'Audited',
           remarks4: remarksText
         });

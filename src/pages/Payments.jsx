@@ -5,7 +5,7 @@ import {
   Upload, Paperclip
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, uploadFileToDrive } from '../lib/utils';
+import { cn, formatCurrency, uploadFileToDrive, nowDateTime } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
 
@@ -135,17 +135,8 @@ const Payments = () => {
     setIsSaving(true);
     try {
       if (selectedItem.type === 'Service') {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        const realDateTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-
         await updateService(selectedItem.sheetRowIndex, {
-          actual2: realDateTime,
+          actual2: nowDateTime(),
           planned2: '',
           paymentProof: paymentProof || ''
         });

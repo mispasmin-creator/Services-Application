@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2, CreditCard, FileText, CheckCircle2, X } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency } from '../lib/utils';
+import { cn, formatCurrency, nowDateTime } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
 
@@ -18,18 +18,15 @@ const Services = () => {
   const [paymentNote, setPaymentNote] = useState('');
 
   const openConfirm = (s) => {
-    const now = new Date();
-    const local = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-    setPaymentDate(local);
+    setPaymentDate('');
     setPaymentNote('');
     setConfirmService(s);
   };
 
   const handleConfirmPayment = async () => {
-    if (!paymentDate) { alert('Payment date select karo.'); return; }
     setIsSaving(true);
     try {
-      const ts = `${paymentDate} ${new Date().toTimeString().slice(0,8)}`;
+      const ts = nowDateTime();
       await updateService(confirmService.sheetRowIndex, {
         actual2: ts,
         paymentProof: paymentNote || ts,

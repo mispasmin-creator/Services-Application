@@ -5,7 +5,7 @@ import {
   FileText, Upload, Paperclip, ExternalLink
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, uploadFileToDrive } from '../lib/utils';
+import { cn, formatCurrency, uploadFileToDrive, nowDateTime } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
 
@@ -43,7 +43,7 @@ const Offers = () => {
     amount: '',
     isOffer: 'Yes',
     offerCopy: '',
-    timestamp: new Date().toISOString()
+    timestamp: nowDateTime()
   });
 
   // File upload state
@@ -113,8 +113,8 @@ const Offers = () => {
         isOffer: newOffer.isOffer,
         offerCopy: newOffer.isOffer === 'Yes' ? newOffer.offerCopy : '',
         status: '', // Empty status - not Pending
-        timestamp: new Date().toISOString(), // Add timestamp
-        createdAt: new Date().toISOString() // Add creation date
+        timestamp: nowDateTime(), // Add timestamp
+        createdAt: nowDateTime() // Add creation date
       });
       if (res.success) {
         setIsCreateModalOpen(false);
@@ -128,7 +128,7 @@ const Offers = () => {
           amount: '',
           isOffer: 'Yes',
           offerCopy: '',
-          timestamp: new Date().toISOString()
+          timestamp: nowDateTime()
         });
         if (fileInputRef.current) fileInputRef.current.value = '';
       } else {
@@ -263,7 +263,7 @@ const Offers = () => {
               amount: '',
               isOffer: 'Yes',
               offerCopy: '',
-              timestamp: new Date().toISOString()
+              timestamp: nowDateTime()
             });
             setIsCreateModalOpen(true);
           }}
