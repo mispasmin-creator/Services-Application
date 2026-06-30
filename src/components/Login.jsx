@@ -71,7 +71,7 @@ const Login = ({ onLogin }) => {
                <LogoMark size={36} />
              </div>
              <h2 className="text-2xl font-black text-gray-900 tracking-tight">Service FMS</h2>
-             <p className="text-sm font-semibold text-gray-500 mt-1 uppercase tracking-widest">Enterprise</p>
+             <p className="text-sm font-semibold text-gray-500 mt-1 uppercase tracking-widest"></p>
           </div>
 
           {/* Error Message */}
