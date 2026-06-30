@@ -43,7 +43,7 @@ const DashboardLayout = () => {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen" style={{ background: '#eff6ff' }}>
+    <div className="min-h-screen" style={{ background: '#f2f5ec' }}>
       <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
 
       <div className={cn(

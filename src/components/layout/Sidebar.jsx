@@ -50,37 +50,37 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
         collapsed ? "w-[72px]" : "w-[280px]"
       )}
       style={{
-        background: 'linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%)',
-        borderRight: '1.5px solid #dbeafe',
-        boxShadow: '4px 0 24px rgba(30,58,95,0.08)',
+        background: 'linear-gradient(180deg, #ffffff 0%, #f5f7f0 100%)',
+        borderRight: '1.5px solid #d0dbb5',
+        boxShadow: '4px 0 24px rgba(74,92,42,0.08)',
       }}
     >
 
       {/* ── Brand Header ── */}
       <div className={cn(
-        "flex items-center px-4 py-[18px] border-b border-blue-100",
+        "flex items-center px-4 py-[18px] border-b",
         collapsed ? "justify-center" : "justify-between",
       )}>
         {!collapsed && (
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center shrink-0"
               style={{
-                background: 'linear-gradient(135deg, #1e3a5f 0%, #2d5282 100%)',
-                boxShadow: '0 4px 14px rgba(30,58,95,0.35)',
+                background: 'linear-gradient(135deg, #3a4820 0%, #4a5c2a 100%)',
+                boxShadow: '0 4px 14px rgba(74,92,42,0.35)',
               }}>
               <LogoIcon size={24} />
             </div>
             <div className="min-w-0">
-              <p className="font-black text-[14px] tracking-tight leading-none" style={{ color: '#0f2444' }}>Service FMS</p>
-              <p className="text-[10px] font-bold tracking-[0.15em] uppercase mt-1" style={{ color: '#3b82b0' }}>Enterprise</p>
+              <p className="font-black text-[14px] tracking-tight leading-none" style={{ color: '#3a4820' }}>Service FMS</p>
+              <p className="text-[10px] font-bold tracking-[0.15em] uppercase mt-1" style={{ color: '#7a9445' }}>Enterprise</p>
             </div>
           </div>
         )}
         {collapsed && (
           <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center"
             style={{
-              background: 'linear-gradient(135deg, #1e3a5f 0%, #2d5282 100%)',
-              boxShadow: '0 4px 14px rgba(30,58,95,0.30)',
+              background: 'linear-gradient(135deg, #3a4820 0%, #4a5c2a 100%)',
+              boxShadow: '0 4px 14px rgba(74,92,42,0.30)',
             }}>
             <LogoIcon size={24} />
           </div>
@@ -89,7 +89,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
           <button onClick={() => setCollapsed(true)}
             className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
             style={{ color: '#94a3b8' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.color = '#1e3a5f'; }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#f2f5ec'; e.currentTarget.style.color = '#3a4820'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}>
             <ChevronLeft size={16} />
           </button>
@@ -98,11 +98,11 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
 
       {/* Expand when collapsed */}
       {collapsed && (
-        <div className="flex justify-center py-2.5 border-b border-blue-100">
+        <div className="flex justify-center py-2.5 border-b" style={{ borderColor: '#d0dbb5' }}>
           <button onClick={() => setCollapsed(false)}
             className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
             style={{ color: '#94a3b8' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.color = '#1e3a5f'; }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#f2f5ec'; e.currentTarget.style.color = '#3a4820'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}>
             <ChevronRight size={16} />
           </button>
@@ -128,23 +128,23 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
                         collapsed ? "justify-center py-3 w-full" : "gap-3.5 px-3.5 py-[11px]",
                       )}
                         style={isActive ? {
-                          background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
-                          boxShadow: '0 2px 10px rgba(30,58,95,0.12)',
+                          background: 'linear-gradient(135deg, #e8edda 0%, #d0dbb5 100%)',
+                          boxShadow: '0 2px 10px rgba(74,92,42,0.12)',
                         } : {}}
-                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f0f7ff'; }}
+                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f2f5ec'; }}
                         onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
                       >
                         {/* Active left bar */}
                         {isActive && !collapsed && (
                           <div className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full"
-                            style={{ background: 'linear-gradient(180deg, #1e3a5f, #3b82b0)' }} />
+                            style={{ background: 'linear-gradient(180deg, #3a4820, #7a9445)' }} />
                         )}
 
                         <item.icon
                           size={20}
                           className="shrink-0 transition-colors duration-150"
                           style={{
-                            color: isActive ? '#1e3a5f' : '#94a3b8',
+                            color: isActive ? '#3a4820' : '#94a3b8',
                             marginLeft: !collapsed ? '4px' : '0',
                             marginRight: collapsed ? 'auto' : '0',
                             marginLeft: collapsed ? 'auto' : (isActive ? '4px' : '4px'),
@@ -153,7 +153,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
 
                         {!collapsed && (
                           <span className="text-[13.5px] font-semibold tracking-[-0.01em] transition-colors duration-150"
-                            style={{ color: isActive ? '#0f2444' : '#64748b' }}>
+                            style={{ color: isActive ? '#3a4820' : '#64748b' }}>
                             {item.label}
                           </span>
                         )}
@@ -168,27 +168,27 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
       </nav>
 
       {/* ── User Card + Logout ── */}
-      <div className="px-3 pb-4 pt-3 border-t border-blue-100">
+      <div className="px-3 pb-4 pt-3 border-t" style={{ borderColor: '#d0dbb5' }}>
 
         {/* User */}
         <div className={cn(
-          "flex items-center rounded-[12px] border border-blue-100 mb-2 transition-all",
+          "flex items-center rounded-[12px] border mb-2 transition-all",
           collapsed ? "justify-center p-2.5" : "gap-3 p-3",
-        )} style={{ background: '#f0f7ff' }}>
+        )} style={{ background: '#f2f5ec', borderColor: '#d0dbb5' }}>
           <div className="relative shrink-0">
             <img
               src={user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`}
               alt="avatar"
               className="rounded-[10px] object-cover"
-              style={{ width: 36, height: 36, border: '2px solid #bfdbfe' }}
+              style={{ width: 36, height: 36, border: '2px solid #d0dbb5' }}
             />
             <div className="absolute -bottom-0.5 -right-0.5 w-[11px] h-[11px] rounded-full border-[2px]"
-              style={{ background: '#34d399', borderColor: '#f0f7ff' }} />
+              style={{ background: '#34d399', borderColor: '#f2f5ec' }} />
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-bold truncate leading-tight" style={{ color: '#0f2444' }}>{user?.name}</p>
-              <p className="text-[10px] font-bold tracking-widest uppercase mt-0.5" style={{ color: '#3b82b0' }}>{user?.role}</p>
+              <p className="text-[13px] font-bold truncate leading-tight" style={{ color: '#3a4820' }}>{user?.name}</p>
+              <p className="text-[10px] font-bold tracking-widest uppercase mt-0.5" style={{ color: '#7a9445' }}>{user?.role}</p>
             </div>
           )}
         </div>
