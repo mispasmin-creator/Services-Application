@@ -345,11 +345,13 @@ const useDataStore = create((set, get) => ({
     for (let i = fullArray.length - 1; i >= 0; i--) {
       if (fullArray[i] !== null) { lastMatchIdx = i; break; }
     }
+    // Optimistic UI update
+    set(state => ({
+      offers: [...state.offers, { ...offer, sheetRowIndex: state.offers.length > 0 ? Math.max(...state.offers.map(o => o.sheetRowIndex)) + 1 : 2, timestamp: nowDateTime() }]
+    }));
+    
     const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? '' : v);
     const res = await get().saveRow('OFFER', 'insert', null, rowDataArray);
-    if (res.success) {
-      await get().fetchData();
-    }
     return res;
   },
 
@@ -357,9 +359,15 @@ const useDataStore = create((set, get) => ({
     const offer = get().offers.find(o => o.sheetRowIndex === rowIndex);
     if (!offer) throw new Error('Offer not found');
     const merged = { ...offer, ...updatedFields };
+    
+    // Optimistic UI update
+    set(state => ({
+      offers: state.offers.map(o => o.sheetRowIndex === rowIndex ? merged : o)
+    }));
+
     const headers = get().offerHeaders;
     const rowDataArray = headers.map(header => {
-      if (header === 'Timestamp') return merged.timestamp || nowDateTime();
+      if (header === 'Timestamp') return null; // do not overwrite timestamp
       if (header === 'OROffer No.') return merged.id;
       if (header === 'Firm Name') return merged.firmName;
       if (header === 'Vendor Name') return merged.vendor;
@@ -369,14 +377,11 @@ const useDataStore = create((set, get) => ({
       if (header === 'Is There An Offer') return merged.isOffer;
       if (header === 'Offer Copy') return merged.offerCopy;
       if (header === 'Amount To Be Paid') return merged.amountPaid;
-      if (header === 'Outstanding Amount') return '';  // formula column — do not overwrite
+      if (header === 'Outstanding Amount') return null;  // formula column — do not overwrite
       if (header === 'Status') return merged.status;
       return '';
     });
     const res = await get().saveRow('OFFER', 'update', rowIndex, rowDataArray);
-    if (res.success) {
-      await get().fetchData();
-    }
     return res;
   },
 
@@ -396,10 +401,12 @@ const useDataStore = create((set, get) => ({
       if (header === 'Service Location') return service.location;
       return '';
     });
+    // Optimistic UI update
+    set(state => ({
+      services: [...state.services, { ...service, sheetRowIndex: state.services.length > 0 ? Math.max(...state.services.map(s => s.sheetRowIndex)) + 1 : 2, timestamp: nowDateTime() }]
+    }));
+
     const res = await get().saveRow('SERVICE', 'insert', null, rowDataArray);
-    if (res.success) {
-      await get().fetchData();
-    }
     return res;
   },
 
@@ -407,10 +414,16 @@ const useDataStore = create((set, get) => ({
     const service = get().services.find(s => s.sheetRowIndex === rowIndex);
     if (!service) throw new Error('Service not found');
     const merged = { ...service, ...updatedFields };
+    
+    // Optimistic UI update
+    set(state => ({
+      services: state.services.map(s => s.sheetRowIndex === rowIndex ? merged : s)
+    }));
+
     const headers = get().serviceHeaders;
     const rowDataArray = headers.map(header => {
       const norm = (header || '').replace(/\s+/g, '');
-      if (header === 'Timestamp') return merged.timestamp || nowDateTime();
+      if (header === 'Timestamp') return null; // Do not overwrite timestamp
       if (header === 'Offer No.') return merged.offerNo;
       if (header === 'Service No.') return merged.id;
       if (header === 'Firm Name') return merged.firmName;
@@ -421,26 +434,22 @@ const useDataStore = create((set, get) => ({
       if (header === 'Vendor Name') return merged.vendor;
       if (header === 'Work Description') return merged.description;
       if (header === 'Service Location') return merged.location;
-      if (norm === 'Planned1') return merged.planned1;
+      if (norm.startsWith('Planned')) return null; // Do not overwrite formula columns
       if (norm === 'Actual1') return merged.actual1;
       if (norm === 'Delay1') return merged.delay1;
-      if (norm === 'Planned2') return merged.planned2;
       if (norm === 'Actual2') return merged.actual2;
       if (norm === 'Delay2') return merged.delay2;
       if (header === 'Payment Proof') return merged.paymentProof;
       if (header === 'Bill No.') return merged.billNo;
       if (header === 'Bill Copy') return merged.billCopy;
-      if (norm === 'Planned3') return merged.planned3;
       if (norm === 'Actual3') return merged.actual3;
       if (norm === 'Delay3') return merged.delay3;
       if (norm === 'Status3') return merged.status3;
       if (norm === 'Remarks3') return merged.remarks3;
-      if (norm === 'Planned4') return merged.planned4;
       if (norm === 'Actual4') return merged.actual4;
       if (norm === 'Delay4') return merged.delay4;
       if (norm === 'Status4') return merged.status4;
       if (norm === 'Remarks4') return merged.remarks4;
-      if (norm === 'Planned5') return merged.planned5;
       if (norm === 'Actual5') return merged.actual5;
       if (norm === 'Delay5') return merged.delay5;
       if (norm === 'Status5') return merged.status5;
@@ -449,41 +458,54 @@ const useDataStore = create((set, get) => ({
       return '';
     });
     const res = await get().saveRow('SERVICE', 'update', rowIndex, rowDataArray);
-    if (res.success) {
-      await get().fetchData();
-    }
     return res;
   },
 
   addUtility: async (utility) => {
     const headers = get().utilityHeaders;
+    const allowedHeaders = [
+      'Timestamp',
+      'UT-Utility No.', 'Utility No.',
+      'Firm Name',
+      'Person Name',
+      'Name Of User',
+      'Department',
+      'Group Head',
+      'Pay To',
+      'Bill Amount',
+      'Bill Image',
+      'Bill Date',
+      'Due Date',
+      'Remarks',
+      'TDS Deduction Amount'
+    ];
+
     const rowDataArray = headers.map(header => {
+      if (!allowedHeaders.includes(header)) return null;
+
       if (header === 'Timestamp') return nowDateTime();
       if (header === 'UT-Utility No.' || header === 'Utility No.') return utility.id;
       if (header === 'Firm Name') return utility.firmName || '';
-      if (header === 'Person Name') return utility.personName;
-      if (header === 'Name Of User') return utility.userName;
-      if (header === 'Department') return utility.department;
-      if (header === 'Group Head') return utility.groupHead;
-      if (header === 'Pay To') return utility.payTo;
-      if (header === 'Bill Amount') return utility.amount;
-      if (header === 'Bill Image') return utility.billImage;
-      if (header === 'Bill Date') return utility.billDate;
-      if (header === 'Due Date') return utility.dueDate;
+      if (header === 'Person Name') return utility.personName || '';
+      if (header === 'Name Of User') return utility.userName || '';
+      if (header === 'Department') return utility.department || '';
+      if (header === 'Group Head') return utility.groupHead || '';
+      if (header === 'Pay To') return utility.payTo || '';
+      if (header === 'Bill Amount') return utility.amount || 0;
+      if (header === 'Bill Image') return utility.billImage || '';
+      if (header === 'Bill Date') return utility.billDate || '';
+      if (header === 'Due Date') return utility.dueDate || '';
       if (header === 'Remarks') return utility.remarks || '';
       if (header === 'TDS Deduction Amount') return utility.tdsAmount || 0;
-      if (header === 'Amount To Be Paid') return utility.amountPaid || (utility.amount - (utility.tdsAmount || 0));
-      if (header === 'Outstanding Amount') return utility.outstanding || (utility.amount - (utility.tdsAmount || 0));
-      if (header === 'Status') return utility.status || 'Pending Approval';
-      if (header === 'Fms Name') return utility.fmsName || '';
-      if (header === 'Details') return utility.details || '';
-      if (header === 'Approval Attachment') return utility.approvalAttachment || '';
-      return '';
+      
+      return null;
     });
+    // Optimistic UI update
+    set(state => ({
+      utilities: [...state.utilities, { ...utility, sheetRowIndex: state.utilities.length > 0 ? Math.max(...state.utilities.map(u => u.sheetRowIndex)) + 1 : 2, timestamp: nowDateTime() }]
+    }));
+    
     const res = await get().saveRow('UTILITY', 'insert', null, rowDataArray);
-    if (res.success) {
-      await get().fetchData();
-    }
     return res;
   },
 
@@ -491,9 +513,15 @@ const useDataStore = create((set, get) => ({
     const utility = get().utilities.find(u => u.sheetRowIndex === rowIndex);
     if (!utility) throw new Error('Utility not found');
     const merged = { ...utility, ...updatedFields };
+    
+    // Optimistic UI update
+    set(state => ({
+      utilities: state.utilities.map(u => u.sheetRowIndex === rowIndex ? merged : u)
+    }));
+
     const headers = get().utilityHeaders;
     const rowDataArray = headers.map(header => {
-      if (header === 'Timestamp') return merged.timestamp || nowDateTime();
+      if (header === 'Timestamp') return null; // Do not overwrite timestamp
       if (header === 'UT-Utility No.' || header === 'Utility No.') return merged.id;
       if (header === 'Firm Name') return merged.firmName || '';
       if (header === 'Person Name') return merged.personName;
@@ -510,10 +538,9 @@ const useDataStore = create((set, get) => ({
       if (header === 'Amount To Be Paid') return merged.amountPaid || merged.amount;
       if (header === 'Outstanding Amount') return merged.outstanding;
       if (header === 'Status') return merged.status;
-      if (header === 'Planned 1') return merged.planned1;
+      if (header.startsWith('Planned')) return null; // Formula
       if (header === 'Actual 1') return merged.actual1;
       if (header === 'Delay 1') return merged.delay1;
-      if (header === 'Planned 2') return merged.planned2;
       if (header === 'Actual 2') return merged.actual2;
       if (header === 'Delay 2' || header === 'Dalay 2') return merged.delay2;
       if (header === 'Payment Form Link') return merged.paymentFormLink || '';
@@ -533,9 +560,6 @@ const useDataStore = create((set, get) => ({
       return '';
     });
     const res = await get().saveRow('UTILITY', 'update', rowIndex, rowDataArray);
-    if (res.success) {
-      await get().fetchData();
-    }
     return res;
   },
 

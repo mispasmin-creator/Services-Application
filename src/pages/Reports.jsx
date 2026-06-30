@@ -299,9 +299,9 @@ const Reports = () => {
           </div>
 
           {/* Pending Work Table */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-240px)]">
+            <div className="overflow-auto flex-1">
+            <table className="w-full text-left">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>

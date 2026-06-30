@@ -317,8 +317,8 @@ const Offers = () => {
           <p className="text-gray-400 text-sm">Fetching offers...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-240px)]">
+          <div className="overflow-auto flex-1">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
@@ -329,6 +329,8 @@ const Offers = () => {
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Amount To Be Paid</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Outstanding Amount</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Is There An Offer</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer Copy</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
@@ -349,6 +351,8 @@ const Offers = () => {
                     <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">{offer.description}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{offer.location}</td>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatCurrency(offer.amount)}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatCurrency(offer.amountPaid)}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatCurrency(offer.outstanding)}</td>
                     <td className="px-6 py-4">
                       <span className={cn(
                         "px-2.5 py-1 rounded-full text-xs font-bold inline-block",
@@ -399,7 +403,7 @@ const Offers = () => {
                 ))}
                 {filteredOffers.length === 0 && (
                   <tr>
-                    <td colSpan={11} className="px-6 py-10 text-center text-gray-400 text-sm">
+                    <td colSpan={13} className="px-6 py-10 text-center text-gray-400 text-sm">
                       No offers found.
                     </td>
                   </tr>

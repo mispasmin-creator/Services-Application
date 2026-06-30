@@ -4,10 +4,10 @@
    BRAND PALETTE  —  Olive Green (#4a5c2a)
 ════════════════════════════════════════════════ */
 :root {
-  --brand:         #4a5c2a;
-  --brand-dark:    #3a4820;
-  --brand-mid:     #5a7033;
-  --brand-light:   #7a9445;
+  --brand:         #91a76c;
+  --brand-dark:    #91a76c;
+  --brand-mid:     #91a76c;
+  --brand-light:   #91a76c;
   --brand-xlight:  #9ab85a;
   --brand-50:      #f5f7f0;
   --brand-100:     #e8edda;
@@ -161,28 +161,16 @@ table {
 }
 
 /* ════════════════════════════════════════════════
-   TABLE HEADER  —  deep olive premium
+   TABLE HEADER
 ════════════════════════════════════════════════ */
-thead tr {
-  background: linear-gradient(90deg, #3a4820 0%, #4a5c2a 40%, #506430 100%) !important;
-  border-bottom: 0 !important;
-}
 thead th {
-  color: rgba(255,255,255,0.80) !important;
-  letter-spacing: 0.09em !important;
-  font-size: 0.65rem !important;
-  font-weight: 800 !important;
-  padding-top: 14px !important;
-  padding-bottom: 14px !important;
-  text-transform: uppercase;
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 10;
   white-space: nowrap;
+  background-color: #f8fafc !important; /* matches gray-50 */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* separate header from body */
 }
-thead th:first-child { padding-left: 20px !important; }
-thead th:last-child  { padding-right: 20px !important; }
-
 /* ════════════════════════════════════════════════
    TABLE ROWS
 ════════════════════════════════════════════════ */

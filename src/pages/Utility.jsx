@@ -459,15 +459,14 @@ const Utility = () => {
     }
   };
 
-  // Bulk Approve Handler
   const handleBulkApprove = async () => {
     setIsSaving(true);
     const pendingApprovalRows = utilities.filter(
-      u => selectedRows.includes(u.sheetRowIndex) && u.status === 'Pending Approval'
+      u => selectedRows.includes(u.sheetRowIndex)
     );
 
     if (pendingApprovalRows.length === 0) {
-      alert('No selected rows are eligible for bulk approval (must be in "Pending Approval" status).');
+      alert('No selected rows are eligible for bulk approval.');
       setIsSaving(false);
       setIsBulkApproveModalOpen(false);
       return;
@@ -563,16 +562,17 @@ const Utility = () => {
   // Metrics calculation
   const metrics = (() => {
     const totalExpenses = utilities.reduce((sum, u) => sum + u.amount, 0);
-    const pendingApproval = utilities.filter(u => u.status === 'Pending Approval').length;
-    const approved = utilities.filter(u => u.status === 'Approved').length;
+    const pendingCreation = utilities.filter(u => u.status?.toLowerCase().includes('pending')).length;
+    const pendingApproval = utilities.filter(u => !!u.planned1 && !u.actual1).length;
+    const pendingTally = utilities.filter(u => !!u.planned2 && !u.actual2).length;
     const completed = utilities.filter(u => u.status === 'Completed').length;
-    return { totalExpenses, pendingApproval, approved, completed };
+    return { totalExpenses, pendingCreation, pendingApproval, pendingTally, completed };
   })();
 
   const utilityTabsConfig = [
-    { id: 'create', label: 'Utility Entries', count: utilities.length, colorClass: 'bg-gray-200 text-gray-800' },
+    { id: 'create', label: 'Utility Entries', count: metrics.pendingCreation, colorClass: 'bg-gray-200 text-gray-800' },
     { id: 'approval', label: 'Payment Approval', count: metrics.pendingApproval, colorClass: 'bg-amber-100 text-amber-800' },
-    { id: 'payment', label: 'Tally Entry', count: metrics.approved, colorClass: 'bg-indigo-100 text-indigo-800' },
+    { id: 'payment', label: 'Tally Entry', count: metrics.pendingTally, colorClass: 'bg-indigo-100 text-indigo-800' },
     { id: 'completed', label: 'Completed', count: metrics.completed, colorClass: 'bg-emerald-100 text-emerald-800' }
   ];
   const visibleTabs = getAllowedTabs(currentUser, 'Utility', utilityTabsConfig);
@@ -587,10 +587,12 @@ const Utility = () => {
   // Filter & Search Logic
   const filteredUtilities = utilities.filter(u => {
     // Tab stage filter
-    if (activeTab === 'approval') {
-      if (u.status !== 'Pending Approval') return false;
+    if (activeTab === 'create') {
+      if (!u.status?.toLowerCase().includes('pending')) return false;
+    } else if (activeTab === 'approval') {
+      if (!u.planned1 || !!u.actual1) return false;
     } else if (activeTab === 'payment') {
-      if (u.status !== 'Approved') return false;
+      if (!u.planned2 || !!u.actual2) return false;
     } else if (activeTab === 'completed') {
       if (u.status !== 'Completed') return false;
     }
@@ -800,12 +802,12 @@ const Utility = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto pb-12">
+    <div className="flex flex-col h-screen max-w-[1600px] mx-auto pb-4 space-y-6">
       {/* Header section with modern design */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-gray-200 text-gray-900 p-6 rounded-3xl shadow-sm">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">Utility Expenses Workflow</h1>
-          <p className="text-gray-500 mt-1.5 text-sm font-medium">Verify bill generation, process management approvals, and entry payments in tally.</p>
+          <p className="text-gray-500 mt-1.5 text-sm font-medium"></p>
         </div>
         <button 
           onClick={openCreateModal}
@@ -876,7 +878,7 @@ const Utility = () => {
       </div>
 
       {/* Professional Data Table Component */}
-      <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden flex flex-col flex-1 min-h-0">
         
         {/* Datatable Toolbar */}
         <div className="p-5 border-b border-gray-200 bg-gray-50/50 space-y-4">
@@ -1058,12 +1060,12 @@ const Utility = () => {
             <p className="text-gray-400 text-sm font-semibold">Fetching utility records from Sheets...</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-auto flex-1">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  {/* Selection Checkbox */}
-                  {(activeTab === 'approval' || activeTab === 'payment') && (
+                  {/* Selection Checkbox (Bulk) */}
+                  {(activeTab === 'payment' || activeTab === 'approval') && (
                     <th className="w-12 px-6 py-4">
                       <input 
                         type="checkbox" 
@@ -1076,153 +1078,63 @@ const Utility = () => {
                       />
                     </th>
                   )}
-                  
-                  {/* Utility Number */}
-                  <th 
-                    onClick={() => handleSort('id')} 
-                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Utility No.</span>
-                      {sortColumn === 'id' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
-                    </div>
-                  </th>
 
-                  {/* Firm Name */}
-                  <th 
-                    onClick={() => handleSort('firmName')} 
-                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Firm Name</span>
-                      {sortColumn === 'firmName' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
-                    </div>
+                  {activeTab === 'create' && (
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Timestamp</th>
+                  )}
+                  <th onClick={() => handleSort('id')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-1"><span>Utility No.</span>{sortColumn === 'id' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-
-                  {/* Person Name */}
-                  <th 
-                    onClick={() => handleSort('personName')} 
-                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Person Name</span>
-                      {sortColumn === 'personName' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
-                    </div>
+                  <th onClick={() => handleSort('firmName')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-1"><span>Firm Name</span>{sortColumn === 'firmName' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-
-                  {/* Department */}
-                  <th 
-                    onClick={() => handleSort('department')} 
-                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Department</span>
-                      {sortColumn === 'department' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
-                    </div>
+                  <th onClick={() => handleSort('personName')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-1"><span>Person Name</span>{sortColumn === 'personName' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-
-                  {/* Group Head */}
-                  <th 
-                    onClick={() => handleSort('groupHead')} 
-                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Group Head</span>
-                      {sortColumn === 'groupHead' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
-                    </div>
+                  {activeTab === 'create' && (
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer">Name Of User</th>
+                  )}
+                  <th onClick={() => handleSort('department')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-1"><span>Department</span>{sortColumn === 'department' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-
-                  {/* Pay To */}
-                  <th 
-                    onClick={() => handleSort('payTo')} 
-                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Pay To</span>
-                      {sortColumn === 'payTo' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
-                    </div>
+                  <th onClick={() => handleSort('groupHead')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-1"><span>Group Head</span>{sortColumn === 'groupHead' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-
-                  {/* Bill Amount */}
-                  <th 
-                    onClick={() => handleSort('amount')} 
-                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right"
-                  >
-                    <div className="flex items-center gap-1 justify-end">
-                      <span>Bill Amount</span>
-                      {sortColumn === 'amount' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
-                    </div>
+                  <th onClick={() => handleSort('payTo')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-1"><span>Pay To</span>{sortColumn === 'payTo' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-
-                  {/* TDS Amount */}
-                  <th 
-                    onClick={() => handleSort('tdsAmount')} 
-                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right"
-                  >
-                    <div className="flex items-center gap-1 justify-end">
-                      <span>TDS Amount</span>
-                      {sortColumn === 'tdsAmount' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
-                    </div>
+                  <th onClick={() => handleSort('amount')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right">
+                    <div className="flex items-center gap-1 justify-end"><span>Bill Amount</span>{sortColumn === 'amount' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-
-                  {/* Net Payable */}
-                  <th 
-                    onClick={() => handleSort('amountPaid')} 
-                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right"
-                  >
-                    <div className="flex items-center gap-1 justify-end">
-                      <span>Net Payable</span>
-                      {sortColumn === 'amountPaid' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
-                    </div>
+                  {activeTab === 'create' && (
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Bill Image</th>
+                  )}
+                  {activeTab !== 'create' && (
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Bill Copy</th>
+                  )}
+                  <th onClick={() => handleSort('billDate')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-1"><span>Bill Date</span>{sortColumn === 'billDate' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-
-                  {/* Bill Date */}
-                  <th 
-                    onClick={() => handleSort('billDate')} 
-                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Bill Date</span>
-                      {sortColumn === 'billDate' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
-                    </div>
+                  <th onClick={() => handleSort('dueDate')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-1"><span>Due Date</span>{sortColumn === 'dueDate' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-
-                  {/* Due Date */}
-                  <th 
-                    onClick={() => handleSort('dueDate')} 
-                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Due Date</span>
-                      {sortColumn === 'dueDate' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
-                    </div>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Remarks</th>
+                  <th onClick={() => handleSort('tdsAmount')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right">
+                    <div className="flex items-center gap-1 justify-end"><span>TDS Amount</span>{sortColumn === 'tdsAmount' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-
-                  {/* Bill Copy */}
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Bill Copy
+                  <th onClick={() => handleSort('amountPaid')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right">
+                    <div className="flex items-center gap-1 justify-end"><span>Amount To Be Paid</span>{sortColumn === 'amountPaid' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-
-                  {/* Remarks */}
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Remarks
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Outstanding Amount</th>
+                  <th onClick={() => handleSort('status')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-1"><span>Status</span>{sortColumn === 'status' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-
-                  {/* Status */}
-                  <th 
-                    onClick={() => handleSort('status')} 
-                    className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Status</span>
-                      {sortColumn === 'status' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
-                    </div>
-                  </th>
-
-                  {/* Actions */}
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
-                    Actions
-                  </th>
+                  {activeTab === 'approval' && (
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Payment Form Link</th>
+                  )}
+                  {activeTab !== 'create' && activeTab !== 'approval' && (
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                  )}
                 </tr>
               </thead>
               
@@ -1238,115 +1150,64 @@ const Utility = () => {
                         isChecked && "bg-gray-100"
                       )}
                     >
-                      {/* Selection checkbox */}
-                      {(activeTab === 'approval' || activeTab === 'payment') && (
+                      {/* Bulk Selection checkbox */}
+                      {(activeTab === 'payment' || activeTab === 'approval') && (
                         <td className="px-6 py-4">
-                          <input 
-                            type="checkbox" 
-                            className="rounded-md border-gray-300 focus:ring-gray-900/20 w-4 h-4 cursor-pointer"
-                            checked={isChecked}
-                            onChange={(e) => handleSelectRow(e, utility.sheetRowIndex)}
-                          />
+                          <input type="checkbox" className="rounded-md border-gray-300 focus:ring-gray-900/20 w-4 h-4 cursor-pointer" checked={isChecked} onChange={(e) => handleSelectRow(e, utility.sheetRowIndex)} />
                         </td>
                       )}
-                      
-                      {/* ID with design */}
+
+                      {activeTab === 'create' && (
+                        <td className="px-6 py-4 text-gray-500 font-medium whitespace-nowrap">{utility.timestamp || '—'}</td>
+                      )}
                       <td className="px-6 py-4 font-bold text-gray-950 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <Zap size={14} className="text-gray-700" />
-                          <span>{utility.id}</span>
-                        </div>
+                        <div className="flex items-center gap-1.5"><Zap size={14} className="text-gray-700" /><span>{utility.id}</span></div>
                       </td>
-
-                      {/* Firm Name */}
-                      <td className="px-6 py-4 text-gray-800 font-medium whitespace-nowrap">
-                        {utility.firmName || '—'}
-                      </td>
-
-                      {/* Person Name */}
-                      <td className="px-6 py-4 text-gray-800 font-medium whitespace-nowrap">
-                        {utility.personName}
-                      </td>
-
-                      {/* Department */}
-                      <td className="px-6 py-4 text-gray-600 font-medium whitespace-nowrap">
-                        {utility.department || '—'}
-                      </td>
-
-                      {/* Group Head */}
-                      <td className="px-6 py-4 text-gray-600 font-medium whitespace-nowrap">
-                        {utility.groupHead || '—'}
-                      </td>
-
-                      {/* Pay To */}
-                      <td className="px-6 py-4 font-medium text-gray-700 whitespace-nowrap">
-                        {utility.payTo}
-                      </td>
-
-                      {/* Bill Amount */}
-                      <td className="px-6 py-4 text-right font-bold text-gray-900 whitespace-nowrap">
-                        {formatCurrency(utility.amount)}
-                      </td>
-
-                      {/* TDS Amount */}
-                      <td className="px-6 py-4 text-right font-bold text-rose-600 whitespace-nowrap">
-                        {utility.tdsAmount > 0 ? `-${formatCurrency(utility.tdsAmount)}` : 'No TDS'}
-                      </td>
-
-                      {/* Net Amount */}
-                      <td className="px-6 py-4 text-right font-bold text-emerald-700 whitespace-nowrap">
-                        {formatCurrency(utility.amountPaid)}
-                      </td>
-
-                      {/* Bill Date */}
-                      <td className="px-6 py-4 text-gray-500 font-medium whitespace-nowrap">
-                        {utility.billDate ? utility.billDate.split('T')[0] : '—'}
-                      </td>
-
-                      {/* Due Date */}
-                      <td className="px-6 py-4 text-gray-500 font-medium whitespace-nowrap">
-                        {utility.dueDate ? utility.dueDate.split('T')[0] : '—'}
-                      </td>
-
-                      {/* Bill Copy */}
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 text-gray-800 font-medium whitespace-nowrap">{utility.firmName || '—'}</td>
+                      <td className="px-6 py-4 text-gray-800 font-medium whitespace-nowrap">{utility.personName || '—'}</td>
+                      {activeTab === 'create' && (
+                        <td className="px-6 py-4 text-gray-800 font-medium whitespace-nowrap">{utility.userName || '—'}</td>
+                      )}
+                      <td className="px-6 py-4 text-gray-600 font-medium whitespace-nowrap">{utility.department || '—'}</td>
+                      <td className="px-6 py-4 text-gray-600 font-medium whitespace-nowrap">{utility.groupHead || '—'}</td>
+                      <td className="px-6 py-4 font-medium text-gray-700 whitespace-nowrap">{utility.payTo}</td>
+                      <td className="px-6 py-4 text-right font-bold text-gray-900 whitespace-nowrap">{formatCurrency(utility.amount)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
                         {utility.billImage ? (
-                          <a 
-                            href={utility.billImage} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            className="inline-flex items-center gap-1 text-gray-700 hover:text-gray-900 font-bold hover:underline"
-                          >
-                            <Paperclip size={13} />
-                            <span>View Bill</span>
+                          <a href={utility.billImage} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-gray-700 hover:text-gray-900 font-bold hover:underline">
+                            <Paperclip size={13} /><span>View</span>
                           </a>
-                        ) : (
-                          <span className="text-gray-400 italic text-xs">No File</span>
-                        )}
+                        ) : (<span className="text-gray-400 italic text-xs">No File</span>)}
                       </td>
-
-                      {/* Remarks */}
-                      <td className="px-6 py-4 text-gray-500 max-w-[180px] truncate whitespace-nowrap" title={utility.remarks}>
-                        {utility.remarks || '—'}
-                      </td>
-
-                      {/* Status pill badge */}
+                      <td className="px-6 py-4 text-gray-500 font-medium whitespace-nowrap">{utility.billDate ? utility.billDate.split('T')[0] : '—'}</td>
+                      <td className="px-6 py-4 text-gray-500 font-medium whitespace-nowrap">{utility.dueDate ? utility.dueDate.split('T')[0] : '—'}</td>
+                      <td className="px-6 py-4 text-gray-500 max-w-[180px] truncate whitespace-nowrap" title={utility.remarks}>{utility.remarks || '—'}</td>
+                      <td className="px-6 py-4 text-right font-bold text-rose-600 whitespace-nowrap">{utility.tdsAmount > 0 ? `-${formatCurrency(utility.tdsAmount)}` : 'No TDS'}</td>
+                      <td className="px-6 py-4 text-right font-bold text-emerald-700 whitespace-nowrap">{formatCurrency(utility.amountPaid)}</td>
+                      <td className="px-6 py-4 text-right font-bold text-amber-600 whitespace-nowrap">{formatCurrency(utility.outstanding)}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={cn(
                           "px-2.5 py-1 rounded-full text-xs font-bold inline-block text-center border min-w-[110px]",
                           utility.status === 'Completed' && "bg-emerald-50 text-emerald-700 border-emerald-100",
                           utility.status === 'Approved' && "bg-indigo-50 text-indigo-700 border-indigo-100",
-                          utility.status === 'Pending Approval' && "bg-amber-50 text-amber-700 border-amber-100",
+                          utility.status?.includes('Pending') && "bg-amber-50 text-amber-700 border-amber-100",
                           utility.status === 'Rejected' && "bg-rose-50 text-rose-700 border-rose-100",
                           utility.status === 'On Hold' && "bg-gray-100 text-gray-700 border-gray-200"
-                        )}>
-                          {utility.status}
-                        </span>
+                        )}>{utility.status}</span>
                       </td>
-
+                      {activeTab === 'approval' && (
+                        <td className="px-6 py-4 text-gray-500 font-medium whitespace-nowrap">
+                          {utility.paymentFormLink ? (
+                            <a href={utility.paymentFormLink} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">Link</a>
+                          ) : '—'}
+                        </td>
+                      )}
+                      
                       {/* Row Action buttons */}
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end items-center gap-2">
+                      {activeTab !== 'create' && activeTab !== 'approval' && (
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end items-center gap-2">
+
                           
                           {/* Step 2 Approval Action */}
                           {utility.status === 'Pending Approval' && (
@@ -1401,7 +1262,8 @@ const Utility = () => {
                             </button>
                           )}
                         </div>
-                      </td>
+                                              </td>
+                      )}
                     </tr>
                   );
                 })}

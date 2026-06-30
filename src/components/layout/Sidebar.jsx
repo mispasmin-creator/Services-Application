@@ -25,16 +25,16 @@ const LogoIcon = ({ size = 28 }) => (
 );
 
 const SectionLabel = ({ label }) => (
-  <p className="px-4 pt-5 pb-1.5 text-[9.5px] font-black uppercase tracking-[0.18em]"
+  <p className="px-4 pt-5 pb-1.5 text-[11px] font-black uppercase tracking-[0.18em]"
     style={{ color: '#94a3b8' }}>
     {label}
   </p>
 );
 
 const sections = [
-  { key: 'main',    label: 'Main' },
-  { key: 'finance', label: 'Finance' },
-  { key: 'admin',   label: 'Admin' },
+  { key: 'main',    label: '' },
+  { key: 'finance', label: '' },
+  { key: 'admin',   label: '' },
 ];
 
 const Sidebar = ({ collapsed, setCollapsed }) => {
@@ -47,7 +47,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
     <aside
       className={cn(
         "fixed left-0 top-0 h-screen z-50 flex flex-col transition-all duration-300 select-none",
-        collapsed ? "w-[72px]" : "w-[280px]"
+        collapsed ? "w-[72px]" : "w-[260px]"
       )}
       style={{
         background: 'linear-gradient(180deg, #ffffff 0%, #f5f7f0 100%)',
@@ -71,8 +71,8 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
               <LogoIcon size={24} />
             </div>
             <div className="min-w-0">
-              <p className="font-black text-[14px] tracking-tight leading-none" style={{ color: '#3a4820' }}>Service FMS</p>
-              <p className="text-[10px] font-bold tracking-[0.15em] uppercase mt-1" style={{ color: '#7a9445' }}>Enterprise</p>
+              <p className="font-black text-[16px] tracking-tight leading-none" style={{ color: '#3a4820' }}>Service FMS</p>
+              <p className="text-[11px] font-bold tracking-[0.15em] uppercase mt-1" style={{ color: '#7a9445' }}></p>
             </div>
           </div>
         )}
@@ -125,7 +125,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
                     {({ isActive }) => (
                       <div className={cn(
                         "relative flex items-center rounded-[10px] transition-all duration-200 overflow-hidden cursor-pointer",
-                        collapsed ? "justify-center py-3 w-full" : "gap-3.5 px-3.5 py-[11px]",
+                        collapsed ? "justify-center py-3 w-full" : "gap-4 px-4 py-[12px]",
                       )}
                         style={isActive ? {
                           background: 'linear-gradient(135deg, #e8edda 0%, #d0dbb5 100%)',
@@ -141,7 +141,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
                         )}
 
                         <item.icon
-                          size={20}
+                          size={22}
                           className="shrink-0 transition-colors duration-150"
                           style={{
                             color: isActive ? '#3a4820' : '#94a3b8',
@@ -152,7 +152,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
                         />
 
                         {!collapsed && (
-                          <span className="text-[13.5px] font-semibold tracking-[-0.01em] transition-colors duration-150"
+                          <span className="text-[15px] font-semibold tracking-[-0.01em] transition-colors duration-150"
                             style={{ color: isActive ? '#3a4820' : '#64748b' }}>
                             {item.label}
                           </span>
@@ -187,8 +187,8 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-bold truncate leading-tight" style={{ color: '#3a4820' }}>{user?.name}</p>
-              <p className="text-[10px] font-bold tracking-widest uppercase mt-0.5" style={{ color: '#7a9445' }}>{user?.role}</p>
+              <p className="text-[14px] font-bold truncate leading-tight" style={{ color: '#3a4820' }}>{user?.name}</p>
+              <p className="text-[11px] font-bold tracking-widest uppercase mt-0.5" style={{ color: '#7a9445' }}>{user?.role}</p>
             </div>
           )}
         </div>
@@ -203,8 +203,8 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
           onMouseEnter={e => { e.currentTarget.style.background = '#fff1f2'; e.currentTarget.style.color = '#ef4444'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}
         >
-          <LogOut size={18} className="shrink-0" />
-          {!collapsed && <span className="text-[13px] font-semibold">Logout</span>}
+          <LogOut size={20} className="shrink-0" />
+          {!collapsed && <span className="text-[14px] font-semibold">Logout</span>}
         </button>
       </div>
     </aside>
