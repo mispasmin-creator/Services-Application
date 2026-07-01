@@ -1129,9 +1129,13 @@ const Utility = () => {
                   <th onClick={() => handleSort('status')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-1"><span>Status</span>{sortColumn === 'status' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-                  {activeTab === 'approval' && (
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Payment Form Link</th>
-                  )}
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Planned 1</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Actual 1</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Delay 1</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Planned 2</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Actual 2</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Delay 2</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Payment Form</th>
                   {activeTab !== 'create' && activeTab !== 'approval' && (
                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                   )}
@@ -1195,14 +1199,44 @@ const Utility = () => {
                           utility.status === 'On Hold' && "bg-gray-100 text-gray-700 border-gray-200"
                         )}>{utility.status}</span>
                       </td>
-                      {activeTab === 'approval' && (
-                        <td className="px-6 py-4 text-gray-500 font-medium whitespace-nowrap">
-                          {utility.paymentFormLink ? (
-                            <a href={utility.paymentFormLink} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">Link</a>
-                          ) : '—'}
-                        </td>
-                      )}
-                      
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {utility.planned1 ? (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">{utility.planned1}</span>
+                        ) : <span className="text-gray-400 text-xs">—</span>}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {utility.actual1 ? (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">{utility.actual1}</span>
+                        ) : <span className="text-gray-400 text-xs">—</span>}
+                      </td>
+                      <td className="px-6 py-4 text-center whitespace-nowrap">
+                        {utility.delay1 ? (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-100">{utility.delay1}d</span>
+                        ) : <span className="text-gray-400 text-xs">—</span>}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {utility.planned2 ? (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">{utility.planned2}</span>
+                        ) : <span className="text-gray-400 text-xs">—</span>}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {utility.actual2 ? (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">{utility.actual2}</span>
+                        ) : <span className="text-gray-400 text-xs">—</span>}
+                      </td>
+                      <td className="px-6 py-4 text-center whitespace-nowrap">
+                        {utility.delay2 ? (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-100">{utility.delay2}d</span>
+                        ) : <span className="text-gray-400 text-xs">—</span>}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        {utility.paymentFormLink ? (
+                          <a href={utility.paymentFormLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-bold hover:underline text-xs">
+                            <Paperclip size={12} /><span>Link</span>
+                          </a>
+                        ) : <span className="text-gray-400 text-xs">—</span>}
+                      </td>
+
                       {/* Row Action buttons */}
                       {activeTab !== 'create' && activeTab !== 'approval' && (
                         <td className="px-6 py-4 text-right">
