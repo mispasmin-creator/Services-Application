@@ -85,7 +85,7 @@ const Services = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Service Execution</h1>
-        <p className="text-gray-500">Manage and track service orders execution workflows.</p>
+        <p className="text-gray-500"></p>
       </div>
 
       {/* Tabs */}

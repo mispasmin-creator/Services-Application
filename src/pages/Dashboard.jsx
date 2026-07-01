@@ -160,7 +160,7 @@ const Dashboard = () => {
         <div>
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-0.5">{today}</p>
           <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: NAV }}>{greeting} 👋</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Here's your business overview — live from Google Sheets.</p>
+          <p className="text-sm text-gray-500 mt-0.5"></p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-blue-100 bg-blue-50">
