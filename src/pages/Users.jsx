@@ -261,90 +261,96 @@ const Users = () => {
         </div>
       </div>
 
-      {/* User Matrix */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredUsers.map((user) => (
-          <div key={user.id} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all group relative overflow-hidden">
-            
-            {/* Operations Dropdown / Edit button */}
-            <button 
-              onClick={() => handleOpenEditModal(user)}
-              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 z-10"
-              title="Edit configuration"
-            >
-              <Edit2 size={16} />
-            </button>
-            
-            {/* Context Marker Stripe */}
-            <div className={`absolute top-0 left-0 right-0 h-1 transition-all group-hover:h-1.5 ${user.role.toLowerCase() === 'admin' ? 'bg-gray-900' : 'bg-gray-500'}`} />
-
-            <div className="flex items-center gap-4 mb-6 mt-2">
-              <div className="relative">
-                <img 
-                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} 
-                  alt={user.name}
-                  className="w-16 h-16 rounded-2xl bg-gray-50 border border-gray-200 p-0.5 shadow-sm object-cover"
-                />
-                {user.role.toLowerCase() === 'admin' && (
-                  <div className="absolute -top-2 -right-2 bg-gray-900 text-white p-1 rounded-lg shadow-md border-2 border-white">
-                    <Shield size={10} fill="currentColor" />
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-gray-900 text-lg truncate">
-                  {user.name}
-                </h3>
-                <p className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md inline-block mt-0.5 uppercase tracking-wider">
-                  @{user.username}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3 py-2">
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400">
-                  <Mail size={14} />
-                </div>
-                <span className="truncate">{user.email}</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400">
-                  <Lock size={14} />
-                </div>
-                <span className="font-mono text-xs text-gray-400">••••••••</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400">
-                  <Building2 size={14} />
-                </div>
-                <span className="font-medium text-gray-800">{user.firmName || 'All'}</span>
-              </div>
-            </div>
-
-            <div className="mt-6 pt-5 border-t border-dashed border-gray-200 flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Privileges</span>
-                <span className="text-sm font-bold text-gray-800">{user.role}</span>
-              </div>
-              <Badge variant={user.role.toLowerCase() === 'admin' ? 'info' : 'default'} className="font-bold">
-                {user.role.toLowerCase() === 'admin' ? 'Full Admin' : 'Verified User'}
-              </Badge>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {filteredUsers.length === 0 && !isLoading && (
-        <div className="text-center py-20 bg-gray-50/50 border-2 border-dashed border-gray-200 rounded-3xl">
-          <div className="w-16 h-16 bg-white rounded-full mx-auto flex items-center justify-center shadow-sm border border-gray-200 mb-4 text-gray-300">
-            <UserCircle size={32} />
-          </div>
-          <h3 className="text-xl font-bold text-gray-900">Zero results mapped</h3>
-          <p className="text-gray-500 mt-1">Refine your search filters or parameters.</p>
+      {/* User Table */}
+      <div className="bg-white rounded-2xl border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">User</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Password</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Firm</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Pages</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredUsers.map((user) => (
+                <tr key={user.id} className="hover:bg-gray-50/50 transition-colors group text-sm">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-3">
+                      <div className="relative shrink-0">
+                        <img
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`}
+                          alt={user.name}
+                          className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-200 p-0.5 object-cover"
+                        />
+                        {user.role.toLowerCase() === 'admin' && (
+                          <div className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white p-0.5 rounded-md border border-white">
+                            <Shield size={8} fill="currentColor" />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-900">{user.name}</p>
+                        <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">@{user.username}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <Mail size={13} className="text-gray-400 shrink-0" />
+                      <span>{user.email}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <Lock size={13} className="text-gray-400 shrink-0" />
+                      <span className="font-mono text-xs text-gray-400 tracking-widest">••••••••</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <Building2 size={13} className="text-gray-400 shrink-0" />
+                      <span className="font-medium text-gray-700">{user.firmName || 'All'}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 max-w-[200px]">
+                    <span className="text-xs text-gray-500 truncate block" title={user.pages}>{user.pages || 'All'}</span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <Badge variant={user.role.toLowerCase() === 'admin' ? 'info' : 'default'} className="font-bold">
+                      {user.role.toLowerCase() === 'admin' ? 'Full Admin' : 'Verified User'}
+                    </Badge>
+                  </td>
+                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => handleOpenEditModal(user)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-gray-900 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      title="Edit user"
+                    >
+                      <Edit2 size={13} />
+                      <span>Edit</span>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+
+        {filteredUsers.length === 0 && !isLoading && (
+          <div className="text-center py-16">
+            <div className="w-14 h-14 bg-gray-50 rounded-full mx-auto flex items-center justify-center border border-gray-200 mb-4 text-gray-300">
+              <UserCircle size={28} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900">No users found</h3>
+            <p className="text-gray-500 text-sm mt-1">Refine your search or add a new user.</p>
+          </div>
+        )}
+      </div>
 
       {/* Modal Implementation with Framer Motion */}
       <AnimatePresence>
