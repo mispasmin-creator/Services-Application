@@ -367,7 +367,7 @@ const useDataStore = create((set, get) => ({
 
     const headers = get().offerHeaders;
     const rowDataArray = headers.map(header => {
-      if (header === 'Timestamp') return null; // do not overwrite timestamp
+      if (header === 'Timestamp') return merged.timestamp || nowDateTime(); // re-write existing timestamp so it never gets blanked out
       if (header === 'OROffer No.') return merged.id;
       if (header === 'Firm Name') return merged.firmName;
       if (header === 'Vendor Name') return merged.vendor;
@@ -387,7 +387,7 @@ const useDataStore = create((set, get) => ({
 
   addService: async (service) => {
     const headers = get().serviceHeaders;
-    const rowDataArray = headers.map(header => {
+    const fullArray = headers.map(header => {
       if (header === 'Timestamp') return nowDateTime();
       if (header === 'Offer No.') return service.offerNo;
       if (header === 'Service No.') return service.id;
@@ -399,8 +399,16 @@ const useDataStore = create((set, get) => ({
       if (header === 'Vendor Name') return service.vendor;
       if (header === 'Work Description') return service.description;
       if (header === 'Service Location') return service.location;
-      return '';
+      return null;
     });
+    // Everything after Service Location (Planned/Actual/Delay, bills, payments, tally...) is
+    // filled in step-by-step later via updateService — trim the array so creation never
+    // touches those cells, otherwise it blanks out the Planned formula columns.
+    let lastMatchIdx = -1;
+    for (let i = fullArray.length - 1; i >= 0; i--) {
+      if (fullArray[i] !== null) { lastMatchIdx = i; break; }
+    }
+    const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? '' : v);
     // Optimistic UI update
     set(state => ({
       services: [...state.services, { ...service, sheetRowIndex: state.services.length > 0 ? Math.max(...state.services.map(s => s.sheetRowIndex)) + 1 : 2, timestamp: nowDateTime() }]
@@ -423,7 +431,7 @@ const useDataStore = create((set, get) => ({
     const headers = get().serviceHeaders;
     const rowDataArray = headers.map(header => {
       const norm = (header || '').replace(/\s+/g, '');
-      if (header === 'Timestamp') return null; // Do not overwrite timestamp
+      if (header === 'Timestamp') return merged.timestamp || nowDateTime(); // re-write existing timestamp so it never gets blanked out
       if (header === 'Offer No.') return merged.offerNo;
       if (header === 'Service No.') return merged.id;
       if (header === 'Firm Name') return merged.firmName;
@@ -480,7 +488,7 @@ const useDataStore = create((set, get) => ({
       'TDS Deduction Amount'
     ];
 
-    const rowDataArray = headers.map(header => {
+    const fullArray = headers.map(header => {
       if (!allowedHeaders.includes(header)) return null;
 
       if (header === 'Timestamp') return nowDateTime();
@@ -497,9 +505,17 @@ const useDataStore = create((set, get) => ({
       if (header === 'Due Date') return utility.dueDate || '';
       if (header === 'Remarks') return utility.remarks || '';
       if (header === 'TDS Deduction Amount') return utility.tdsAmount || 0;
-      
+
       return null;
     });
+    // Everything after the last creation-time field (Planned/Actual approval + payment
+    // columns) is filled in step-by-step later via updateUtility — trim the array so
+    // creation never touches those cells, otherwise it blanks out the Planned formula columns.
+    let lastMatchIdx = -1;
+    for (let i = fullArray.length - 1; i >= 0; i--) {
+      if (fullArray[i] !== null) { lastMatchIdx = i; break; }
+    }
+    const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? '' : v);
     // Optimistic UI update
     set(state => ({
       utilities: [...state.utilities, { ...utility, sheetRowIndex: state.utilities.length > 0 ? Math.max(...state.utilities.map(u => u.sheetRowIndex)) + 1 : 2, timestamp: nowDateTime() }]
@@ -521,7 +537,7 @@ const useDataStore = create((set, get) => ({
 
     const headers = get().utilityHeaders;
     const rowDataArray = headers.map(header => {
-      if (header === 'Timestamp') return null; // Do not overwrite timestamp
+      if (header === 'Timestamp') return merged.timestamp || nowDateTime(); // re-write existing timestamp so it never gets blanked out
       if (header === 'UT-Utility No.' || header === 'Utility No.') return merged.id;
       if (header === 'Firm Name') return merged.firmName || '';
       if (header === 'Person Name') return merged.personName;

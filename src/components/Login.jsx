@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Lock, User } from 'lucide-react';
+import { Lock, User, Eye, EyeOff } from 'lucide-react';
 
 const LogoMark = ({ size = 48 }) => (
-  <img src="/logo.png" alt="logo" width={size} height={size} style={{ objectFit: 'contain' }} />
+  <img src="/logo.png" alt="logo" width={size} height={size} style={{ objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
 );
 
 const Login = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -61,17 +62,29 @@ const Login = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#f2f5ec]">
-      <div className="w-full max-w-[420px] bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+    <div className="relative min-h-screen flex items-center justify-center p-4 bg-[#f2f5ec] overflow-hidden">
+      {/* Decorative background glow */}
+      <div className="pointer-events-none absolute -top-32 -left-24 w-[420px] h-[420px] rounded-full opacity-30 blur-3xl"
+        style={{ background: 'radial-gradient(circle, #7a9445 0%, transparent 70%)' }} />
+      <div className="pointer-events-none absolute -bottom-32 -right-24 w-[420px] h-[420px] rounded-full opacity-30 blur-3xl"
+        style={{ background: 'radial-gradient(circle, #3a4820 0%, transparent 70%)' }} />
+
+      <div className="relative w-full max-w-[420px] bg-white rounded-3xl shadow-2xl shadow-[#3a4820]/10 border border-gray-100 overflow-hidden">
+        <div className="h-[4px] w-full bg-gradient-to-r from-[#3a4820] via-[#7a9445] to-[#4a5c2a]" />
         <div className="p-8 sm:p-10">
-          
+
           {/* Header */}
           <div className="flex flex-col items-center mb-10">
-             <div className="w-[72px] h-[72px] rounded-2xl flex items-center justify-center mb-5 bg-gradient-to-br from-[#3a4820] to-[#4a5c2a] shadow-lg shadow-[#4a5c2a]/30">
-               <LogoMark size={36} />
+             <div className="relative w-[72px] h-[72px] rounded-2xl flex items-center justify-center mb-5 overflow-hidden"
+               style={{
+                 background: 'linear-gradient(145deg, #4a5c2a 0%, #3a4820 55%, #2c3818 100%)',
+                 boxShadow: '0 10px 24px rgba(58,72,32,0.35), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -8px 14px rgba(0,0,0,0.15)',
+               }}>
+               <div className="absolute inset-0 rounded-2xl" style={{ border: '1px solid rgba(255,255,255,0.12)' }} />
+               <LogoMark size={34} />
              </div>
              <h2 className="text-2xl font-black text-gray-900 tracking-tight">Service FMS</h2>
-             <p className="text-sm font-semibold text-gray-500 mt-1 uppercase tracking-widest"></p>
+             <p className="text-[11px] font-bold text-[#7a9445] mt-1.5 uppercase tracking-[0.2em]">Facility Management</p>
           </div>
 
           {/* Error Message */}
@@ -101,11 +114,20 @@ const Login = ({ onLogin }) => {
               <div className="relative">
                 <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
-                  type="password" required disabled={isLoading}
+                  type={showPassword ? 'text' : 'password'} required disabled={isLoading}
                   value={password} onChange={e => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-[#4a5c2a]/20 focus:border-[#4a5c2a] transition-all outline-none"
+                  className="w-full pl-12 pr-11 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-[#4a5c2a]/20 focus:border-[#4a5c2a] transition-all outline-none"
                 />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword(s => !s)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#4a5c2a] transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
               </div>
             </div>
 

@@ -21,7 +21,30 @@ const menuItems = [
 ];
 
 const LogoIcon = ({ size = 28 }) => (
-  <img src="/logo.png" alt="logo" width={size} height={size} style={{ objectFit: 'contain' }} />
+  <img
+    src="/logo.png"
+    alt="logo"
+    width={size}
+    height={size}
+    style={{ objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+  />
+);
+
+const UserAvatar = ({ user }) => (
+  <div className="relative shrink-0">
+    <div className="rounded-[12px] p-[2px]" style={{ background: 'linear-gradient(135deg, #9dbb63, #3a4820)' }}>
+      <img
+        src={user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`}
+        alt="avatar"
+        className="rounded-[10px] object-cover block"
+        style={{ width: 36, height: 36, background: '#fff' }}
+      />
+    </div>
+    <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: '#34d399' }} />
+      <span className="relative inline-flex rounded-full h-3 w-3 border-2" style={{ background: '#34d399', borderColor: '#f2f5ec' }} />
+    </span>
+  </div>
 );
 
 const SectionLabel = ({ label }) => (
@@ -63,26 +86,28 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
       )}>
         {!collapsed && (
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center shrink-0"
+            <div className="relative w-[40px] h-[40px] rounded-[12px] flex items-center justify-center shrink-0 overflow-hidden"
               style={{
-                background: 'linear-gradient(135deg, #3a4820 0%, #4a5c2a 100%)',
-                boxShadow: '0 4px 14px rgba(74,92,42,0.35)',
+                background: 'linear-gradient(145deg, #4a5c2a 0%, #3a4820 55%, #2c3818 100%)',
+                boxShadow: '0 6px 16px rgba(58,72,32,0.4), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -6px 10px rgba(0,0,0,0.15)',
               }}>
-              <LogoIcon size={24} />
+              <div className="absolute inset-0 rounded-[12px]" style={{ border: '1px solid rgba(255,255,255,0.12)' }} />
+              <LogoIcon size={22} />
             </div>
             <div className="min-w-0">
               <p className="font-black text-[16px] tracking-tight leading-none" style={{ color: '#3a4820' }}>Service FMS</p>
-              <p className="text-[11px] font-bold tracking-[0.15em] uppercase mt-1" style={{ color: '#7a9445' }}></p>
+              <p className="text-[10px] font-bold tracking-[0.15em] uppercase mt-1.5" style={{ color: '#7a9445' }}>Facility Management</p>
             </div>
           </div>
         )}
         {collapsed && (
-          <div className="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center"
+          <div className="relative w-[40px] h-[40px] rounded-[12px] flex items-center justify-center overflow-hidden"
             style={{
-              background: 'linear-gradient(135deg, #3a4820 0%, #4a5c2a 100%)',
-              boxShadow: '0 4px 14px rgba(74,92,42,0.30)',
+              background: 'linear-gradient(145deg, #4a5c2a 0%, #3a4820 55%, #2c3818 100%)',
+              boxShadow: '0 6px 16px rgba(58,72,32,0.4), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -6px 10px rgba(0,0,0,0.15)',
             }}>
-            <LogoIcon size={24} />
+            <div className="absolute inset-0 rounded-[12px]" style={{ border: '1px solid rgba(255,255,255,0.12)' }} />
+            <LogoIcon size={22} />
           </div>
         )}
         {!collapsed && (
@@ -170,42 +195,43 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
       {/* ── User Card + Logout ── */}
       <div className="px-3 pb-4 pt-3 border-t" style={{ borderColor: '#d0dbb5' }}>
 
-        {/* User */}
-        <div className={cn(
-          "flex items-center rounded-[12px] border mb-2 transition-all",
-          collapsed ? "justify-center p-2.5" : "gap-3 p-3",
-        )} style={{ background: '#f2f5ec', borderColor: '#d0dbb5' }}>
-          <div className="relative shrink-0">
-            <img
-              src={user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`}
-              alt="avatar"
-              className="rounded-[10px] object-cover"
-              style={{ width: 36, height: 36, border: '2px solid #d0dbb5' }}
-            />
-            <div className="absolute -bottom-0.5 -right-0.5 w-[11px] h-[11px] rounded-full border-[2px]"
-              style={{ background: '#34d399', borderColor: '#f2f5ec' }} />
-          </div>
-          {!collapsed && (
+        {!collapsed ? (
+          <div
+            className="flex items-center gap-3 rounded-[14px] border p-2.5 transition-all duration-200"
+            style={{ background: '#f2f5ec', borderColor: '#d0dbb5' }}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 18px rgba(74,92,42,0.16)'; e.currentTarget.style.borderColor = '#b9c890'; }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#d0dbb5'; }}
+          >
+            <UserAvatar user={user} />
+
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-bold truncate leading-tight" style={{ color: '#3a4820' }}>{user?.name}</p>
-              <p className="text-[11px] font-bold tracking-widest uppercase mt-0.5" style={{ color: '#7a9445' }}>{user?.role}</p>
+              <span className="inline-block mt-1 px-2 py-[1px] rounded-full text-[10px] font-black tracking-wider uppercase"
+                style={{ background: '#e2e8cf', color: '#5c7031' }}>
+                {user?.role}
+              </span>
             </div>
-          )}
-        </div>
 
-        {/* Logout */}
-        <button onClick={handleLogout}
-          className={cn(
-            "flex items-center w-full rounded-[10px] transition-all duration-150 cursor-pointer",
-            collapsed ? "justify-center py-2.5" : "gap-3 px-3.5 py-2.5",
-          )}
-          style={{ color: '#94a3b8' }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#fff1f2'; e.currentTarget.style.color = '#ef4444'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}
-        >
-          <LogOut size={20} className="shrink-0" />
-          {!collapsed && <span className="text-[14px] font-semibold">Logout</span>}
-        </button>
+            <button onClick={handleLogout} title="Logout"
+              className="shrink-0 w-8 h-8 rounded-[9px] flex items-center justify-center transition-all duration-150 cursor-pointer"
+              style={{ color: '#94a3b8' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#ef4444'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}>
+              <LogOut size={16} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2.5">
+            <UserAvatar user={user} />
+            <button onClick={handleLogout} title="Logout"
+              className="w-8 h-8 rounded-[9px] flex items-center justify-center transition-all duration-150 cursor-pointer"
+              style={{ color: '#94a3b8' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#ef4444'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}>
+              <LogOut size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

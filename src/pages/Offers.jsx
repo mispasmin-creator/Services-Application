@@ -73,6 +73,32 @@ const Offers = () => {
     }
   };
 
+  // Helper: auto generate next Offer No. from the highest existing OFF-xxx number
+  // (array length was used before, which produces duplicate Offer Nos whenever a
+  // number is skipped/missing from the currently loaded set)
+  const getNextOfferId = () => {
+    const ids = offers
+      .map(o => {
+        const match = o.id?.match(/OFF-(\d+)/i);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(id => !isNaN(id));
+    const maxId = ids.length > 0 ? Math.max(...ids) : 0;
+    return `OFF-${String(maxId + 1).padStart(3, '0')}`;
+  };
+
+  // Helper: auto generate next Service No. from the highest existing SRV-xxx number
+  const getNextServiceId = () => {
+    const ids = services
+      .map(s => {
+        const match = s.id?.match(/SRV-(\d+)/i);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(id => !isNaN(id));
+    const maxId = ids.length > 0 ? Math.max(...ids) : 0;
+    return `SRV-${String(maxId + 1).padStart(3, '0')}`;
+  };
+
   // Convert to Service Modal state
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
   const [selectedOfferForConvert, setSelectedOfferForConvert] = useState(null);
@@ -97,8 +123,7 @@ const Offers = () => {
     }
 
     // Auto-generate Offer No. in sequence: OFF-001, OFF-002...
-    const nextNum = String(offers.length + 1).padStart(3, '0');
-    const autoId = `OFF-${nextNum}`;
+    const autoId = getNextOfferId();
 
     setIsSaving(true);
     setSaveError('');
@@ -155,8 +180,7 @@ const Offers = () => {
   // Handle Open Convert Modal
   const openConvertModal = (offer) => {
     setSelectedOfferForConvert(offer);
-    const nextNum = String(services.length + 1).padStart(3, '0');
-    const autoId = `SRV-${nextNum}`;
+    const autoId = getNextServiceId();
     setConvertFields({
       serviceNo: autoId,
       checker: 'Ea Pmmpl',
