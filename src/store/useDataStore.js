@@ -142,6 +142,19 @@ const useDataStore = create((set, get) => ({
           services = rows
             .filter(row => row && row.some(cell => String(cell || '').trim() !== ''))
             .map((row, idx) => {
+          const getVal = (headerNames, fallbackIdx = -1) => {
+            const names = Array.isArray(headerNames) ? headerNames : [headerNames];
+            for (const name of names) {
+              const colIdx = serviceHeaders.findIndex(h => String(h || '').trim().toLowerCase() === name.toLowerCase());
+              if (colIdx >= 0 && row[colIdx] !== undefined && row[colIdx] !== null && String(row[colIdx]).trim() !== '') {
+                return String(row[colIdx]).trim();
+              }
+            }
+            if (fallbackIdx >= 0 && row[fallbackIdx] !== undefined && row[fallbackIdx] !== null && String(row[fallbackIdx]).trim() !== '') {
+              return String(row[fallbackIdx]).trim();
+            }
+            return '';
+          };
           const s = {
             sheetRowIndex: headerIdx + 2 + idx,
             timestamp: row[0] || '',
@@ -158,12 +171,12 @@ const useDataStore = create((set, get) => ({
             planned1: formatSheetDate(row[11]),
             actual1: formatSheetDate(row[12]),
             delay1: row[13] || '',
-            billNo: row[14] || '',
-            billCopy: row[15] || '',
+            billNo: getVal(['Bill No.', 'Bill Number'], 14),
+            billCopy: getVal(['Bill Copy', 'Bill Image'], 15),
             planned2: formatSheetDate(row[16]),
             actual2: formatSheetDate(row[17]),
             delay2: row[18] || '',
-            paymentProof: row[19] ? String(row[19]) : '',
+            paymentProof: getVal(['Payment Proof', 'Payment Proof Url', 'Payment Reference'], 19),
             planned3: formatSheetDate(row[20]),
             actual3: formatSheetDate(row[21]),
             delay3: row[22] || '',
@@ -179,7 +192,7 @@ const useDataStore = create((set, get) => ({
             delay5: row[32] || '',
             status5: row[33] || '',
             remarks5: row[34] || '',
-            paymentForm: row[35] || '',
+            paymentForm: getVal(['Payment Form', 'Payment Form Link', 'Payment Link', 'Form Link'], 35),
             date: row[0] ? String(row[0]).split(' ')[0] : ''
           };
           s.status = getServiceStatus(s);
@@ -327,7 +340,7 @@ const useDataStore = create((set, get) => ({
     }
   },
 
-  saveRow: async (sheetName, action, rowIndex, rowDataArray) => {
+  saveRow: async (sheetName, action, rowIndex, rowDataArray, retries = 3) => {
     const params = new URLSearchParams();
     params.append('sheetName', sheetName);
     params.append('action', action);
@@ -336,14 +349,33 @@ const useDataStore = create((set, get) => ({
     }
     params.append('rowData', JSON.stringify(rowDataArray));
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      body: params,
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    });
-    return await response.json();
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        body: params,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        throw new Error(`Invalid JSON response: ${text.slice(0, 100)}`);
+      }
+      if (data && data.success === false) {
+        throw new Error(data.message || data.error || 'Server returned failure');
+      }
+      return data;
+    } catch (err) {
+      if (retries > 0) {
+        console.warn(`saveRow failed for ${sheetName} ${action}, retrying in 300ms... (${retries} left). Error: ${err.message}`);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        return get().saveRow(sheetName, action, rowIndex, rowDataArray, retries - 1);
+      }
+      throw err;
+    }
   },
 
   addOffer: async (offer) => {
@@ -482,7 +514,7 @@ const useDataStore = create((set, get) => ({
       if (norm === 'Delay5') return merged.delay5;
       if (norm === 'Status5') return merged.status5;
       if (norm === 'Remarks5') return merged.remarks5;
-      if (header === 'Payment Form') return merged.paymentForm;
+      if (header === 'Payment Form' || header === 'Payment Form Link') return merged.paymentForm;
       return '';
     });
     const res = await get().saveRow('SERVICE', 'update', rowIndex, rowDataArray);
