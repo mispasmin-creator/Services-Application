@@ -220,8 +220,6 @@ const Offers = () => {
       });
 
       if (serviceRes.success) {
-        // 2. Mark offer status as Completed
-        await updateOffer(selectedOfferForConvert.sheetRowIndex, { status: '' });
         setIsConvertModalOpen(false);
         alert(`Successfully Completed Offer ${selectedOfferForConvert.id} to Service ${convertFields.serviceNo}!`);
       } else {

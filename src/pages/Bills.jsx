@@ -196,8 +196,12 @@ const Bills = () => {
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Location</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Service Status</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Planned Date</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill No.</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Copy</th>
+                  {activeTab === 'history' && (
+                    <>
+                      <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill No.</th>
+                      <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Copy</th>
+                    </>
+                  )}
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Status</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right whitespace-nowrap">Action</th>
                 </tr>
@@ -229,15 +233,19 @@ const Bills = () => {
                           <span className="text-xs text-gray-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-4 text-sm text-gray-700 font-medium whitespace-nowrap">{s.billNo || '—'}</td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        {s.billCopy ? (
-                          <a href={s.billCopy} target="_blank" rel="noreferrer"
-                            className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 transition-colors">
-                            <FileText size={14} /><span>View</span>
-                          </a>
-                        ) : <span className="text-xs text-gray-400">—</span>}
-                      </td>
+                      {activeTab === 'history' && (
+                        <>
+                          <td className="px-4 py-4 text-sm text-gray-700 font-medium whitespace-nowrap">{s.billNo || '—'}</td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            {s.billCopy ? (
+                              <a href={s.billCopy} target="_blank" rel="noreferrer"
+                                className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 transition-colors">
+                                <FileText size={14} /><span>View</span>
+                              </a>
+                            ) : <span className="text-xs text-gray-400">—</span>}
+                          </td>
+                        </>
+                      )}
                       <td className="px-4 py-4 whitespace-nowrap">
                         <span className={cn("px-2.5 py-1 text-xs font-semibold rounded-full", getBillStatusColor(billStatus))}>
                           {billStatus}
@@ -262,7 +270,7 @@ const Bills = () => {
                 })}
                 {filteredServices.length === 0 && (
                   <tr>
-                    <td colSpan={13} className="px-6 py-10 text-center text-gray-400 text-sm">
+                    <td colSpan={activeTab === 'history' ? 14 : 12} className="px-6 py-10 text-center text-gray-400 text-sm">
                       No bills found.
                     </td>
                   </tr>

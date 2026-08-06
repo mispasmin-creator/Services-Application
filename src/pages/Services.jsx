@@ -166,18 +166,12 @@ const Services = () => {
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Location</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Planned Date</th>
-                  {activeTab === 'payment' && (
-                    <>
-                      <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill No.</th>
-                      <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Copy</th>
-                    </>
-                  )}
+
                   {activeTab === 'history' && (
                     <>
                       <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill No.</th>
                       <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Copy</th>
                       <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Payment Date</th>
-                      <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Payment Proof</th>
                     </>
                   )}
                 </tr>
@@ -188,16 +182,34 @@ const Services = () => {
                     {/* Checkbox + Action — first columns on Make Payment tab */}
                     {activeTab === 'payment' && (
                       <>
-                        <td className="px-4 py-4">
-                          <input
-                            type="checkbox"
-                            checked={false}
-                            onChange={() => openConfirm(service)}
-                            disabled={isSaving}
-                            title="Mark payment as done"
-                            className="w-4 h-4 rounded cursor-pointer"
-                            style={{ accentColor: '#1e3a5f' }}
-                          />
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={confirmService?.sheetRowIndex === service.sheetRowIndex}
+                              onChange={() =>
+                                confirmService?.sheetRowIndex === service.sheetRowIndex
+                                  ? setConfirmService(null)
+                                  : openConfirm(service)
+                              }
+                              disabled={isSaving}
+                              title="Mark payment as done"
+                              className="w-4 h-4 rounded cursor-pointer"
+                              style={{ accentColor: '#1e3a5f' }}
+                            />
+                            {confirmService?.sheetRowIndex === service.sheetRowIndex && (
+                              <button
+                                onClick={handleConfirmPayment}
+                                disabled={isSaving}
+                                className="flex items-center gap-1 px-2.5 py-1 bg-gray-900 hover:bg-gray-800 text-white rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                              >
+                                {isSaving
+                                  ? <Loader2 className="animate-spin" size={12} />
+                                  : <CheckCircle2 size={12} />}
+                                <span>Submit</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           {service.paymentForm ? (
@@ -226,28 +238,16 @@ const Services = () => {
                       </span>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
-                      {service.planned2 ? (
+                      {service.planned1 ? (
                         <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full">
-                          {service.planned2}
+                          {service.planned1}
                         </span>
                       ) : (
                         <span className="text-xs text-gray-400">—</span>
                       )}
                     </td>
 
-                    {activeTab === 'payment' && (
-                      <>
-                        <td className="px-4 py-4 text-sm text-gray-700 font-medium whitespace-nowrap">{service.billNo || '—'}</td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          {service.billCopy ? (
-                            <a href={service.billCopy} target="_blank" rel="noreferrer"
-                              className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 transition-colors">
-                              <FileText size={14} /><span>View</span>
-                            </a>
-                          ) : <span className="text-xs text-gray-400">—</span>}
-                        </td>
-                      </>
-                    )}
+
 
                     {activeTab === 'history' && (
                       <>
@@ -261,18 +261,6 @@ const Services = () => {
                           ) : <span className="text-xs text-gray-400">—</span>}
                         </td>
                         <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{service.actual2 || '—'}</td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          {service.paymentProof && service.paymentProof.startsWith('http') ? (
-                            <a href={service.paymentProof} target="_blank" rel="noreferrer"
-                              className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-colors">
-                              <CheckCircle2 size={14} /><span>View Proof</span>
-                            </a>
-                          ) : (
-                            <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
-                              <CheckCircle2 size={14} />{service.paymentProof || '—'}
-                            </span>
-                          )}
-                        </td>
                       </>
                     )}
                   </tr>
@@ -290,89 +278,7 @@ const Services = () => {
         </div>
       )}
 
-      {/* ── Payment Confirm Modal ──────────────────────────────── */}
-      {confirmService && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-gray-100">
-            {/* Header */}
-            <div className="px-6 py-4 border-b flex items-center justify-between"
-              style={{ background: 'linear-gradient(90deg, #f2f5ea, #fafafa)' }}>
-              <div>
-                <h3 className="font-bold text-gray-900">Payment Done — {confirmService.id}</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Confirm payment completion details</p>
-              </div>
-              <button disabled={isSaving} onClick={() => setConfirmService(null)}
-                className="text-gray-400 hover:text-gray-600 rounded-lg p-1 hover:bg-gray-100 transition-colors">
-                <X size={18} />
-              </button>
-            </div>
 
-            <div className="p-6 space-y-4">
-              {/* Service summary */}
-              <div className="grid grid-cols-2 gap-3 p-4 bg-gray-50 rounded-xl text-sm border border-gray-100">
-                <div>
-                  <span className="text-xs text-gray-400 uppercase font-bold block">Vendor</span>
-                  <span className="font-semibold text-gray-800 mt-0.5">{confirmService.vendor}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-400 uppercase font-bold block">Net Payable</span>
-                  <span className="font-bold text-emerald-700 mt-0.5">
-                    {formatCurrency((confirmService.amount || 0) - (confirmService.tdsAmount || 0))}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-400 uppercase font-bold block">Firm</span>
-                  <span className="font-semibold text-gray-800 mt-0.5">{confirmService.firmName}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-400 uppercase font-bold block">Bill No.</span>
-                  <span className="font-semibold text-gray-800 mt-0.5">{confirmService.billNo || '—'}</span>
-                </div>
-              </div>
-
-              {/* Payment Date */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase">Payment Date *</label>
-                <input
-                  type="date"
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  disabled={isSaving}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white transition-all"
-                />
-              </div>
-
-              {/* Payment Note / Reference */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase">Payment Reference / Note</label>
-                <input
-                  type="text"
-                  placeholder="e.g. UTR-123456 or NEFT reference"
-                  value={paymentNote}
-                  onChange={(e) => setPaymentNote(e.target.value)}
-                  disabled={isSaving}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white transition-all"
-                />
-                <p className="text-xs text-gray-400">Yeh Payment Proof ke roop mein save hoga (optional)</p>
-              </div>
-
-              {/* Actions */}
-              <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
-                <button type="button" disabled={isSaving} onClick={() => setConfirmService(null)}
-                  className="px-4 py-2.5 border border-gray-200 rounded-xl text-gray-600 text-sm hover:bg-gray-50 font-semibold transition-all">
-                  Cancel
-                </button>
-                <button onClick={handleConfirmPayment} disabled={isSaving}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-gray-900/10">
-                  {isSaving
-                    ? <><Loader2 className="animate-spin" size={16} /><span>Saving...</span></>
-                    : <><CheckCircle2 size={15} /><span>Confirm Payment Done</span></>}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

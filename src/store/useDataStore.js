@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import useAuthStore from './useAuthStore';
 import { nowDateTime } from '../lib/utils';
 
-const apiUrl = import.meta.env.VITE_APPSCRIPT_URL;
+const apiUrl = import.meta.env.VITE_APPSCRIPT_URL || 'https://script.google.com/macros/s/AKfycbxH_TMsqQkK3XpPUR4-999K7Q0R-P0WNd0rc1vL9b_KYMFB2xMN6VDP6vXqaNw4Kk3b/exec';
 
 const getServiceStatus = (s) => {
   if (s.status5 === 'Completed' || s.actual5) return 'Completed';
@@ -23,6 +23,26 @@ const findHeaderRow = (data, knownCol) => {
     }
   }
   return { headerIdx: -1, headers: [] };
+};
+
+// Format a value from getValues() — Date objects come as native Date, strings stay as-is
+// Converts to M/D/YYYY HH:mm:ss  (matches nowDateTime format)
+const formatSheetDate = (val) => {
+  if (!val) return '';
+  let dt = val;
+  if (typeof val === 'string' && val.includes('T') && !isNaN(Date.parse(val))) {
+    dt = new Date(val);
+  }
+  if (dt instanceof Date && !isNaN(dt.getTime())) {
+    const M  = dt.getMonth() + 1;
+    const d  = dt.getDate();
+    const yyyy = dt.getFullYear();
+    const HH = String(dt.getHours()).padStart(2, '0');
+    const mm = String(dt.getMinutes()).padStart(2, '0');
+    const ss = String(dt.getSeconds()).padStart(2, '0');
+    return `${M}/${d}/${yyyy} ${HH}:${mm}:${ss}`;
+  }
+  return String(val);
 };
 
 // Robust fetch with retry and exponential backoff to handle Google Apps Script connection drops/throttling
@@ -135,27 +155,27 @@ const useDataStore = create((set, get) => ({
             vendor: row[8] || '',
             description: row[9] || '',
             location: row[10] || '',
-            planned1: row[11] || '',
-            actual1: row[12] || '',
+            planned1: formatSheetDate(row[11]),
+            actual1: formatSheetDate(row[12]),
             delay1: row[13] || '',
             billNo: row[14] || '',
             billCopy: row[15] || '',
-            planned2: row[16] || '',
-            actual2: row[17] || '',
+            planned2: formatSheetDate(row[16]),
+            actual2: formatSheetDate(row[17]),
             delay2: row[18] || '',
-            paymentProof: row[19] || '',
-            planned3: row[20] || '',
-            actual3: row[21] || '',
+            paymentProof: row[19] ? String(row[19]) : '',
+            planned3: formatSheetDate(row[20]),
+            actual3: formatSheetDate(row[21]),
             delay3: row[22] || '',
             status3: row[23] || '',
             remarks3: row[24] || '',
-            planned4: row[25] || '',
-            actual4: row[26] || '',
+            planned4: formatSheetDate(row[25]),
+            actual4: formatSheetDate(row[26]),
             delay4: row[27] || '',
             status4: row[28] || '',
             remarks4: row[29] || '',
-            planned5: row[30] || '',
-            actual5: row[31] || '',
+            planned5: formatSheetDate(row[30]),
+            actual5: formatSheetDate(row[31]),
             delay5: row[32] || '',
             status5: row[33] || '',
             remarks5: row[34] || '',

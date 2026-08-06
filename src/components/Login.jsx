@@ -17,7 +17,7 @@ const Login = ({ onLogin }) => {
     setIsLoading(true);
     setError('');
     try {
-      const apiUrl = import.meta.env.VITE_APPSCRIPT_URL;
+      const apiUrl = import.meta.env.VITE_APPSCRIPT_URL || 'https://script.google.com/macros/s/AKfycbxH_TMsqQkK3XpPUR4-999K7Q0R-P0WNd0rc1vL9b_KYMFB2xMN6VDP6vXqaNw4Kk3b/exec';
       const response = await fetch(`${apiUrl}?sheet=Login`);
       const result = await response.json();
 
