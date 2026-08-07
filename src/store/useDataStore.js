@@ -467,7 +467,7 @@ const useDataStore = create((set, get) => ({
     const merged = { ...service, ...updatedFields };
 
     const headers = get().serviceHeaders;
-    const rowDataArray = headers.map(header => {
+    const fullArray = headers.map(header => {
       const norm = (header || '').replace(/\s+/g, '');
       if (header === 'Timestamp') return null; // Never overwrite original Column A timestamp
       if (header === 'Offer No.') return merged.offerNo;
@@ -481,28 +481,37 @@ const useDataStore = create((set, get) => ({
       if (header === 'Work Description') return merged.description;
       if (header === 'Service Location') return merged.location;
       if (norm.startsWith('Planned')) return null;
-      if (norm === 'Actual1') return merged.actual1;
-      if (norm === 'Delay1') return merged.delay1;
-      if (norm === 'Actual2') return merged.actual2;
-      if (norm === 'Delay2') return merged.delay2;
-      if (header === 'Payment Proof') return merged.paymentProof;
-      if (header === 'Bill No.') return merged.billNo;
-      if (header === 'Bill Copy') return merged.billCopy;
-      if (norm === 'Actual3') return merged.actual3;
-      if (norm === 'Delay3') return merged.delay3;
-      if (norm === 'Status3') return merged.status3;
-      if (norm === 'Remarks3') return merged.remarks3;
-      if (norm === 'Actual4') return merged.actual4;
-      if (norm === 'Delay4') return merged.delay4;
-      if (norm === 'Status4') return merged.status4;
-      if (norm === 'Remarks4') return merged.remarks4;
-      if (norm === 'Actual5') return merged.actual5;
-      if (norm === 'Delay5') return merged.delay5;
-      if (norm === 'Status5') return merged.status5;
+      if (norm === 'Actual1') return merged.actual1 || null;
+      if (norm === 'Delay1') return merged.delay1 || null;
+      if (norm === 'Actual2') return merged.actual2 || null;
+      if (norm === 'Delay2') return merged.delay2 || null;
+      if (header === 'Payment Proof') return merged.paymentProof || null;
+      if (header === 'Bill No.') return merged.billNo || null;
+      if (header === 'Bill Copy') return merged.billCopy || null;
+      if (norm === 'Actual3') return merged.actual3 || null;
+      if (norm === 'Delay3') return merged.delay3 || null;
+      if (norm === 'Status3') return merged.status3 || null;
+      if (norm === 'Remarks3') return merged.remarks3 || null;
+      if (norm === 'Actual4') return merged.actual4 || null;
+      if (norm === 'Delay4') return merged.delay4 || null;
+      if (norm === 'Status4') return merged.status4 || null;
+      if (norm === 'Remarks4') return merged.remarks4 || null;
+      if (norm === 'Actual5') return merged.actual5 || null;
+      if (norm === 'Delay5') return merged.delay5 || null;
+      if (norm === 'Status5') return merged.status5 || null;
       if (norm === 'Remarks5' || header === 'Remarks 5') return null; // Never touch Column AH Remarks 5
-      if (header === 'Payment Form' || header === 'Payment Form Link' || norm === 'PaymentForm') return null; // Do not overwrite formula in Column AI
-      return '';
+      if (header === 'Payment Form' || header === 'Payment Form Link' || norm === 'PaymentForm') return null; // Do not touch Column AI Payment Form
+      return null;
     });
+
+    let lastMatchIdx = -1;
+    for (let i = fullArray.length - 1; i >= 0; i--) {
+      if (fullArray[i] !== null && fullArray[i] !== undefined) { lastMatchIdx = i; break; }
+    }
+
+    if (lastMatchIdx < 0) return { success: true };
+
+    const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? '' : v);
     const res = await get().saveRow('SERVICE', 'update', rowIndex, rowDataArray);
     if (res && res.success) {
       await get().fetchData();
