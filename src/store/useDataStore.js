@@ -107,7 +107,7 @@ const useDataStore = create((set, get) => ({
       let offers = [];
       let offerHeaders = [];
       if (offersRes.success && offersRes.data && offersRes.data.length > 0) {
-        const { headerIdx, headers } = findHeaderRow(offersRes.data, 'OROffer No.');
+        const { headerIdx, headers } = findHeaderRow(offersRes.data, 'Offer No.');
         offerHeaders = headers;
         if (headerIdx >= 0) {
           const rows = offersRes.data.slice(headerIdx + 1);
@@ -382,7 +382,6 @@ const useDataStore = create((set, get) => ({
     const headers = get().offerHeaders;
     const offerColumnMap = {
       'Timestamp': nowDateTime(),
-      'OROffer No.': offer.id,
       'Firm Name': offer.firmName,
       'Vendor Name': offer.vendor,
       'Work Description': offer.description,
@@ -391,19 +390,18 @@ const useDataStore = create((set, get) => ({
       'Is There An Offer': offer.isOffer || 'Yes',
       'Offer Copy': offer.offerCopy || '',
     };
-    // Only submit to the 9 matching columns — trim array at last matched column so formula columns are never touched
+    // Only submit to matching columns — trim array at last matched column so formula columns are never touched
     const fullArray = headers.map(header => Object.prototype.hasOwnProperty.call(offerColumnMap, header) ? offerColumnMap[header] : null);
     let lastMatchIdx = -1;
     for (let i = fullArray.length - 1; i >= 0; i--) {
       if (fullArray[i] !== null) { lastMatchIdx = i; break; }
     }
-    // Optimistic UI update
-    set(state => ({
-      offers: [...state.offers, { ...offer, sheetRowIndex: state.offers.length > 0 ? Math.max(...state.offers.map(o => o.sheetRowIndex)) + 1 : 2, timestamp: nowDateTime() }]
-    }));
-    
     const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? '' : v);
     const res = await get().saveRow('OFFER', 'insert', null, rowDataArray);
+    // Re-fetch fresh data from Google Sheet instead of optimistic UI update
+    if (res && res.success) {
+      await get().fetchData();
+    }
     return res;
   },
 
@@ -411,16 +409,11 @@ const useDataStore = create((set, get) => ({
     const offer = get().offers.find(o => o.sheetRowIndex === rowIndex);
     if (!offer) throw new Error('Offer not found');
     const merged = { ...offer, ...updatedFields };
-    
-    // Optimistic UI update
-    set(state => ({
-      offers: state.offers.map(o => o.sheetRowIndex === rowIndex ? merged : o)
-    }));
 
     const headers = get().offerHeaders;
     const rowDataArray = headers.map(header => {
-      if (header === 'Timestamp') return merged.timestamp || nowDateTime(); // re-write existing timestamp so it never gets blanked out
-      if (header === 'OROffer No.') return merged.id;
+      if (header === 'Timestamp') return merged.timestamp || nowDateTime();
+      if (header === 'Offer No.') return merged.id;
       if (header === 'Firm Name') return merged.firmName;
       if (header === 'Vendor Name') return merged.vendor;
       if (header === 'Work Description') return merged.description;
@@ -434,6 +427,9 @@ const useDataStore = create((set, get) => ({
       return '';
     });
     const res = await get().saveRow('OFFER', 'update', rowIndex, rowDataArray);
+    if (res && res.success) {
+      await get().fetchData();
+    }
     return res;
   },
 
@@ -453,20 +449,15 @@ const useDataStore = create((set, get) => ({
       if (header === 'Service Location') return service.location;
       return null;
     });
-    // Everything after Service Location (Planned/Actual/Delay, bills, payments, tally...) is
-    // filled in step-by-step later via updateService — trim the array so creation never
-    // touches those cells, otherwise it blanks out the Planned formula columns.
     let lastMatchIdx = -1;
     for (let i = fullArray.length - 1; i >= 0; i--) {
       if (fullArray[i] !== null) { lastMatchIdx = i; break; }
     }
     const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? '' : v);
-    // Optimistic UI update
-    set(state => ({
-      services: [...state.services, { ...service, sheetRowIndex: state.services.length > 0 ? Math.max(...state.services.map(s => s.sheetRowIndex)) + 1 : 2, timestamp: nowDateTime() }]
-    }));
-
     const res = await get().saveRow('SERVICE', 'insert', null, rowDataArray);
+    if (res && res.success) {
+      await get().fetchData();
+    }
     return res;
   },
 
@@ -474,16 +465,11 @@ const useDataStore = create((set, get) => ({
     const service = get().services.find(s => s.sheetRowIndex === rowIndex);
     if (!service) throw new Error('Service not found');
     const merged = { ...service, ...updatedFields };
-    
-    // Optimistic UI update
-    set(state => ({
-      services: state.services.map(s => s.sheetRowIndex === rowIndex ? merged : s)
-    }));
 
     const headers = get().serviceHeaders;
     const rowDataArray = headers.map(header => {
       const norm = (header || '').replace(/\s+/g, '');
-      if (header === 'Timestamp') return merged.timestamp || nowDateTime(); // re-write existing timestamp so it never gets blanked out
+      if (header === 'Timestamp') return merged.timestamp || nowDateTime();
       if (header === 'Offer No.') return merged.offerNo;
       if (header === 'Service No.') return merged.id;
       if (header === 'Firm Name') return merged.firmName;
@@ -494,7 +480,7 @@ const useDataStore = create((set, get) => ({
       if (header === 'Vendor Name') return merged.vendor;
       if (header === 'Work Description') return merged.description;
       if (header === 'Service Location') return merged.location;
-      if (norm.startsWith('Planned')) return null; // Do not overwrite formula columns
+      if (norm.startsWith('Planned')) return null;
       if (norm === 'Actual1') return merged.actual1;
       if (norm === 'Delay1') return merged.delay1;
       if (norm === 'Actual2') return merged.actual2;
@@ -518,6 +504,9 @@ const useDataStore = create((set, get) => ({
       return '';
     });
     const res = await get().saveRow('SERVICE', 'update', rowIndex, rowDataArray);
+    if (res && res.success) {
+      await get().fetchData();
+    }
     return res;
   },
 
@@ -568,12 +557,10 @@ const useDataStore = create((set, get) => ({
       if (fullArray[i] !== null) { lastMatchIdx = i; break; }
     }
     const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? '' : v);
-    // Optimistic UI update
-    set(state => ({
-      utilities: [...state.utilities, { ...utility, sheetRowIndex: state.utilities.length > 0 ? Math.max(...state.utilities.map(u => u.sheetRowIndex)) + 1 : 2, timestamp: nowDateTime() }]
-    }));
-    
     const res = await get().saveRow('UTILITY', 'insert', null, rowDataArray);
+    if (res && res.success) {
+      await get().fetchData();
+    }
     return res;
   },
 
@@ -628,6 +615,9 @@ const useDataStore = create((set, get) => ({
       return '';
     });
     const res = await get().saveRow('UTILITY', 'update', rowIndex, rowDataArray);
+    if (res && res.success) {
+      await get().fetchData();
+    }
     return res;
   },
 

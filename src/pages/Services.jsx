@@ -29,7 +29,6 @@ const Services = () => {
       const ts = nowDateTime();
       await updateService(confirmService.sheetRowIndex, {
         actual2: ts,
-        paymentProof: paymentNote || ts,
       });
       setConfirmService(null);
     } catch (err) {
