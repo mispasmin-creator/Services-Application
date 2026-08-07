@@ -165,7 +165,9 @@ const Services = () => {
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">TDS</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Actual Amount</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Vendor</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Work Description</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Location</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Remark</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Planned Date</th>
 
@@ -234,7 +236,9 @@ const Services = () => {
                     <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{formatCurrency(service.tdsAmount)}</td>
                     <td className="px-4 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{formatCurrency((service.amount || 0) - (service.tdsAmount || 0))}</td>
                     <td className="px-4 py-4 text-sm text-gray-800 font-medium whitespace-nowrap">{service.vendor}</td>
+                    <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap max-w-xs truncate" title={service.description}>{service.description || '—'}</td>
                     <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{service.location}</td>
+                    <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap max-w-xs truncate" title={service.remark}>{service.remark || '—'}</td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <span className={cn("px-2.5 py-1 text-xs font-semibold rounded-full", getStatusColor(service.status))}>
                         {service.status}

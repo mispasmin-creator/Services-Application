@@ -177,22 +177,22 @@ const useDataStore = create((set, get) => ({
             actual2: formatSheetDate(row[17]),
             delay2: row[18] || '',
             paymentProof: getVal(['Payment Proof', 'Payment Proof Url', 'Payment Reference'], 19),
-            planned3: formatSheetDate(row[20]),
-            actual3: formatSheetDate(row[21]),
-            delay3: row[22] || '',
-            status3: row[23] || '',
-            remarks3: row[24] || '',
-            planned4: formatSheetDate(row[25]),
-            actual4: formatSheetDate(row[26]),
-            delay4: row[27] || '',
-            status4: row[28] || '',
-            remarks4: row[29] || '',
-            planned5: formatSheetDate(row[30]),
-            actual5: formatSheetDate(row[31]),
-            delay5: row[32] || '',
-            status5: row[33] || '',
-            remarks5: row[34] || '',
-            paymentForm: getVal(['Payment Form', 'Payment Form Link', 'Payment Link', 'Form Link'], 35),
+            planned3: formatSheetDate(getVal('Planned 3', 19)),
+            actual3: formatSheetDate(getVal('Actual 3', 20)),
+            delay3: getVal('Delay 3', 21),
+            status3: getVal(['Status 3', 'Status3'], 22),
+            remarks3: getVal(['Remarks 3', 'Remarks3'], 23),
+            planned4: formatSheetDate(getVal('Planned 4', 24)),
+            actual4: formatSheetDate(getVal('Actual 4', 25)),
+            delay4: getVal('Delay 4', 26),
+            status4: getVal(['Status 4', 'Status4'], 27),
+            remarks4: getVal(['Remarks 4', 'Remarks4'], 28),
+            planned5: formatSheetDate(getVal('Planned 5', 29)),
+            actual5: formatSheetDate(getVal('Actual 5', 30)),
+            delay5: getVal('Delay 5', 31),
+            status5: getVal(['Status 5', 'Status5'], 32),
+            remarks5: getVal(['Remarks 5', 'Remarks5'], 33),
+            paymentForm: getVal(['Payment Form', 'Payment Form Link', 'Payment Link', 'Form Link'], 34),
             date: row[0] ? String(row[0]).split(' ')[0] : ''
           };
           s.status = getServiceStatus(s);
@@ -469,7 +469,7 @@ const useDataStore = create((set, get) => ({
     const headers = get().serviceHeaders;
     const rowDataArray = headers.map(header => {
       const norm = (header || '').replace(/\s+/g, '');
-      if (header === 'Timestamp') return merged.timestamp || nowDateTime();
+      if (header === 'Timestamp') return null; // Never overwrite original Column A timestamp
       if (header === 'Offer No.') return merged.offerNo;
       if (header === 'Service No.') return merged.id;
       if (header === 'Firm Name') return merged.firmName;
@@ -499,8 +499,8 @@ const useDataStore = create((set, get) => ({
       if (norm === 'Actual5') return merged.actual5;
       if (norm === 'Delay5') return merged.delay5;
       if (norm === 'Status5') return merged.status5;
-      if (norm === 'Remarks5') return merged.remarks5;
-      if (header === 'Payment Form' || header === 'Payment Form Link') return merged.paymentForm;
+      if (norm === 'Remarks5' || header === 'Remarks 5') return null; // Never touch Column AH Remarks 5
+      if (header === 'Payment Form' || header === 'Payment Form Link' || norm === 'PaymentForm') return null; // Do not overwrite formula in Column AI
       return '';
     });
     const res = await get().saveRow('SERVICE', 'update', rowIndex, rowDataArray);
