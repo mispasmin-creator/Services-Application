@@ -163,6 +163,7 @@ const Services = () => {
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Checker</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Amount</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">TDS</th>
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Actual Amount</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Vendor</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Location</th>
                   <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
@@ -231,6 +232,7 @@ const Services = () => {
                     <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{service.checker}</td>
                     <td className="px-4 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{formatCurrency(service.amount)}</td>
                     <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{formatCurrency(service.tdsAmount)}</td>
+                    <td className="px-4 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{formatCurrency((service.amount || 0) - (service.tdsAmount || 0))}</td>
                     <td className="px-4 py-4 text-sm text-gray-800 font-medium whitespace-nowrap">{service.vendor}</td>
                     <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{service.location}</td>
                     <td className="px-4 py-4 whitespace-nowrap">

@@ -185,12 +185,13 @@ const Offers = () => {
       serviceNo: autoId,
       checker: 'Ea Pmmpl',
       tdsAmount: '0',
+      tdsPercent: '',
       remark: '',
-      vendor: '',
+      vendor: offer.vendor || '',
       firmName: offer.firmName || 'All',
-      description: '',
+      description: offer.description || '',
       location: offer.location || '',
-      amount: ''
+      amount: offer.amount !== undefined && offer.amount !== null ? String(offer.amount) : ''
     });
     setIsConvertModalOpen(true);
   };
@@ -633,11 +634,10 @@ const Offers = () => {
       {/* Convert to Service Modal */}
       {isConvertModalOpen && selectedOfferForConvert && (
         <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-gray-100">
+          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden border border-gray-100">
             <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-200 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-gray-800">Review Offer to Service</h3>
-                {/* <p className="text-xs text-gray-400 mt-0.5">Convert offer {selectedOfferForConvert.id} to service</p> */}
               </div>
               <button
                 disabled={isSaving}
@@ -649,7 +649,7 @@ const Offers = () => {
             </div>
 
             <form onSubmit={handleConvertSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-700 uppercase">Offer Ref No.</label>
                   <select
@@ -662,9 +662,6 @@ const Offers = () => {
                     </option>
                   </select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-700 uppercase">Firm Name *</label>
                   <select
@@ -679,11 +676,11 @@ const Offers = () => {
                     ))}
                   </select>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase">
-                    Service Checker *
-                  </label>
+              </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 uppercase">Service Checker *</label>
                   <select
                     disabled={isSaving}
                     value={convertFields.checker}
@@ -701,30 +698,17 @@ const Offers = () => {
                     <option value="Ea Purab">Ea Purab</option>
                   </select>
                 </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase">Vendor Name *</label>
-                <input
-                  disabled={isSaving}
-                  type="text"
-                  placeholder="Enter vendor name"
-                  value={convertFields.vendor}
-                  onChange={(e) => setConvertFields({ ...convertFields, vendor: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase">Work Description *</label>
-                <textarea
-                  disabled={isSaving}
-                  placeholder="Enter work description"
-                  value={convertFields.description}
-                  onChange={(e) => setConvertFields({ ...convertFields, description: e.target.value })}
-                  rows={2}
-                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm resize-none"
-                />
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 uppercase">Vendor Name *</label>
+                  <input
+                    disabled={isSaving}
+                    type="text"
+                    placeholder="Enter vendor name"
+                    value={convertFields.vendor}
+                    onChange={(e) => setConvertFields({ ...convertFields, vendor: e.target.value })}
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -749,7 +733,16 @@ const Offers = () => {
                     type="number"
                     placeholder="Enter amount"
                     value={convertFields.amount}
-                    onChange={(e) => setConvertFields({ ...convertFields, amount: e.target.value })}
+                    onChange={(e) => {
+                      const newAmt = e.target.value;
+                      const pct = convertFields.tdsPercent;
+                      let newTds = convertFields.tdsAmount;
+                      if (pct !== undefined && pct !== '') {
+                        const tot = parseFloat(newAmt) || 0;
+                        newTds = String((tot * parseFloat(pct)) / 100);
+                      }
+                      setConvertFields({ ...convertFields, amount: newAmt, tdsAmount: newTds });
+                    }}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
                   />
                 </div>
@@ -757,27 +750,62 @@ const Offers = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase">TDS Deduction Amount (₹)</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase">TDS Deduction %</label>
                   <input
                     disabled={isSaving}
                     type="number"
-                    placeholder="Enter TDS amount"
-                    value={convertFields.tdsAmount}
-                    onChange={(e) => setConvertFields({ ...convertFields, tdsAmount: e.target.value })}
+                    step="any"
+                    placeholder="e.g. 2"
+                    value={convertFields.tdsPercent || ''}
+                    onChange={(e) => {
+                      const pct = e.target.value;
+                      const tot = parseFloat(convertFields.amount) || 0;
+                      const calculated = pct !== '' ? String((tot * parseFloat(pct)) / 100) : '0';
+                      setConvertFields({
+                        ...convertFields,
+                        tdsPercent: pct,
+                        tdsAmount: calculated
+                      });
+                    }}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase">Remarks</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase">TDS Deduction Amount (₹)</label>
                   <input
                     disabled={isSaving}
-                    type="text"
-                    placeholder="Any remarks..."
-                    value={convertFields.remark}
-                    onChange={(e) => setConvertFields({ ...convertFields, remark: e.target.value })}
+                    type="number"
+                    step="any"
+                    placeholder="Enter TDS amount"
+                    value={convertFields.tdsAmount}
+                    onChange={(e) => setConvertFields({ ...convertFields, tdsAmount: e.target.value, tdsPercent: '' })}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 uppercase">Work Description *</label>
+                <textarea
+                  disabled={isSaving}
+                  placeholder="Enter work description"
+                  value={convertFields.description}
+                  onChange={(e) => setConvertFields({ ...convertFields, description: e.target.value })}
+                  rows={2}
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm resize-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 uppercase">Remarks</label>
+                <input
+                  disabled={isSaving}
+                  type="text"
+                  placeholder="Any remarks..."
+                  value={convertFields.remark}
+                  onChange={(e) => setConvertFields({ ...convertFields, remark: e.target.value })}
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
+                />
               </div>
 
               <div className="pt-4 flex items-center justify-end gap-3">
