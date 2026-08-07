@@ -50,9 +50,11 @@ const Services = () => {
     }
   };
 
+  const isPaid = (s) => !!(s.actual2 || s.paymentProof);
+
   const filteredServices = services.filter(s => {
-    if (activeTab === 'payment' && s.paymentProof) return false;
-    if (activeTab === 'history' && !s.paymentProof) return false;
+    if (activeTab === 'payment' && isPaid(s)) return false;
+    if (activeTab === 'history' && !isPaid(s)) return false;
 
     const term = searchTerm.toLowerCase();
     return (
@@ -64,8 +66,8 @@ const Services = () => {
     );
   });
 
-  const paymentCount = services.filter(s => !s.paymentProof).length;
-  const historyCount = services.filter(s => !!s.paymentProof).length;
+  const paymentCount = services.filter(s => !isPaid(s)).length;
+  const historyCount = services.filter(s => isPaid(s)).length;
 
   const servicesTabsConfig = [
     { id: 'payment', label: 'Make Payment', count: paymentCount, colorClass: 'bg-amber-100 text-amber-800'     },
