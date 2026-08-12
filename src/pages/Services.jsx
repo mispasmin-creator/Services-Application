@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2, CreditCard, FileText, CheckCircle2, X } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, nowDateTime } from '../lib/utils';
+import { cn, formatCurrency, nowDateTime, getDriveViewUrl } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
 
@@ -217,7 +217,7 @@ const Services = () => {
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           {service.paymentForm ? (
-                            <a href={service.paymentForm} target="_blank" rel="noreferrer"
+                            <a href={getDriveViewUrl(service.paymentForm)} target="_blank" rel="noreferrer"
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-lg text-xs font-bold text-amber-700 transition-all">
                               <CreditCard size={13} /><span>Payment Form</span>
                             </a>
@@ -261,7 +261,7 @@ const Services = () => {
                         <td className="px-4 py-4 text-sm text-gray-700 font-medium whitespace-nowrap">{service.billNo || '—'}</td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           {service.billCopy ? (
-                            <a href={service.billCopy} target="_blank" rel="noreferrer"
+                            <a href={getDriveViewUrl(service.billCopy)} target="_blank" rel="noreferrer"
                               className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 transition-colors">
                               <FileText size={14} /><span>View</span>
                             </a>

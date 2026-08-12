@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, CheckSquare, RefreshCw, Filter, Trash2
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, uploadFileToDrive } from '../lib/utils';
+import { cn, formatCurrency, uploadFileToDrive, getDriveViewUrl } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
 
@@ -1178,7 +1178,7 @@ const Utility = () => {
                       <td className="px-6 py-4 text-right font-bold text-gray-900 whitespace-nowrap">{formatCurrency(utility.amount)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         {utility.billImage ? (
-                          <a href={utility.billImage} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-gray-700 hover:text-gray-900 font-bold hover:underline">
+                          <a href={getDriveViewUrl(utility.billImage)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-gray-700 hover:text-gray-900 font-bold hover:underline">
                             <Paperclip size={13} /><span>View</span>
                           </a>
                         ) : (<span className="text-gray-400 italic text-xs">No File</span>)}
@@ -1231,7 +1231,7 @@ const Utility = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         {utility.paymentFormLink ? (
-                          <a href={utility.paymentFormLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-bold hover:underline text-xs">
+                          <a href={getDriveViewUrl(utility.paymentFormLink)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-bold hover:underline text-xs">
                             <Paperclip size={12} /><span>Link</span>
                           </a>
                         ) : <span className="text-gray-400 text-xs">—</span>}
@@ -1582,7 +1582,7 @@ const Utility = () => {
                     <Paperclip size={18} className="text-emerald-600 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <span className="text-xs font-bold text-emerald-800 block truncate">{uploadedFile.name}</span>
-                      <a href={uploadedFile.url} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-600 font-bold underline flex items-center gap-0.5 mt-0.5">
+                      <a href={getDriveViewUrl(uploadedFile.url)} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-600 font-bold underline flex items-center gap-0.5 mt-0.5">
                         <span>Open file url</span>
                         <ExternalLink size={10} />
                       </a>
@@ -1915,7 +1915,7 @@ const Utility = () => {
                       {selectedUtility.billImage ? (
                         <div className="mt-1.5">
                           <a 
-                            href={selectedUtility.billImage} 
+                            href={getDriveViewUrl(selectedUtility.billImage)} 
                             target="_blank" 
                             rel="noreferrer" 
                             className="inline-flex items-center gap-1.5 px-3 py-2 bg-gray-100 border border-gray-200 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
@@ -1955,7 +1955,7 @@ const Utility = () => {
                       </div>
                       {selectedUtility.paymentAttachment && (
                         <div className="pt-1.5 border-t border-emerald-100 mt-1.5">
-                          <a href={selectedUtility.paymentAttachment} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-emerald-700 font-bold hover:underline">
+                          <a href={getDriveViewUrl(selectedUtility.paymentAttachment)} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-emerald-700 font-bold hover:underline">
                             <Paperclip size={12} />
                             <span>View Payment Receipt Attachment Copy</span>
                             <ExternalLink size={10} />
@@ -1985,7 +1985,7 @@ const Utility = () => {
                       </div>
                       {selectedUtility.approvalAttachment && (
                         <div className="pt-1.5 border-t border-gray-200 mt-1.5">
-                          <a href={selectedUtility.approvalAttachment} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-gray-700 font-bold hover:underline">
+                          <a href={getDriveViewUrl(selectedUtility.approvalAttachment)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-gray-700 font-bold hover:underline">
                             <Paperclip size={12} />
                             <span>View Approval Attachment</span>
                             <ExternalLink size={10} />

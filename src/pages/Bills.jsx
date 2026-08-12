@@ -4,7 +4,7 @@ import {
   Upload, Paperclip, ExternalLink
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, uploadFileToDrive } from '../lib/utils';
+import { cn, formatCurrency, uploadFileToDrive, getDriveViewUrl } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
 
@@ -238,7 +238,7 @@ const Bills = () => {
                           <td className="px-4 py-4 text-sm text-gray-700 font-medium whitespace-nowrap">{s.billNo || '—'}</td>
                           <td className="px-4 py-4 whitespace-nowrap">
                             {s.billCopy ? (
-                              <a href={s.billCopy} target="_blank" rel="noreferrer"
+                              <a href={getDriveViewUrl(s.billCopy)} target="_blank" rel="noreferrer"
                                 className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 transition-colors">
                                 <FileText size={14} /><span>View</span>
                               </a>
@@ -326,7 +326,7 @@ const Bills = () => {
                   <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">
                     <Paperclip size={15} className="text-emerald-600 shrink-0" />
                     <span className="text-sm text-emerald-700 font-semibold truncate flex-1">{uploadedFile.name}</span>
-                    <a href={uploadedFile.url} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-800 shrink-0"><ExternalLink size={14} /></a>
+                    <a href={getDriveViewUrl(uploadedFile.url)} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-800 shrink-0"><ExternalLink size={14} /></a>
                     <button type="button" onClick={() => { setUploadedFile(null); setBillForm(prev => ({ ...prev, billCopy: '' })); if (fileInputRef.current) fileInputRef.current.value = ''; }}
                       className="text-gray-400 hover:text-red-500 shrink-0"><X size={14} /></button>
                   </div>

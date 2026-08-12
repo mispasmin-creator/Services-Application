@@ -32,6 +32,24 @@ export function nowDateTime() {
   return `${M}/${d}/${yyyy} ${HH}:${mm}:${ss}`;
 }
 
+export function getDriveViewUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+
+  // If it's already in /file/d/ID/view format
+  const fileDMatch = url.match(/\/file\/d\/([^\/\?#]+)/);
+  if (fileDMatch && fileDMatch[1]) {
+    return `https://drive.google.com/file/d/${fileDMatch[1]}/view`;
+  }
+
+  // If it's uc?export=view&id=ID or uc?id=ID or open?id=ID
+  const idMatch = url.match(/[?&]id=([^&]+)/);
+  if (idMatch && idMatch[1]) {
+    return `https://drive.google.com/file/d/${idMatch[1]}/view`;
+  }
+
+  return url;
+}
+
 export async function uploadFileToDrive(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -55,7 +73,7 @@ export async function uploadFileToDrive(file) {
 
         const result = await response.json();
         if (result.success) {
-          resolve(result.fileUrl);
+          resolve(getDriveViewUrl(result.fileUrl));
         } else {
           reject(new Error(result.error || result.message || 'Upload failed'));
         }

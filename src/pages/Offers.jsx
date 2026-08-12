@@ -5,7 +5,7 @@ import {
   FileText, Upload, Paperclip, ExternalLink
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, uploadFileToDrive, nowDateTime } from '../lib/utils';
+import { cn, formatCurrency, uploadFileToDrive, nowDateTime, getDriveViewUrl } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
 
@@ -386,7 +386,7 @@ const Offers = () => {
                     </td>
                     <td className="px-6 py-4">
                       {offer.offerCopy ? (
-                        <a href={offer.offerCopy} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 transition-colors">
+                        <a href={getDriveViewUrl(offer.offerCopy)} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 transition-colors">
                           <FileText size={14} />
                           <span>View File</span>
                         </a>
@@ -567,7 +567,7 @@ const Offers = () => {
                       <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl">
                         <Paperclip size={14} className="text-emerald-600 shrink-0" />
                         <span className="text-xs text-emerald-700 font-semibold truncate flex-1">{uploadedFile.name}</span>
-                        <a href={uploadedFile.url} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-800">
+                        <a href={getDriveViewUrl(uploadedFile.url)} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-800">
                           <ExternalLink size={12} />
                         </a>
                         <button type="button" onClick={() => { setUploadedFile(null); setNewOffer(prev => ({ ...prev, offerCopy: '' })); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="text-gray-400 hover:text-red-500">

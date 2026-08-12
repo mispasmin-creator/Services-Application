@@ -6,7 +6,7 @@ import {
   ExternalLink, Eye, CheckSquare, RefreshCw
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, nowDateTime } from '../lib/utils';
+import { cn, formatCurrency, nowDateTime, getDriveViewUrl } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
 
@@ -14,6 +14,7 @@ const Tally = () => {
   const { user: currentUser } = useAuthStore();
   const { services, loading, updateService } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [firmFilter, setFirmFilter] = useState('All');
   const [activeTab, setActiveTab] = useState('audit'); // 'audit', 'rectify', 'tally', 'completed'
   const [isSaving, setIsSaving] = useState(false);
   
@@ -94,8 +95,14 @@ const Tally = () => {
     };
   });
 
-  // Filter based on Search Term
+  // Unique firm names for dropdown
+  const firmOptions = ['All', ...Array.from(new Set(mappedTally.map(t => t.firmName).filter(Boolean))).sort()];
+
+  // Filter based on Firm Name and Search Term
   let filteredTally = mappedTally;
+  if (firmFilter !== 'All') {
+    filteredTally = filteredTally.filter(t => (t.firmName || '') === firmFilter);
+  }
   if (searchTerm) {
     filteredTally = filteredTally.filter(t =>
       t.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -274,6 +281,15 @@ const Tally = () => {
             className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
           />
         </div>
+        <select
+          value={firmFilter}
+          onChange={(e) => setFirmFilter(e.target.value)}
+          className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all min-w-[160px]"
+        >
+          {firmOptions.map(firm => (
+            <option key={firm} value={firm}>{firm === 'All' ? 'All Firms' : firm}</option>
+          ))}
+        </select>
       </div>
 
       {/* Stages Tab Selector */}
@@ -366,7 +382,7 @@ const Tally = () => {
                     <td className="px-4 py-4 text-sm text-gray-700 font-medium whitespace-nowrap">{item.billNo || '—'}</td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       {item.billCopy ? (
-                        <a href={item.billCopy} target="_blank" rel="noreferrer"
+                        <a href={getDriveViewUrl(item.billCopy)} target="_blank" rel="noreferrer"
                           className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 transition-colors">
                           <Eye size={13} /><span>View</span>
                         </a>
@@ -506,7 +522,7 @@ const Tally = () => {
                   <div className="space-y-1 mt-1">
                     {(selectedItem.billCopy || selectedItem.billImage) && (
                       <a 
-                        href={selectedItem.billCopy || selectedItem.billImage} 
+                        href={getDriveViewUrl(selectedItem.billCopy || selectedItem.billImage)} 
                         target="_blank" 
                         rel="noreferrer" 
                         className="text-gray-700 hover:text-gray-900 font-bold flex items-center gap-1"
@@ -518,7 +534,7 @@ const Tally = () => {
                     )}
                     {selectedItem.paymentProof && (
                       <a 
-                        href={selectedItem.paymentProof} 
+                        href={getDriveViewUrl(selectedItem.paymentProof)} 
                         target="_blank" 
                         rel="noreferrer" 
                         className="text-gray-700 hover:text-gray-900 font-bold flex items-center gap-1"

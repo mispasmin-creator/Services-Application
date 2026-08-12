@@ -5,7 +5,7 @@ import {
   Upload, Paperclip
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, uploadFileToDrive, nowDateTime } from '../lib/utils';
+import { cn, formatCurrency, uploadFileToDrive, nowDateTime, getDriveViewUrl } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
 
@@ -379,7 +379,7 @@ const Payments = () => {
                   <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl">
                     <Paperclip size={14} className="text-emerald-600 shrink-0" />
                     <span className="text-xs text-emerald-700 font-semibold truncate flex-1">{uploadedFile.name}</span>
-                    <a href={uploadedFile.url} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-800">
+                    <a href={getDriveViewUrl(uploadedFile.url)} target="_blank" rel="noreferrer" className="text-emerald-600 hover:text-emerald-800">
                       <ExternalLink size={12} />
                     </a>
                     <button

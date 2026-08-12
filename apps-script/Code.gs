@@ -14,6 +14,16 @@ function doGet(e) {
     const sheetName = e.parameter.sheet || "Data";
 
     try {
+        // Check server-side cache first (60 second TTL per sheet)
+        // On cache hit: returns in <100ms instead of 2-5 seconds
+        const cache = CacheService.getScriptCache();
+        const cacheKey = 'fms_sheet_' + sheetName;
+        const cachedJson = cache.get(cacheKey);
+        if (cachedJson) {
+            return ContentService.createTextOutput(cachedJson)
+                .setMimeType(ContentService.MimeType.JSON);
+        }
+
         const ss = getSpreadsheet();
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) {
@@ -28,7 +38,11 @@ function doGet(e) {
             data: data
         };
 
-        return ContentService.createTextOutput(JSON.stringify(result))
+        const jsonStr = JSON.stringify(result);
+        // Store in cache for 60 seconds (max entry: 100KB; silently skip if too large)
+        try { cache.put(cacheKey, jsonStr, 60); } catch (cacheErr) { /* sheet too large to cache */ }
+
+        return ContentService.createTextOutput(jsonStr)
             .setMimeType(ContentService.MimeType.JSON);
 
     } catch (err) {
@@ -46,6 +60,13 @@ function jsonSuccess(msg, additionalData) {
     const response = { success: true, message: msg, ...additionalData };
     return ContentService.createTextOutput(JSON.stringify(response))
         .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Clears the cached sheet data so the next GET returns fresh data after a write
+function invalidateSheetCache(sheetName) {
+    try {
+        CacheService.getScriptCache().remove('fms_sheet_' + sheetName);
+    } catch (e) { /* ignore cache errors */ }
 }
 
 function fetchSheetData(sheetName) {
@@ -103,6 +124,7 @@ function doPost(e) {
 
             // Flush to ensure immediate write
             SpreadsheetApp.flush();
+            invalidateSheetCache(sheetName); // Clear cache so next GET returns fresh data
 
             return jsonSuccess("Data inserted successfully");
         }
@@ -116,6 +138,10 @@ function doPost(e) {
                 throw new Error("Invalid row index for update");
             }
 
+            // Read header row to identify protected "Planned X" columns
+            var totalCols = Math.max(rowData.length, sheet.getLastColumn());
+            var headerRow = sheet.getRange(1, 1, 1, totalCols).getValues()[0];
+
             // OPTIMIZATION: Get existing row data first, then batch update
             var range = sheet.getRange(rowIndex, 1, 1, rowData.length);
             var existingData = range.getValues()[0];
@@ -126,6 +152,15 @@ function doPost(e) {
             // previously null slipped through and blanked out Timestamp /
             // formula columns like Outstanding Amount / Planned dates)
             var mergedData = existingData.map(function (existingVal, i) {
+                var headerName = String(headerRow[i] || '').replace(/\s+/g, '');
+
+                // CRITICAL: "Planned X" columns must NEVER be auto-updated by formula recalculation.
+                // Write back the static existing VALUE (not the formula string), so that
+                // changing Status3/Status4 does not trigger Planned 5 formula to auto-fill a date.
+                if (headerName.startsWith('Planned')) {
+                    return existingVal; // Always freeze the current static value
+                }
+
                 // If new data is provided, overwrite it
                 if (rowData[i] !== '' && rowData[i] !== undefined && rowData[i] !== null) {
                     return rowData[i];
@@ -142,6 +177,7 @@ function doPost(e) {
             range.setValues([mergedData]);
 
             SpreadsheetApp.flush();
+            invalidateSheetCache(sheetName); // Clear cache so next GET returns fresh data
 
             return jsonSuccess("Data updated successfully");
         }
@@ -158,6 +194,7 @@ function doPost(e) {
 
             sheet.getRange(rowIndex, columnIndex).setValue(value);
             SpreadsheetApp.flush();
+            invalidateSheetCache(sheetName);
 
             return jsonSuccess("Cell updated successfully");
         }
@@ -172,6 +209,7 @@ function doPost(e) {
 
             sheet.deleteRow(rowIndex);
             SpreadsheetApp.flush();
+            invalidateSheetCache(sheetName);
 
             return jsonSuccess("Row deleted successfully");
         }
@@ -191,6 +229,7 @@ function doPost(e) {
 
             sheet.getRange(rowIndex, columnIndex).setValue(value);
             SpreadsheetApp.flush();
+            invalidateSheetCache(sheetName);
 
             return jsonSuccess("Row marked as deleted successfully");
         }
@@ -207,6 +246,7 @@ function doPost(e) {
             sheet.getRange(lastRow + 1, 1, rowsData.length, rowsData[0].length).setValues(rowsData);
 
             SpreadsheetApp.flush();
+            invalidateSheetCache(sheetName);
 
             return jsonSuccess("Batch insert successful", { rowsInserted: rowsData.length });
         }
@@ -282,7 +322,7 @@ function uploadFileToDrive(base64Data, fileName, mimeType, folderId) {
             console.error("Could not set sharing permissions: " + shareError.toString());
         }
 
-        return "https://drive.google.com/uc?export=view&id=" + file.getId();
+        return "https://drive.google.com/file/d/" + file.getId() + "/view";
     } catch (error) {
         console.error("Error in uploadFileToDrive:", error);
         return null;
