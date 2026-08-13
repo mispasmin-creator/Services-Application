@@ -67,26 +67,64 @@ const fetchJsonWithRetry = async (url, options = {}, retries = 3, delay = 150) =
   }
 };
 
+// Helper to read and write localStorage cache for 0ms instant app loads
+const loadCache = (key) => {
+  try {
+    const item = localStorage.getItem(`fms_cache_${key}`);
+    return item ? JSON.parse(item) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const saveCache = (key, data) => {
+  try {
+    localStorage.setItem(`fms_cache_${key}`, JSON.stringify(data));
+  } catch (e) {
+    /* ignore quota errors */
+  }
+};
+
+const cachedOffers = loadCache('offers') || [];
+const cachedServices = loadCache('services') || [];
+const cachedUtilities = loadCache('utilities') || [];
+const cachedOfferHeaders = loadCache('offerHeaders') || [];
+const cachedServiceHeaders = loadCache('serviceHeaders') || [];
+const cachedUtilityHeaders = loadCache('utilityHeaders') || [];
+const cachedDepartments = loadCache('departments') || [];
+const cachedGroupHeads = loadCache('groupHeads') || [];
+const cachedFirms = loadCache('firms') || [];
+const cachedFmsNames = loadCache('fmsNames') || [];
+
 const useDataStore = create((set, get) => ({
-  offers: [],
-  services: [],
-  utilities: [],
-  offerHeaders: [],
-  serviceHeaders: [],
-  utilityHeaders: [],
-  departments: [],
-  groupHeads: [],
-  firms: [],
-  fmsNames: [],
+  offers: cachedOffers,
+  services: cachedServices,
+  utilities: cachedUtilities,
+  offerHeaders: cachedOfferHeaders,
+  serviceHeaders: cachedServiceHeaders,
+  utilityHeaders: cachedUtilityHeaders,
+  departments: cachedDepartments,
+  groupHeads: cachedGroupHeads,
+  firms: cachedFirms,
+  fmsNames: cachedFmsNames,
   loading: false,
+  isFetchingInBackground: false,
   error: null,
 
   fetchData: async () => {
-    if (get().loading) {
+    if (get().isFetchingInBackground) {
       console.log("fetchData call ignored - fetch already in progress");
       return;
     }
-    set({ loading: true, error: null });
+
+    const hasExistingData = get().offers.length > 0 || get().services.length > 0 || get().utilities.length > 0;
+
+    // Only set loading to true if we have zero data loaded anywhere
+    if (!hasExistingData) {
+      set({ loading: true, error: null });
+    }
+    set({ isFetchingInBackground: true });
+
     try {
       // Fetch all sheets in PARALLEL — dramatically faster than sequential (was 12-20s, now 2-5s)
       const [offersResult, servicesResult, utilitiesResult, masterResult] = await Promise.allSettled([
@@ -166,7 +204,7 @@ const useDataStore = create((set, get) => ({
             checker: row[4] || '',
             amount: parseFloat(row[5]) || 0,
             tdsAmount: parseFloat(row[6]) || 0,
-            remark: row[7] || '',
+            remark: getVal(['Remark', 'Remarks'], 7),
             vendor: row[8] || '',
             description: row[9] || '',
             location: row[10] || '',
@@ -301,6 +339,27 @@ const useDataStore = create((set, get) => ({
         fmsNames = [...new Set(validRows.map(row => String(row[3] || '').trim()).filter(val => val !== ''))];
       }
 
+      // Compute effective amountPaid, outstanding, and status for each offer based on linked services
+      offers = offers.map(o => {
+        const servicesForOffer = services.filter(s => s.offerNo && String(s.offerNo).trim().toLowerCase() === String(o.id).trim().toLowerCase());
+        const sumServices = servicesForOffer.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+        const amountPaid = Math.max(Number(o.amountPaid) || 0, sumServices);
+        const outstanding = o.amount > 0 ? Math.max(0, Number(o.amount) - amountPaid) : (Number(o.outstanding) || 0);
+
+        let status = o.status;
+        if (!status || status === 'Pending') {
+          if (servicesForOffer.length > 0 && outstanding <= 0) {
+            status = 'Converted';
+          }
+        }
+        return {
+          ...o,
+          amountPaid,
+          outstanding,
+          status: status || 'Pending'
+        };
+      });
+
       // Filter data based on current logged in user's assigned firms (except for admins or 'All' access)
       const currentUser = useAuthStore.getState().user;
       const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
@@ -335,10 +394,23 @@ const useDataStore = create((set, get) => ({
         groupHeads,
         firms,
         fmsNames,
-        loading: false 
+        loading: false,
+        isFetchingInBackground: false 
       });
+
+      // Save to localStorage cache for 0ms initial load next time
+      saveCache('offers', offers);
+      saveCache('services', services);
+      saveCache('utilities', utilities);
+      saveCache('offerHeaders', offerHeaders);
+      saveCache('serviceHeaders', serviceHeaders);
+      saveCache('utilityHeaders', utilityHeaders);
+      saveCache('departments', departments);
+      saveCache('groupHeads', groupHeads);
+      saveCache('firms', firms);
+      saveCache('fmsNames', fmsNames);
     } catch (err) {
-      set({ error: err.message, loading: false });
+      set({ error: err.message, loading: false, isFetchingInBackground: false });
     }
   },
 
@@ -381,9 +453,15 @@ const useDataStore = create((set, get) => ({
   },
 
   addOffer: async (offer) => {
-    const headers = get().offerHeaders;
+    const rawHeaders = get().offerHeaders;
+    const defaultHeaders = [
+      'Timestamp', 'Offer No.', 'Firm Name', 'Vendor Name', 'Work Description',
+      'Service Location', 'Amount', 'Is There An Offer', 'Offer Copy',
+      'Amount To Be Paid', 'Outstanding Amount', 'Status'
+    ];
+    const headers = (rawHeaders && rawHeaders.length > 0) ? rawHeaders : defaultHeaders;
+
     const offerColumnMap = {
-      'Timestamp': nowDateTime(),
       'Firm Name': offer.firmName,
       'Vendor Name': offer.vendor,
       'Work Description': offer.description,
@@ -392,13 +470,47 @@ const useDataStore = create((set, get) => ({
       'Is There An Offer': offer.isOffer || 'Yes',
       'Offer Copy': offer.offerCopy || '',
     };
-    // Only submit to matching columns — trim array at last matched column so formula columns are never touched
-    const fullArray = headers.map(header => Object.prototype.hasOwnProperty.call(offerColumnMap, header) ? offerColumnMap[header] : null);
+    // Submit Timestamp (Column A) + 7 input columns — leave Offer No, Amount To Be Paid, Outstanding Amount, Status to Google Sheet formulas
+    const fullArray = headers.map(header => {
+      const norm = String(header || '').trim().toLowerCase().replace(/\s+/g, '');
+      if (norm === 'timestamp') return offer.timestamp || nowDateTime();
+      if (norm === 'firmname') return offer.firmName;
+      if (norm === 'vendorname' || norm === 'vendor') return offer.vendor;
+      if (norm === 'workdescription' || norm === 'description') return offer.description;
+      if (norm === 'servicelocation' || norm === 'location') return offer.location;
+      if (norm === 'amount') return offer.amount;
+      if (norm === 'isthereanoffer') return offer.isOffer || 'Yes';
+      if (norm === 'offercopy') return offer.offerCopy || '';
+      return null;
+    });
     let lastMatchIdx = -1;
     for (let i = fullArray.length - 1; i >= 0; i--) {
       if (fullArray[i] !== null) { lastMatchIdx = i; break; }
     }
     const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? '' : v);
+
+    // Optimistic UI update — add new offer to state & localStorage immediately
+    const nowTs = nowDateTime();
+    const newOfferObj = {
+      sheetRowIndex: (get().offers.length > 0 ? Math.max(...get().offers.map(o => o.sheetRowIndex || 0)) + 1 : 2),
+      timestamp: nowTs,
+      id: offer.id,
+      firmName: offer.firmName,
+      vendor: offer.vendor,
+      description: offer.description,
+      location: offer.location,
+      amount: offer.amount,
+      isOffer: offer.isOffer || 'Yes',
+      offerCopy: offer.offerCopy || '',
+      amountPaid: 0,
+      outstanding: offer.amount,
+      status: 'Pending',
+      date: nowTs.split(' ')[0]
+    };
+    const updatedOffers = [newOfferObj, ...get().offers];
+    set({ offers: updatedOffers });
+    saveCache('offers', updatedOffers);
+
     const res = await get().saveRow('OFFER', 'insert', null, rowDataArray);
     // Background refetch — don't block the caller
     if (res && res.success) {
@@ -429,7 +541,10 @@ const useDataStore = create((set, get) => ({
       return '';
     });
     // Optimistic UI update for offers
-    set(state => ({ offers: state.offers.map(o => o.sheetRowIndex === rowIndex ? merged : o) }));
+    const updatedOffers = get().offers.map(o => o.sheetRowIndex === rowIndex ? merged : o);
+    set({ offers: updatedOffers });
+    saveCache('offers', updatedOffers);
+
     const res = await get().saveRow('OFFER', 'update', rowIndex, rowDataArray);
     // Background refetch — UI already updated optimistically
     if (res && res.success) {
@@ -439,19 +554,27 @@ const useDataStore = create((set, get) => ({
   },
 
   addService: async (service) => {
-    const headers = get().serviceHeaders;
+    const rawHeaders = get().serviceHeaders;
+    const defaultHeaders = [
+      'Timestamp', 'Offer No.', 'Service No.', 'Firm Name', 'Service Checker',
+      'Total Amount', 'TDS Deduction Amount', 'Remark', 'Vendor Name',
+      'Work Description', 'Service Location'
+    ];
+    const headers = (rawHeaders && rawHeaders.length > 0) ? rawHeaders : defaultHeaders;
+
     const fullArray = headers.map(header => {
-      if (header === 'Timestamp') return nowDateTime();
-      if (header === 'Offer No.') return service.offerNo;
-      if (header === 'Service No.') return service.id;
-      if (header === 'Firm Name') return service.firmName;
-      if (header === 'Service Checker') return service.checker;
-      if (header === 'Total Amount') return service.amount;
-      if (header === 'TDS Deduction Amount') return service.tdsAmount || 0;
-      if (header === 'Remark') return service.remark || '';
-      if (header === 'Vendor Name') return service.vendor;
-      if (header === 'Work Description') return service.description;
-      if (header === 'Service Location') return service.location;
+      const norm = String(header || '').trim().toLowerCase().replace(/\s+/g, '');
+      if (norm === 'timestamp') return nowDateTime();
+      if (norm === 'offerno.' || norm === 'offerno') return service.offerNo;
+      if (norm === 'serviceno.' || norm === 'serviceno') return service.id;
+      if (norm === 'firmname') return service.firmName;
+      if (norm === 'servicechecker' || norm === 'checker') return service.checker;
+      if (norm === 'totalamount' || norm === 'amount') return service.amount;
+      if (norm === 'tdsdeductionamount' || norm === 'tdsamount') return service.tdsAmount || 0;
+      if (norm === 'remark' || norm === 'remarks') return service.remark || '';
+      if (norm === 'vendorname' || norm === 'vendor') return service.vendor;
+      if (norm === 'workdescription' || norm === 'description') return service.description;
+      if (norm === 'servicelocation' || norm === 'location') return service.location;
       return null;
     });
     let lastMatchIdx = -1;
@@ -459,8 +582,34 @@ const useDataStore = create((set, get) => ({
       if (fullArray[i] !== null) { lastMatchIdx = i; break; }
     }
     const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? '' : v);
+
+    // Optimistic UI update — add new service to state immediately
+    const nowTs = nowDateTime();
+    const newServiceObj = {
+      sheetRowIndex: (get().services.length > 0 ? Math.max(...get().services.map(s => s.sheetRowIndex || 0)) + 1 : 2),
+      timestamp: nowTs,
+      offerNo: service.offerNo,
+      id: service.id,
+      firmName: service.firmName,
+      checker: service.checker,
+      amount: service.amount,
+      tdsAmount: service.tdsAmount || 0,
+      remark: service.remark || '',
+      vendor: service.vendor,
+      description: service.description,
+      location: service.location,
+      status: 'Service Created',
+      planned1: nowTs, actual1: '', delay1: '',
+      billNo: '', billCopy: '',
+      planned2: '', actual2: '', delay2: '',
+      paymentProof: ''
+    };
+    const updatedServices = [newServiceObj, ...get().services];
+    set({ services: updatedServices });
+    saveCache('services', updatedServices);
+
     const res = await get().saveRow('SERVICE', 'insert', null, rowDataArray);
-    // Background refetch — don't block the caller
+    // Background refetch — sync with sheet
     if (res && res.success) {
       get().fetchData();
     }
@@ -473,11 +622,13 @@ const useDataStore = create((set, get) => ({
     const merged = { ...service, ...updatedFields };
 
     // Optimistic UI update — UI reflects change immediately without waiting for network
-    set(state => ({ services: state.services.map(s => s.sheetRowIndex === rowIndex ? merged : s) }));
+    const updatedServices = get().services.map(s => s.sheetRowIndex === rowIndex ? merged : s);
+    set({ services: updatedServices });
+    saveCache('services', updatedServices);
 
     const headers = get().serviceHeaders;
     const fullArray = headers.map(header => {
-      const norm = (header || '').replace(/\s+/g, '');
+      const norm = String(header || '').trim().toLowerCase().replace(/\s+/g, '');
       if (header === 'Timestamp') return null; // Never overwrite original Column A timestamp
       if (header === 'Offer No.') return merged.offerNo;
       if (header === 'Service No.') return merged.id;
@@ -485,11 +636,11 @@ const useDataStore = create((set, get) => ({
       if (header === 'Service Checker') return merged.checker;
       if (header === 'Total Amount') return merged.amount;
       if (header === 'TDS Deduction Amount') return merged.tdsAmount;
-      if (header === 'Remark') return merged.remark;
+      if (norm === 'remark' || norm === 'remarks') return merged.remark;
       if (header === 'Vendor Name') return merged.vendor;
       if (header === 'Work Description') return merged.description;
       if (header === 'Service Location') return merged.location;
-      if (norm.startsWith('Planned')) return null;
+      if (norm.includes('planned')) return null;
       if (norm === 'Actual1') return merged.actual1 || null;
       if (norm === 'Delay1') return merged.delay1 || null;
       if (norm === 'Actual2') return merged.actual2 || null;

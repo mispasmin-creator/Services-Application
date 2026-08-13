@@ -65,9 +65,18 @@ const Bills = () => {
     }
   };
 
-  // billStatus helper — History = billCopy uploaded
+  // Helper to check if bill process is done
+  const isBillDone = (s) => {
+    if (!s) return false;
+    if (s.billCopy || s.billNo) return true;
+    const status = String(s.status || '').trim().toLowerCase();
+    if (['completed', 'tally pending', 'payment pending', 'bill received'].includes(status)) return true;
+    return false;
+  };
+
+  // billStatus helper — History = billCopy uploaded or bill processed
   const getBillStatus = (s) => {
-    if (s.billCopy) return 'Bill Uploaded';
+    if (isBillDone(s)) return 'Bill Uploaded';
     return 'Awaiting Bill';
   };
 
@@ -88,8 +97,8 @@ const Bills = () => {
 
   // Filtered service list
   const filteredServices = services.filter(s => {
-    if (activeTab === 'active'  &&  s.billCopy) return false;
-    if (activeTab === 'history' && !s.billCopy) return false;
+    if (activeTab === 'active'  &&  isBillDone(s)) return false;
+    if (activeTab === 'history' && !isBillDone(s)) return false;
 
     const term = searchTerm.toLowerCase();
     return (
@@ -101,8 +110,8 @@ const Bills = () => {
     );
   });
 
-  const activeCount  = services.filter(s => !s.billCopy).length;
-  const historyCount = services.filter(s => !!s.billCopy).length;
+  const activeCount  = services.filter(s => !isBillDone(s)).length;
+  const historyCount = services.filter(s => isBillDone(s)).length;
 
   const billsTabsConfig = [
     { id: 'active',  label: 'Active Bills', count: activeCount,  colorClass: 'bg-amber-100 text-amber-800'    },

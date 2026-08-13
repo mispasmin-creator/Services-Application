@@ -163,17 +163,16 @@ const Tally = () => {
 
   // Stage updates execution
   const handleAuditSubmit = async (status, remarks = '') => {
+    setIsAuditModalOpen(false);
     setIsSaving(true);
     try {
-      if (selectedItem.type === 'Service') {
+      if (selectedItem?.type === 'Service') {
         await updateService(selectedItem.sheetRowIndex, {
           actual3: nowDateTime(),
           status3: status,
           remarks3: remarks || (status === 'Audited' ? 'Approved in Audit' : '')
         });
       }
-      setIsAuditModalOpen(false);
-      alert(`Entry ${selectedItem.id} audit state updated to ${status === 'Audited' ? 'Done' : 'Rectify'}!`);
     } catch (err) {
       alert(`Error updating audit state: ${err.message}`);
     } finally {
@@ -183,18 +182,17 @@ const Tally = () => {
 
   const handleRectifySubmit = async (e) => {
     e.preventDefault();
+    setIsRectifyModalOpen(false);
     setIsSaving(true);
     try {
       const remarksText = resolutionNote ? `Rectified: ${resolutionNote}` : 'Rectified and approved';
-      if (selectedItem.type === 'Service') {
+      if (selectedItem?.type === 'Service') {
         await updateService(selectedItem.sheetRowIndex, {
           actual4: nowDateTime(),
           status4: 'Audited',
           remarks4: remarksText
         });
       }
-      setIsRectifyModalOpen(false);
-      alert(`Entry ${selectedItem.id} marked as Rectified & sent to Tally Entry!`);
     } catch (err) {
       alert(`Error submitting resolution: ${err.message}`);
     } finally {
@@ -208,20 +206,19 @@ const Tally = () => {
       alert('Please enter tally entry date.');
       return;
     }
+    setIsTallyModalOpen(false);
     setIsSaving(true);
     try {
       const remarksText = tallyRemarks 
         ? `Voucher: ${tallyVoucher} (Remarks: ${tallyRemarks})` 
         : (tallyVoucher || 'Tally entry done');
-      if (selectedItem.type === 'Service') {
+      if (selectedItem?.type === 'Service') {
         await updateService(selectedItem.sheetRowIndex, {
           actual5: tallyDate,
           status5: 'Completed',
           remarks5: remarksText
         });
       }
-      setIsTallyModalOpen(false);
-      alert(`Tally voucher recorded successfully for ${selectedItem.id}!`);
     } catch (err) {
       alert(`Error saving tally entry: ${err.message}`);
     } finally {

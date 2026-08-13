@@ -14,16 +14,6 @@ function doGet(e) {
     const sheetName = e.parameter.sheet || "Data";
 
     try {
-        // Check server-side cache first (60 second TTL per sheet)
-        // On cache hit: returns in <100ms instead of 2-5 seconds
-        const cache = CacheService.getScriptCache();
-        const cacheKey = 'fms_sheet_' + sheetName;
-        const cachedJson = cache.get(cacheKey);
-        if (cachedJson) {
-            return ContentService.createTextOutput(cachedJson)
-                .setMimeType(ContentService.MimeType.JSON);
-        }
-
         const ss = getSpreadsheet();
         const sheet = ss.getSheetByName(sheetName);
         if (!sheet) {
@@ -38,11 +28,7 @@ function doGet(e) {
             data: data
         };
 
-        const jsonStr = JSON.stringify(result);
-        // Store in cache for 60 seconds (max entry: 100KB; silently skip if too large)
-        try { cache.put(cacheKey, jsonStr, 60); } catch (cacheErr) { /* sheet too large to cache */ }
-
-        return ContentService.createTextOutput(jsonStr)
+        return ContentService.createTextOutput(JSON.stringify(result))
             .setMimeType(ContentService.MimeType.JSON);
 
     } catch (err) {
@@ -121,6 +107,18 @@ function doPost(e) {
 
             // Use appendRow for single row - it's optimized internally
             sheet.appendRow(rowData);
+            var newRowIdx = sheet.getLastRow();
+
+            // Auto-copy formulas from row above for any blank/unprovided cells
+            // (Timestamp, Offer No., Amount To Be Paid, Outstanding Amount, Status formulas)
+            if (newRowIdx > 2) {
+                var prevFormulas = sheet.getRange(newRowIdx - 1, 1, 1, rowData.length).getFormulas()[0];
+                for (var f = 0; f < prevFormulas.length; f++) {
+                    if (prevFormulas[f] && prevFormulas[f] !== '' && (rowData[f] === null || rowData[f] === '' || rowData[f] === undefined)) {
+                        sheet.getRange(newRowIdx, f + 1).setFormulaR1C1(sheet.getRange(newRowIdx - 1, f + 1).getFormulaR1C1());
+                    }
+                }
+            }
 
             // Flush to ensure immediate write
             SpreadsheetApp.flush();
@@ -152,12 +150,12 @@ function doPost(e) {
             // previously null slipped through and blanked out Timestamp /
             // formula columns like Outstanding Amount / Planned dates)
             var mergedData = existingData.map(function (existingVal, i) {
-                var headerName = String(headerRow[i] || '').replace(/\s+/g, '');
+                var headerName = String(headerRow[i] || '').trim().toLowerCase();
 
                 // CRITICAL: "Planned X" columns must NEVER be auto-updated by formula recalculation.
                 // Write back the static existing VALUE (not the formula string), so that
-                // changing Status3/Status4 does not trigger Planned 5 formula to auto-fill a date.
-                if (headerName.startsWith('Planned')) {
+                // updating status/bills/payments does not trigger Planned formulas to auto-fill a date.
+                if (headerName.indexOf('planned') !== -1) {
                     return existingVal; // Always freeze the current static value
                 }
 

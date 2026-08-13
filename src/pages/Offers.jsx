@@ -125,10 +125,11 @@ const Offers = () => {
     // Auto-generate Offer No. in sequence: OFF-001, OFF-002...
     const autoId = getNextOfferId();
 
+    setIsCreateModalOpen(false);
     setIsSaving(true);
     setSaveError('');
     try {
-      const res = await addOffer({
+      addOffer({
         id: autoId,
         firmName: newOffer.firmName,
         vendor: newOffer.vendor,
@@ -137,28 +138,23 @@ const Offers = () => {
         amount: parseFloat(newOffer.amount),
         isOffer: newOffer.isOffer,
         offerCopy: newOffer.isOffer === 'Yes' ? newOffer.offerCopy : '',
-        status: '', // Empty status - not Pending
-        timestamp: nowDateTime(), // Add timestamp
-        createdAt: nowDateTime() // Add creation date
+        status: 'Pending',
+        timestamp: nowDateTime(),
+        createdAt: nowDateTime()
       });
-      if (res.success) {
-        setIsCreateModalOpen(false);
-        setUploadedFile(null);
-        setUploadError('');
-        setNewOffer({
-          firmName: 'All',
-          vendor: '',
-          description: '',
-          location: '',
-          amount: '',
-          isOffer: 'Yes',
-          offerCopy: '',
-          timestamp: nowDateTime()
-        });
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      } else {
-        setSaveError(res.message || 'Failed to save offer.');
-      }
+      setUploadedFile(null);
+      setUploadError('');
+      setNewOffer({
+        firmName: 'All',
+        vendor: '',
+        description: '',
+        location: '',
+        amount: '',
+        isOffer: 'Yes',
+        offerCopy: '',
+        timestamp: nowDateTime()
+      });
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
       setSaveError(err.message || 'Error occurred.');
     } finally {
@@ -181,6 +177,10 @@ const Offers = () => {
   const openConvertModal = (offer) => {
     setSelectedOfferForConvert(offer);
     const autoId = getNextServiceId();
+    const defaultAmount = (offer.outstanding !== undefined && offer.outstanding !== null && offer.outstanding > 0)
+      ? offer.outstanding
+      : (offer.amount !== undefined && offer.amount !== null ? offer.amount : '');
+
     setConvertFields({
       serviceNo: autoId,
       checker: 'Ea Pmmpl',
@@ -191,7 +191,7 @@ const Offers = () => {
       firmName: offer.firmName || 'All',
       description: offer.description || '',
       location: offer.location || '',
-      amount: offer.amount !== undefined && offer.amount !== null ? String(offer.amount) : ''
+      amount: defaultAmount !== '' ? String(defaultAmount) : ''
     });
     setIsConvertModalOpen(true);
   };
@@ -221,6 +221,10 @@ const Offers = () => {
       });
 
       if (serviceRes.success) {
+        const remainingAmt = (selectedOfferForConvert.outstanding > 0 ? selectedOfferForConvert.outstanding : selectedOfferForConvert.amount);
+        if (parseFloat(convertFields.amount) >= remainingAmt) {
+          updateOffer(selectedOfferForConvert.sheetRowIndex, { status: 'Converted' });
+        }
         setIsConvertModalOpen(false);
         alert(`Successfully Completed Offer ${selectedOfferForConvert.id} to Service ${convertFields.serviceNo}!`);
       } else {
@@ -233,14 +237,22 @@ const Offers = () => {
     }
   };
 
-  const isDone = (status) => ['Complete', 'Completed', 'Converted'].includes(status);
+  const isDone = (o) => {
+    if (!o) return false;
+    const status = String(typeof o === 'object' ? (o.status || '') : o).trim().toLowerCase();
+    if (['complete', 'completed', 'converted'].includes(status)) return true;
+    if (typeof o === 'object') {
+      if (o.amount > 0 && o.outstanding !== undefined && o.outstanding !== null && Number(o.outstanding) <= 0 && Number(o.amountPaid) > 0) return true;
+    }
+    return false;
+  };
 
   // Filter offers
   const filteredOffers = offers.filter(o => {
     if (activeTab === 'active') {
-      if (isDone(o.status)) return false;
+      if (isDone(o)) return false;
     } else if (activeTab === 'history') {
-      if (!isDone(o.status)) return false;
+      if (!isDone(o)) return false;
     }
 
     // Search filter
@@ -256,8 +268,8 @@ const Offers = () => {
   });
 
   const offersTabsConfig = [
-    { id: 'active', label: 'Active Offers', count: offers.filter(o => !isDone(o.status)).length, colorClass: 'bg-blue-100 text-blue-800' },
-    { id: 'history', label: 'History', count: offers.filter(o => isDone(o.status)).length, colorClass: 'bg-emerald-100 text-emerald-800' }
+    { id: 'active', label: 'Active Offers', count: offers.filter(o => !isDone(o)).length, colorClass: 'bg-blue-100 text-blue-800' },
+    { id: 'history', label: 'History', count: offers.filter(o => isDone(o)).length, colorClass: 'bg-emerald-100 text-emerald-800' }
   ];
   const visibleTabs = getAllowedTabs(currentUser, 'Offers', offersTabsConfig);
   const visibleTabIds = visibleTabs.map(t => t.id).join(',');
