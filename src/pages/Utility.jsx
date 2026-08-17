@@ -366,15 +366,7 @@ const Utility = () => {
     
     if (selectedUtility.status === 'Pending Approval') {
       if (!approvalFields.approvalStatus) {
-        setSaveError('Please select Status (Yes or No).');
-        return;
-      }
-      if (!approvalFields.fmsName) {
-        setSaveError('Please select Fms Name.');
-        return;
-      }
-      if (approvalFields.approvalStatus === 'Yes' && !approvalFields.details) {
-        setSaveError('Please enter Details.');
+        setSaveError('Please select Approve or Reject.');
         return;
       }
     }
@@ -384,22 +376,14 @@ const Utility = () => {
     try {
       let updates = {};
       if (selectedUtility.status === 'Pending Approval') {
-        const finalStatus = approvalFields.approvalStatus === 'Yes' ? 'Approved' : 'Rejected';
         updates = {
-          status: finalStatus,
-          fmsName: approvalFields.fmsName,
-          details: approvalFields.approvalStatus === 'Yes' ? approvalFields.details : '',
-          remarks: approvalFields.remarks,
-          approvalAttachment: approvalFields.approvalStatus === 'Yes' ? approvalFields.approvalAttachment : '',
-          actual1: approvalFields.actualDate,
-          delay1: approvalFields.delayDays
+          actual1: approvalFields.actualDate, // col — Actual 1
+          remark1: approvalFields.remarks     // col U — Remark 1
         };
       } else {
         updates = {
-          status: approvalFields.status,
           actual1: approvalFields.actualDate,
-          delay1: approvalFields.delayDays,
-          remarks: approvalFields.remarks
+          remark1: approvalFields.remarks
         };
       }
       
@@ -563,9 +547,9 @@ const Utility = () => {
   const metrics = (() => {
     const totalExpenses = utilities.reduce((sum, u) => sum + u.amount, 0);
     const pendingCreation = utilities.filter(u => u.status?.toLowerCase().includes('pending')).length;
-    const pendingApproval = utilities.filter(u => !!u.planned1 && !u.actual1).length;
-    const pendingTally = utilities.filter(u => !!u.planned2 && !u.actual2).length;
-    const completed = utilities.filter(u => u.status === 'Completed').length;
+    const pendingApproval = utilities.filter(u => !u.actual1).length;
+    const pendingTally = utilities.filter(u => !!u.actual1 && !u.actual2).length;
+    const completed = utilities.filter(u => u.status === 'Completed' || !!u.actual2).length;
     return { totalExpenses, pendingCreation, pendingApproval, pendingTally, completed };
   })();
 
@@ -590,11 +574,11 @@ const Utility = () => {
     if (activeTab === 'create') {
       if (!u.status?.toLowerCase().includes('pending')) return false;
     } else if (activeTab === 'approval') {
-      if (!u.planned1 || !!u.actual1) return false;
+      if (!!u.actual1) return false;
     } else if (activeTab === 'payment') {
-      if (!u.planned2 || !!u.actual2) return false;
+      if (!u.actual1 || !!u.actual2) return false;
     } else if (activeTab === 'completed') {
-      if (u.status !== 'Completed') return false;
+      if (u.status !== 'Completed' && !u.actual2) return false;
     }
     
     // Fuzzy Search (ID, PayTo, PersonName, Department, Remarks)
@@ -1130,12 +1114,9 @@ const Utility = () => {
                     <div className="flex items-center gap-1"><span>Status</span>{sortColumn === 'status' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Planned 1</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Actual 1</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Delay 1</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Planned 2</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Actual 2</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Delay 2</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Payment Form</th>
+                  {activeTab === 'approval' && (
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
+                  )}
                   {activeTab !== 'create' && activeTab !== 'approval' && (
                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                   )}
@@ -1204,38 +1185,19 @@ const Utility = () => {
                           <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">{utility.planned1}</span>
                         ) : <span className="text-gray-400 text-xs">—</span>}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {utility.actual1 ? (
-                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">{utility.actual1}</span>
-                        ) : <span className="text-gray-400 text-xs">—</span>}
-                      </td>
-                      <td className="px-6 py-4 text-center whitespace-nowrap">
-                        {utility.delay1 ? (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-100">{utility.delay1}d</span>
-                        ) : <span className="text-gray-400 text-xs">—</span>}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {utility.planned2 ? (
-                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">{utility.planned2}</span>
-                        ) : <span className="text-gray-400 text-xs">—</span>}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {utility.actual2 ? (
-                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">{utility.actual2}</span>
-                        ) : <span className="text-gray-400 text-xs">—</span>}
-                      </td>
-                      <td className="px-6 py-4 text-center whitespace-nowrap">
-                        {utility.delay2 ? (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-100">{utility.delay2}d</span>
-                        ) : <span className="text-gray-400 text-xs">—</span>}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {utility.paymentFormLink ? (
-                          <a href={getDriveViewUrl(utility.paymentFormLink)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-bold hover:underline text-xs">
-                            <Paperclip size={12} /><span>Link</span>
-                          </a>
-                        ) : <span className="text-gray-400 text-xs">—</span>}
-                      </td>
+
+                      {/* Approval Tab Action button */}
+                      {activeTab === 'approval' && (
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => openApprovalModal(utility)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl text-xs font-bold transition-all border border-amber-200 cursor-pointer"
+                          >
+                            <Eye size={14} />
+                            <span>View & Approve</span>
+                          </button>
+                        </td>
+                      )}
 
                       {/* Row Action buttons */}
                       {activeTab !== 'create' && activeTab !== 'approval' && (
@@ -1694,8 +1656,8 @@ const Utility = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-5">
-              {selectedUtility.status === 'Pending Approval' ? (
-                <form onSubmit={handleApprovalSubmit} className="space-y-4">
+              {!selectedUtility.actual1 ? (
+                <form onSubmit={handleApprovalSubmit} className="space-y-5">
                   {saveError && (
                     <div className="flex items-center gap-2 text-xs text-rose-700 bg-rose-50 p-3.5 rounded-2xl border border-rose-100 font-bold">
                       <AlertCircle size={15} />
@@ -1703,151 +1665,142 @@ const Utility = () => {
                     </div>
                   )}
 
-                  {/* Unique Number (autofill, read-only) */}
+                  {/* ── Prefilled Entry Details (Read-only) ── */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-3">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Entry Details (Read-only)</p>
+
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      {/* Utility No */}
+                      <div>
+                        <span className="text-gray-400 font-bold uppercase block mb-0.5">Utility No.</span>
+                        <span className="text-gray-900 font-bold">{selectedUtility.id}</span>
+                      </div>
+                      {/* Firm Name */}
+                      <div>
+                        <span className="text-gray-400 font-bold uppercase block mb-0.5">Firm Name</span>
+                        <span className="text-gray-900 font-semibold">{selectedUtility.firmName || '—'}</span>
+                      </div>
+                      {/* Person Name */}
+                      <div>
+                        <span className="text-gray-400 font-bold uppercase block mb-0.5">Person Name</span>
+                        <span className="text-gray-900 font-semibold">{selectedUtility.personName || '—'}</span>
+                      </div>
+                      {/* Department */}
+                      <div>
+                        <span className="text-gray-400 font-bold uppercase block mb-0.5">Department</span>
+                        <span className="text-gray-900 font-semibold">{selectedUtility.department || '—'}</span>
+                      </div>
+                      {/* Group Head */}
+                      <div>
+                        <span className="text-gray-400 font-bold uppercase block mb-0.5">Group Head</span>
+                        <span className="text-gray-900 font-semibold">{selectedUtility.groupHead || '—'}</span>
+                      </div>
+                      {/* Pay To */}
+                      <div>
+                        <span className="text-gray-400 font-bold uppercase block mb-0.5">Pay To</span>
+                        <span className="text-gray-900 font-semibold">{selectedUtility.payTo || '—'}</span>
+                      </div>
+                      {/* Bill Date */}
+                      <div>
+                        <span className="text-gray-400 font-bold uppercase block mb-0.5">Bill Date</span>
+                        <span className="text-gray-700 font-semibold">{selectedUtility.billDate ? selectedUtility.billDate.split('T')[0] : '—'}</span>
+                      </div>
+                      {/* Due Date */}
+                      <div>
+                        <span className="text-gray-400 font-bold uppercase block mb-0.5">Due Date</span>
+                        <span className="text-gray-700 font-semibold">{selectedUtility.dueDate ? selectedUtility.dueDate.split('T')[0] : '—'}</span>
+                      </div>
+                    </div>
+
+                    {/* Amounts row */}
+                    <div className="grid grid-cols-3 gap-2 bg-white border border-gray-200 rounded-xl p-3 mt-1">
+                      <div>
+                        <span className="text-gray-400 font-bold uppercase text-[10px] block">Bill Amount</span>
+                        <span className="text-gray-900 font-bold text-sm">{formatCurrency(selectedUtility.amount)}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 font-bold uppercase text-[10px] block">TDS Deduction</span>
+                        <span className="text-rose-600 font-bold text-sm">{selectedUtility.tdsAmount > 0 ? `-${formatCurrency(selectedUtility.tdsAmount)}` : 'No TDS'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 font-bold uppercase text-[10px] block">Amount To Be Paid</span>
+                        <span className="text-emerald-700 font-extrabold text-sm">{formatCurrency(selectedUtility.amountPaid)}</span>
+                      </div>
+                    </div>
+
+                    {/* Remarks from entry */}
+                    {selectedUtility.remarks && (
+                      <div>
+                        <span className="text-gray-400 font-bold uppercase text-[10px] block mb-0.5">Entry Remarks</span>
+                        <span className="text-gray-700 text-xs">{selectedUtility.remarks}</span>
+                      </div>
+                    )}
+
+                    {/* Bill Image link */}
+                    {selectedUtility.billImage && (
+                      <div>
+                        <span className="text-gray-400 font-bold uppercase text-[10px] block mb-1">Bill Copy</span>
+                        <a
+                          href={getDriveViewUrl(selectedUtility.billImage)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 rounded-xl text-xs font-bold transition-all"
+                        >
+                          <Paperclip size={13} />
+                          <span>View Bill Copy</span>
+                          <ExternalLink size={11} />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── Remarks ── */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Unique Number</label>
-                    <input
-                      type="text"
-                      disabled
-                      value={selectedUtility.id}
-                      className="w-full px-3.5 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-600"
+                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Remarks</label>
+                    <textarea
+                      placeholder="Enter approval / rejection remarks..."
+                      rows={3}
+                      value={approvalFields.remarks}
+                      onChange={(e) => setApprovalFields(prev => ({ ...prev, remarks: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs focus:ring-1 focus:ring-gray-900/20 resize-none"
                     />
                   </div>
 
-                  {/* Fms Name dropdown */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">FMS Name *</label>
-                    <select
-                      value={approvalFields.fmsName}
-                      onChange={(e) => setApprovalFields(prev => ({ ...prev, fmsName: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-1 focus:ring-gray-900/20 cursor-pointer"
-                    >
-                      <option value="">Select FMS Name</option>
-                      {fmsNames && fmsNames.map((name, idx) => (
-                        <option key={idx} value={name}>{name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Status dropdown (Yes/No) */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Status *</label>
-                    <select
-                      value={approvalFields.approvalStatus}
-                      onChange={(e) => setApprovalFields(prev => ({ ...prev, approvalStatus: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-1 focus:ring-gray-900/20 cursor-pointer"
-                    >
-                      <option value="">Select Status</option>
-                      <option value="Yes">Yes</option>
-                      <option value="No">No</option>
-                    </select>
-                  </div>
-
-                  {/* If Yes is selected, show additional inputs */}
-                  {approvalFields.approvalStatus === 'Yes' && (
-                    <div className="space-y-4 pt-2 border-t border-gray-100">
-                      {/* Details Input field */}
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Details *</label>
-                        <input
-                          type="text"
-                          placeholder="Enter approval details"
-                          value={approvalFields.details}
-                          onChange={(e) => setApprovalFields(prev => ({ ...prev, details: e.target.value }))}
-                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs focus:ring-1 focus:ring-gray-900/20"
-                        />
-                      </div>
-
-                      {/* Pay To (autofill, read-only) */}
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Pay To</label>
-                        <input
-                          type="text"
-                          disabled
-                          value={selectedUtility.payTo || ''}
-                          className="w-full px-3.5 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-600"
-                        />
-                      </div>
-
-                      {/* Amount To Be Paid (autofill, read-only) */}
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Amount To Be Paid</label>
-                        <input
-                          type="text"
-                          disabled
-                          value={formatCurrency(selectedUtility.amountPaid)}
-                          className="w-full px-3.5 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-600"
-                        />
-                      </div>
-
-                      {/* Remarks */}
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Remarks</label>
-                        <textarea
-                          placeholder="Enter remarks"
-                          rows={3}
-                          value={approvalFields.remarks}
-                          onChange={(e) => setApprovalFields(prev => ({ ...prev, remarks: e.target.value }))}
-                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs focus:ring-1 focus:ring-gray-900/20"
-                        />
-                      </div>
-
-                      {/* Upload Attachment */}
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Upload Attachment</label>
-                        <input
-                          type="file"
-                          ref={approvalFileInputRef}
-                          onChange={(e) => handleFileUpload(e.target.files[0], 'approval')}
-                          className="hidden"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                        />
-                        {approvalFields.approvalAttachment ? (
-                          <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-100 rounded-2xl text-xs">
-                            <div className="flex items-center gap-2 text-emerald-800 font-bold min-w-0">
-                              <Paperclip className="shrink-0" size={14} />
-                              <span className="truncate text-emerald-700">Attachment Uploaded Successfully</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setApprovalFields(prev => ({ ...prev, approvalAttachment: '' }));
-                                if (approvalFileInputRef.current) approvalFileInputRef.current.value = '';
-                              }}
-                              className="p-1 hover:bg-emerald-100 rounded-lg text-emerald-600 hover:text-red-500 transition-colors cursor-pointer"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={isUploading}
-                            onClick={() => approvalFileInputRef.current?.click()}
-                            className="w-full py-6 border-2 border-dashed border-gray-300 hover:border-gray-900 bg-gray-50 hover:bg-gray-100 rounded-2xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:text-gray-900 transition-all cursor-pointer"
-                          >
-                            {isUploading ? (
-                              <>
-                                <Loader2 className="animate-spin text-gray-900" size={24} />
-                                <span className="text-xs font-bold">Uploading file to Google Drive...</span>
-                              </>
-                            ) : (
-                              <>
-                                <Upload size={24} className="text-gray-400 group-hover:text-gray-900" />
-                                <span className="text-xs font-bold">Click to upload attachment document (Max 10MB)</span>
-                                <span className="text-[10px] text-gray-400">PDF, JPG, JPEG, PNG formats accepted</span>
-                              </>
-                            )}
-                          </button>
+                  {/* ── Approve / Reject Toggle ── */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Decision *</label>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setApprovalFields(prev => ({ ...prev, approvalStatus: 'Yes' }))}
+                        className={cn(
+                          "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold border-2 transition-all cursor-pointer",
+                          approvalFields.approvalStatus === 'Yes'
+                            ? "bg-emerald-600 border-emerald-600 text-white shadow-md"
+                            : "bg-white border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-700"
                         )}
-                        {uploadError && (
-                          <span className="text-[10px] text-rose-600 font-bold block mt-1">{uploadError}</span>
+                      >
+                        <CheckCircle2 size={15} />
+                        <span>Approve</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setApprovalFields(prev => ({ ...prev, approvalStatus: 'No' }))}
+                        className={cn(
+                          "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold border-2 transition-all cursor-pointer",
+                          approvalFields.approvalStatus === 'No'
+                            ? "bg-rose-600 border-rose-600 text-white shadow-md"
+                            : "bg-white border-gray-200 text-gray-600 hover:border-rose-400 hover:text-rose-700"
                         )}
-                      </div>
+                      >
+                        <X size={15} />
+                        <span>Reject</span>
+                      </button>
                     </div>
-                  )}
+                  </div>
 
-                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                  {/* ── Action Buttons ── */}
+                  <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
                     <button
                       type="button"
                       disabled={isSaving}
@@ -1858,11 +1811,20 @@ const Utility = () => {
                     </button>
                     <button
                       type="submit"
-                      disabled={isSaving || isUploading}
-                      className="flex items-center gap-1.5 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer"
+                      disabled={isSaving || !approvalFields.approvalStatus}
+                      className={cn(
+                        "flex items-center gap-1.5 px-6 py-2.5 font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer disabled:opacity-50",
+                        approvalFields.approvalStatus === 'Yes'
+                          ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                          : approvalFields.approvalStatus === 'No'
+                          ? "bg-rose-600 hover:bg-rose-700 text-white"
+                          : "bg-gray-900 hover:bg-gray-800 text-white"
+                      )}
                     >
                       {isSaving ? <Loader2 className="animate-spin" size={13} /> : <ShieldCheck size={14} />}
-                      <span>{approvalFields.approvalStatus === 'Yes' ? 'Approve & Release' : 'Reject / Decline'}</span>
+                      <span>
+                        {approvalFields.approvalStatus === 'Yes' ? 'Submit Approval' : approvalFields.approvalStatus === 'No' ? 'Submit Rejection' : 'Submit'}
+                      </span>
                     </button>
                   </div>
                 </form>

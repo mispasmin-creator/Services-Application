@@ -294,12 +294,13 @@ const useDataStore = create((set, get) => ({
                 billImage: getVal('Bill Image'),
                 billDate: getVal('Bill Date'),
                 dueDate: getVal('Due Date'),
-                remarks: getVal('Remarks'),
+                remarks: getVal('Remarks'),       // col M — entry remark
+                remark1: getVal('Remark 1'),        // col U — approval remark
                 tdsAmount: tdsVal,
                 amountPaid: parseFloat(getVal('Amount To Be Paid', amountVal - tdsVal)) || (amountVal - tdsVal),
                 outstanding: parseFloat(getVal('Outstanding Amount', amountVal - tdsVal)) || (amountVal - tdsVal),
                 status: getVal('Status') || 'Pending Approval',
-                planned1: getVal('Planned 1'),
+                planned1: formatSheetDate(getVal('Planned 1')),
                 actual1: getVal('Actual 1'),
                 delay1: getVal('Delay 1'),
                 planned2: getVal('Planned 2'),
@@ -494,7 +495,7 @@ const useDataStore = create((set, get) => ({
     const newOfferObj = {
       sheetRowIndex: (get().offers.length > 0 ? Math.max(...get().offers.map(o => o.sheetRowIndex || 0)) + 1 : 2),
       timestamp: nowTs,
-      id: offer.id,
+      id: '',              // Sheet formula generates Offer No. — will be updated after fetchData
       firmName: offer.firmName,
       vendor: offer.vendor,
       description: offer.description,
@@ -526,8 +527,8 @@ const useDataStore = create((set, get) => ({
 
     const headers = get().offerHeaders;
     const rowDataArray = headers.map(header => {
-      if (header === 'Timestamp') return merged.timestamp || nowDateTime();
-      if (header === 'Offer No.') return merged.id;
+      if (header === 'Timestamp') return null;           // never overwrite original timestamp
+      if (header === 'Offer No.') return null;           // formula column — do not overwrite
       if (header === 'Firm Name') return merged.firmName;
       if (header === 'Vendor Name') return merged.vendor;
       if (header === 'Work Description') return merged.description;
@@ -535,9 +536,9 @@ const useDataStore = create((set, get) => ({
       if (header === 'Amount') return merged.amount;
       if (header === 'Is There An Offer') return merged.isOffer;
       if (header === 'Offer Copy') return merged.offerCopy;
-      if (header === 'Amount To Be Paid') return merged.amountPaid;
+      if (header === 'Amount To Be Paid') return null;   // formula column — do not overwrite
       if (header === 'Outstanding Amount') return null;  // formula column — do not overwrite
-      if (header === 'Status') return merged.status;
+      if (header === 'Status') return null;              // formula column — do not overwrite
       return '';
     });
     // Optimistic UI update for offers
@@ -641,26 +642,26 @@ const useDataStore = create((set, get) => ({
       if (header === 'Work Description') return merged.description;
       if (header === 'Service Location') return merged.location;
       if (norm.includes('planned')) return null;
-      if (norm === 'Actual1') return merged.actual1 || null;
-      if (norm === 'Delay1') return merged.delay1 || null;
-      if (norm === 'Actual2') return merged.actual2 || null;
-      if (norm === 'Delay2') return merged.delay2 || null;
-      if (header === 'Payment Proof') return merged.paymentProof || null;
+      if (norm === 'actual1') return merged.actual1 || null;
+      if (norm === 'delay1') return merged.delay1 || null;
       if (header === 'Bill No.') return merged.billNo || null;
       if (header === 'Bill Copy') return merged.billCopy || null;
-      if (norm === 'Actual3') return merged.actual3 || null;
-      if (norm === 'Delay3') return merged.delay3 || null;
-      if (norm === 'Status3') return merged.status3 || null;
-      if (norm === 'Remarks3') return merged.remarks3 || null;
-      if (norm === 'Actual4') return merged.actual4 || null;
-      if (norm === 'Delay4') return merged.delay4 || null;
-      if (norm === 'Status4') return merged.status4 || null;
-      if (norm === 'Remarks4') return merged.remarks4 || null;
-      if (norm === 'Actual5') return merged.actual5 || null;
-      if (norm === 'Delay5') return merged.delay5 || null;
-      if (norm === 'Status5') return merged.status5 || null;
-      if (norm === 'Remarks5' || header === 'Remarks 5') return null; // Never touch Column AH Remarks 5
-      if (header === 'Payment Form' || header === 'Payment Form Link' || norm === 'PaymentForm') return null; // Do not touch Column AI Payment Form
+      if (norm === 'actual2') return merged.actual2 || null;
+      if (norm === 'delay2') return merged.delay2 || null;
+      if (header === 'Payment Proof') return merged.paymentProof || null;
+      if (norm === 'actual3') return merged.actual3 || null;
+      if (norm === 'delay3') return merged.delay3 || null;
+      if (norm === 'status3') return merged.status3 || null;
+      if (norm === 'remarks3') return merged.remarks3 || null;
+      if (norm === 'actual4') return merged.actual4 || null;
+      if (norm === 'delay4') return merged.delay4 || null;
+      if (norm === 'status4') return merged.status4 || null;
+      if (norm === 'remarks4') return merged.remarks4 || null;
+      if (norm === 'actual5') return merged.actual5 || null;
+      if (norm === 'delay5') return merged.delay5 || null;
+      if (norm === 'status5') return merged.status5 || null;
+      if (norm === 'remarks5' || header === 'Remarks 5') return null; // Never touch Column AH Remarks 5
+      if (header === 'Payment Form' || header === 'Payment Form Link' || norm === 'paymentform') return null; // Do not touch Column AI Payment Form
       return null;
     });
 
@@ -698,7 +699,8 @@ const useDataStore = create((set, get) => ({
       'Bill Date',
       'Due Date',
       'Remarks',
-      'TDS Deduction Amount'
+      'TDS Deduction Amount',
+      'Amount To Be Paid'
     ];
 
     const fullArray = headers.map(header => {
@@ -718,6 +720,7 @@ const useDataStore = create((set, get) => ({
       if (header === 'Due Date') return utility.dueDate || '';
       if (header === 'Remarks') return utility.remarks || '';
       if (header === 'TDS Deduction Amount') return utility.tdsAmount || 0;
+      if (header === 'Amount To Be Paid') return (utility.amountPaid !== undefined && utility.amountPaid !== null) ? utility.amountPaid : ((utility.amount || 0) - (utility.tdsAmount || 0));
 
       return null;
     });
@@ -749,43 +752,47 @@ const useDataStore = create((set, get) => ({
 
     const headers = get().utilityHeaders;
     const rowDataArray = headers.map(header => {
-      if (header === 'Timestamp') return merged.timestamp || nowDateTime(); // re-write existing timestamp so it never gets blanked out
-      if (header === 'UT-Utility No.' || header === 'Utility No.') return merged.id;
-      if (header === 'Firm Name') return merged.firmName || '';
-      if (header === 'Person Name') return merged.personName;
-      if (header === 'Name Of User') return merged.userName;
-      if (header === 'Department') return merged.department;
-      if (header === 'Group Head') return merged.groupHead;
-      if (header === 'Pay To') return merged.payTo;
-      if (header === 'Bill Amount') return merged.amount;
-      if (header === 'Bill Image') return merged.billImage;
-      if (header === 'Bill Date') return merged.billDate;
-      if (header === 'Due Date') return merged.dueDate;
-      if (header === 'Remarks') return merged.remarks;
-      if (header === 'TDS Deduction Amount') return merged.tdsAmount;
-      if (header === 'Amount To Be Paid') return merged.amountPaid || merged.amount;
-      if (header === 'Outstanding Amount') return merged.outstanding;
-      if (header === 'Status') return merged.status;
-      if (header.startsWith('Planned')) return null; // Formula
-      if (header === 'Actual 1') return merged.actual1;
-      if (header === 'Delay 1') return merged.delay1;
-      if (header === 'Actual 2') return merged.actual2;
-      if (header === 'Delay 2' || header === 'Dalay 2') return merged.delay2;
-      if (header === 'Payment Form Link') return merged.paymentFormLink || '';
-      
-      // New approval fields
-      if (header === 'Fms Name') return merged.fmsName || '';
-      if (header === 'Details') return merged.details || '';
-      if (header === 'Approval Attachment') return merged.approvalAttachment || '';
-      
-      // Payment details
-      if (header === 'Payment Number') return merged.paymentNo || '';
-      if (header === 'Payment Mode') return merged.paymentMode || '';
-      if (header === 'Transaction Reference') return merged.transactionRef || '';
-      if (header === 'Payment Date') return merged.paymentDate || '';
-      if (header === 'Payment Attachment') return merged.paymentAttachment || '';
-      if (header === 'Payment Remarks') return merged.paymentRemarks || '';
-      return '';
+      // Helper: only return a value if it was explicitly passed in updatedFields
+      const norm = h => String(h || '').trim().toLowerCase().replace(/\s+/g, '');
+      const hn = norm(header);
+
+      // Map header → field key
+      if (hn === 'timestamp') return null; // never overwrite timestamp
+      if (hn === 'ut-utilityno.' || hn === 'utilityno.' || hn === 'utilityno') return null; // never overwrite ID
+
+      if ('firmName' in updatedFields && hn === 'firmname') return updatedFields.firmName;
+      if ('personName' in updatedFields && hn === 'personname') return updatedFields.personName;
+      if ('userName' in updatedFields && hn === 'nameofuser') return updatedFields.userName;
+      if ('department' in updatedFields && hn === 'department') return updatedFields.department;
+      if ('groupHead' in updatedFields && hn === 'grouphead') return updatedFields.groupHead;
+      if ('payTo' in updatedFields && hn === 'payto') return updatedFields.payTo;
+      if ('amount' in updatedFields && hn === 'billamount') return updatedFields.amount;
+      if ('billImage' in updatedFields && hn === 'billimage') return updatedFields.billImage;
+      if ('billDate' in updatedFields && hn === 'billdate') return updatedFields.billDate;
+      if ('dueDate' in updatedFields && hn === 'duedate') return updatedFields.dueDate;
+      if ('remarks' in updatedFields && hn === 'remarks') return updatedFields.remarks;      // col M
+      if ('remark1' in updatedFields && hn === 'remark1') return updatedFields.remark1;       // col U
+      if ('tdsAmount' in updatedFields && hn === 'tdsdeductionamount') return updatedFields.tdsAmount;
+      if ('amountPaid' in updatedFields && hn === 'amounttobepaid') return updatedFields.amountPaid;
+      if ('outstanding' in updatedFields && hn === 'outstandingamount') return updatedFields.outstanding;
+      if ('status' in updatedFields && hn === 'status') return updatedFields.status;
+      if (hn.startsWith('planned')) return null; // Formula columns — always preserve
+      if ('actual1' in updatedFields && hn === 'actual1') return updatedFields.actual1;
+      if ('delay1' in updatedFields && hn === 'delay1') return updatedFields.delay1;
+      if ('actual2' in updatedFields && hn === 'actual2') return updatedFields.actual2;
+      if ('delay2' in updatedFields && (hn === 'delay2' || hn === 'dalay2')) return updatedFields.delay2;
+      if ('paymentFormLink' in updatedFields && hn === 'paymentformlink') return updatedFields.paymentFormLink;
+      if ('fmsName' in updatedFields && hn === 'fmsname') return updatedFields.fmsName;
+      if ('details' in updatedFields && hn === 'details') return updatedFields.details;
+      if ('approvalAttachment' in updatedFields && hn === 'approvalattachment') return updatedFields.approvalAttachment;
+      if ('paymentNo' in updatedFields && hn === 'paymentnumber') return updatedFields.paymentNo;
+      if ('paymentMode' in updatedFields && hn === 'paymentmode') return updatedFields.paymentMode;
+      if ('transactionRef' in updatedFields && hn === 'transactionreference') return updatedFields.transactionRef;
+      if ('paymentDate' in updatedFields && hn === 'paymentdate') return updatedFields.paymentDate;
+      if ('paymentAttachment' in updatedFields && hn === 'paymentattachment') return updatedFields.paymentAttachment;
+      if ('paymentRemarks' in updatedFields && hn === 'paymentremarks') return updatedFields.paymentRemarks;
+
+      return null; // all other columns → preserve existing value in sheet
     });
     const res = await get().saveRow('UTILITY', 'update', rowIndex, rowDataArray);
     // Background refetch — UI already updated optimistically above (line ~584)

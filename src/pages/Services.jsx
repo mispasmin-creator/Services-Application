@@ -50,7 +50,11 @@ const Services = () => {
     }
   };
 
-  const isPaid = (s) => !!(s.actual2 || s.paymentProof);
+  // An entry is "paid" (done from Service page's perspective) if:
+  // - actual2 (payment date) is set, OR
+  // - paymentProof is set, OR
+  // - billNo or billCopy exists (bill was processed — entry belongs in Bills/next pages now)
+  const isPaid = (s) => !!(s.actual2 || s.paymentProof || s.billNo || s.billCopy);
 
   const filteredServices = services.filter(s => {
     if (activeTab === 'payment' && isPaid(s)) return false;
