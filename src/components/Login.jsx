@@ -49,7 +49,6 @@ const Login = ({ onLogin }) => {
           pages:    pagesIdx !== -1    ? matchedRow[pagesIdx]    : 'All',
           tabs:     tabsIdx !== -1     ? matchedRow[tabsIdx]     : 'All',
           email:    `${matchedRow[usernameIdx]}@servicefms.com`,
-          avatar:   `https://api.dicebear.com/7.x/avataaars/svg?seed=${matchedRow[usernameIdx]}`,
         });
       } else {
         setError('Invalid username or password. Please try again.');

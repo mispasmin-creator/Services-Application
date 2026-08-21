@@ -10,7 +10,7 @@ const Breadcrumbs = () => {
   const pathnames = location.pathname.split('/').filter((x) => x);
 
   return (
-    <nav className="flex items-center gap-1.5 text-sm mb-6">
+    <nav className="sticky top-0 z-30 flex items-center gap-1.5 text-sm mb-6 bg-[#f2f5ec] py-1">
       <Link to="/" className="transition-colors" style={{ color: '#3b82b0' }}
         onMouseEnter={e => e.currentTarget.style.color='#1e3a5f'}
         onMouseLeave={e => e.currentTarget.style.color='#3b82b0'}>

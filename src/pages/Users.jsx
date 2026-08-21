@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { 
+import React, { useState, useEffect, useRef } from 'react';
+import {
   Plus, Search, Mail, Shield, UserCircle,
   MoreHorizontal, Loader2, AlertCircle, X,
   Save, Edit2, Lock, ShieldAlert, Building2,
-  LayoutGrid, ListChecks
+  LayoutGrid, ListChecks, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '../components/ui';
@@ -11,6 +11,7 @@ import useAuthStore from '../store/useAuthStore';
 import useDataStore from '../store/useDataStore';
 import { cn } from '../lib/utils';
 import { PAGES, PAGE_TABS } from '../lib/permissions';
+import useStickyTableHead from '../hooks/useStickyTableHead';
 
 const TAB_PAGE_KEYS = Object.keys(PAGE_TABS);
 
@@ -18,6 +19,8 @@ const Users = () => {
   const { user: currentUser } = useAuthStore();
   const { firms, fetchData: fetchMasterData } = useDataStore();
   const [users, setUsers] = useState([]);
+  const tableScrollRef = useRef(null);
+  useStickyTableHead(tableScrollRef);
   const availableFirms = firms && firms.length > 0 ? firms : ['Pmmpl', 'Rkl', 'Purab'];
   const [headers, setHeaders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -232,11 +235,12 @@ const Users = () => {
   }
 
   return (
-    <div className="space-y-6 relative">
+    <div className="space-y-4 relative">
+      <div data-sticky-header-region className="sticky top-7 z-20 bg-[#f2f5ec] space-y-4 pb-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-500">Provision access, manage credential profiles, and control platform authorization tiers.</p>
+          <h1 className="text-xl font-bold text-gray-900">User Management</h1>
+          <p className="text-gray-500 text-sm">Provision access, manage credential profiles, and control platform authorization tiers.</p>
         </div>
         <button 
           onClick={handleOpenAddModal}
@@ -259,34 +263,40 @@ const Users = () => {
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all shadow-sm"
           />
         </div>
+        <button
+          onClick={() => fetchUsers()}
+          className="p-2.5 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer shadow-sm"
+          title="Refresh from Sheet"
+        >
+          <RefreshCw size={16} className={cn(isLoading && "animate-spin")} />
+        </button>
+      </div>
       </div>
 
       {/* User Table */}
       <div className="bg-white rounded-2xl border overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" ref={tableScrollRef}>
           <table className="w-full">
             <thead>
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">User</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Password</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Firm</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Pages</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
+                <th className="px-3 py-3 text-left sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">User</th>
+                <th className="px-3 py-3 text-left sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
+                <th className="px-3 py-3 text-left sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Password</th>
+                <th className="px-3 py-3 text-left sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm</th>
+                <th className="px-3 py-3 text-left sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Pages</th>
+                <th className="px-3 py-3 text-left sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
+                <th className="px-3 py-3 text-right sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50/50 transition-colors group text-sm">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-3">
                     <div className="flex items-center gap-3">
                       <div className="relative shrink-0">
-                        <img
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`}
-                          alt={user.name}
-                          className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-200 p-0.5 object-cover"
-                        />
+                        <div className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400">
+                          <UserCircle size={22} />
+                        </div>
                         {user.role.toLowerCase() === 'admin' && (
                           <div className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white p-0.5 rounded-md border border-white">
                             <Shield size={8} fill="currentColor" />
@@ -299,33 +309,33 @@ const Users = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
+                  <td className="px-3 py-3 text-gray-600">
                     <div className="flex items-center gap-2">
                       <Mail size={13} className="text-gray-400 shrink-0" />
                       <span>{user.email}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
                       <Lock size={13} className="text-gray-400 shrink-0" />
                       <span className="font-mono text-xs text-gray-400 tracking-widest">••••••••</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
                       <Building2 size={13} className="text-gray-400 shrink-0" />
                       <span className="font-medium text-gray-700">{user.firmName || 'All'}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 max-w-[200px]">
+                  <td className="px-3 py-3 max-w-[200px]">
                     <span className="text-xs text-gray-500 truncate block" title={user.pages}>{user.pages || 'All'}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-3">
                     <Badge variant={user.role.toLowerCase() === 'admin' ? 'info' : 'default'} className="font-bold">
                       {user.role.toLowerCase() === 'admin' ? 'Full Admin' : 'Verified User'}
                     </Badge>
                   </td>
-                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                  <td className="px-3 py-3 text-right">
                     <button
                       onClick={() => handleOpenEditModal(user)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-gray-900 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl text-xs font-bold transition-all cursor-pointer"

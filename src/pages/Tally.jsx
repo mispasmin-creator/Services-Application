@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search, Database, Loader2, CheckCircle2,
   Wrench, Zap, X, BookOpen, ShieldCheck,
@@ -6,17 +6,20 @@ import {
   ExternalLink, Eye, CheckSquare, RefreshCw
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, nowDateTime, getDriveViewUrl } from '../lib/utils';
+import { cn, formatCurrency, nowDateTime, getDriveViewUrl, formatDateForSubmit } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
+import useStickyTableHead from '../hooks/useStickyTableHead';
 
 const Tally = () => {
   const { user: currentUser } = useAuthStore();
-  const { services, loading, updateService } = useDataStore();
+  const { services, loading, updateService, fetchData } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [firmFilter, setFirmFilter] = useState('All');
   const [activeTab, setActiveTab] = useState('audit'); // 'audit', 'rectify', 'tally', 'completed'
   const [isSaving, setIsSaving] = useState(false);
+  const tableScrollRef = useRef(null);
+  useStickyTableHead(tableScrollRef);
   
   // Modals state
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
@@ -214,7 +217,7 @@ const Tally = () => {
         : (tallyVoucher || 'Tally entry done');
       if (selectedItem?.type === 'Service') {
         await updateService(selectedItem.sheetRowIndex, {
-          actual5: tallyDate,
+          actual5: formatDateForSubmit(tallyDate),
           status5: 'Completed',
           remarks5: remarksText
         });
@@ -227,66 +230,74 @@ const Tally = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div data-sticky-header-region className="sticky top-7 z-20 bg-[#f2f5ec] space-y-4 pb-4">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tally Accounting</h1>
-          <p className="text-gray-500">Perform audits, handle rectification cases, and record tally voucher entries.</p>
+          <h1 className="text-xl font-bold text-gray-900">Tally Accounting</h1>
+          <p className="text-gray-500 text-sm">Perform audits, handle rectification cases, and record tally voucher entries.</p>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-amber-500 border border-gray-200 shadow-sm flex items-center justify-between">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="bg-white p-3 rounded-2xl border-l-4 border-l-amber-500 border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Awaiting Audit / Rectification</p>
-            <h4 className="text-2xl font-bold text-gray-900 mt-1">{auditCount + rectifyCount} <span className="text-xs font-normal text-gray-400">entries</span></h4>
+            <h4 className="text-lg font-bold text-gray-900 mt-0.5">{auditCount + rectifyCount} <span className="text-xs font-normal text-gray-400">entries</span></h4>
           </div>
-          <div className="p-3 bg-amber-50 rounded-xl">
-            <ShieldAlert className="text-amber-500" size={24} />
+          <div className="p-2 bg-amber-50 rounded-xl">
+            <ShieldAlert className="text-amber-500" size={20} />
           </div>
         </div>
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-indigo-500 border border-gray-200 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-3 rounded-2xl border-l-4 border-l-indigo-500 border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Ready for Tally Entry</p>
-            <h4 className="text-2xl font-bold text-gray-900 mt-1">{tallyCount} <span className="text-xs font-normal text-gray-400">entries</span></h4>
+            <h4 className="text-lg font-bold text-gray-900 mt-0.5">{tallyCount} <span className="text-xs font-normal text-gray-400">entries</span></h4>
           </div>
-          <div className="p-3 bg-indigo-50 rounded-xl">
-            <Database className="text-indigo-500" size={24} />
+          <div className="p-2 bg-indigo-50 rounded-xl">
+            <Database className="text-indigo-500" size={20} />
           </div>
         </div>
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-emerald-500 border border-gray-200 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-3 rounded-2xl border-l-4 border-l-emerald-500 border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Tallied Amount</p>
-            <h4 className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(totalAmountCompleted)}</h4>
+            <h4 className="text-lg font-bold text-gray-900 mt-0.5">{formatCurrency(totalAmountCompleted)}</h4>
           </div>
-          <div className="p-3 bg-emerald-50 rounded-xl">
-            <CheckCircle2 className="text-emerald-500" size={24} />
+          <div className="p-2 bg-emerald-50 rounded-xl">
+            <CheckCircle2 className="text-emerald-500" size={20} />
           </div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center gap-4">
+      <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center gap-4">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -trangray-y-1/2 text-gray-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search by reference ID or payee/vendor name..." 
+          <input
+            type="text"
+            placeholder="Search by reference ID or payee/vendor name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
+            className="w-full pl-10 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
           />
         </div>
         <select
           value={firmFilter}
           onChange={(e) => setFirmFilter(e.target.value)}
-          className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all min-w-[160px]"
+          className="px-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all min-w-[160px]"
         >
           {firmOptions.map(firm => (
             <option key={firm} value={firm}>{firm === 'All' ? 'All Firms' : firm}</option>
           ))}
         </select>
+        <button
+          onClick={() => fetchData()}
+          className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
+          title="Refresh from Sheet"
+        >
+          <RefreshCw size={16} className={cn(loading && "animate-spin")} />
+        </button>
       </div>
 
       {/* Stages Tab Selector */}
@@ -296,7 +307,7 @@ const Tally = () => {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "px-5 py-3 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
+              "px-4 py-2.5 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
               activeTab === tab.id
                 ? "border-gray-900 text-gray-900 font-bold"
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -312,6 +323,7 @@ const Tally = () => {
           </button>
         ))}
       </div>
+      </div>
 
       {/* Stage Content */}
       {loading ? (
@@ -320,51 +332,57 @@ const Tally = () => {
           <p className="text-gray-400 text-sm font-medium">Fetching staging data...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-240px)]">
-          <div className="overflow-auto flex-1">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto" ref={tableScrollRef}>
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Offer No.</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Service No.</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Firm Name</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Checker</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Amount</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">TDS</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Net Amount</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Vendor</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Location</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill No.</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Copy</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Planned Date</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer No.</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Service No.</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm Name</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Checker</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Total Amount</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">TDS</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Net Amount</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status 3</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remarks 3</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status 4</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remarks 4</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status 5</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remarks 5</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill No.</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Copy</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Planned Date</th>
                   {activeTab === 'rectify' && (
-                    <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Rectification Reason</th>
+                    <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Rectification Reason</th>
                   )}
                   {activeTab === 'completed' && (
                     <>
-                      <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Voucher No.</th>
-                      <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Tally Date</th>
+                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Voucher No.</th>
+                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Tally Date</th>
                     </>
                   )}
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right whitespace-nowrap">Action</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {activeTabItems.map((item, index) => (
                   <tr key={`tally-stage-${item.type}-${item.sheetRowIndex}-${index}`} className="hover:bg-gray-50/70 transition-colors">
-                    <td className="px-4 py-4 text-sm font-semibold text-gray-600 whitespace-nowrap">{item.offerNo || '—'}</td>
-                    <td className="px-4 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{item.id}</td>
-                    <td className="px-4 py-4 text-sm text-gray-600 font-medium whitespace-nowrap">{item.firmName || '—'}</td>
-                    <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{item.checker || '—'}</td>
-                    <td className="px-4 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{formatCurrency(item.amount)}</td>
-                    <td className="px-4 py-4 text-sm text-rose-600 font-semibold whitespace-nowrap">
+                    <td className="px-3 py-2.5 text-sm font-semibold text-gray-600">{item.offerNo || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm font-bold text-gray-900">{item.id}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600 font-medium">{item.firmName || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600">{item.checker || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm font-bold text-gray-900">{formatCurrency(item.amount)}</td>
+                    <td className="px-3 py-2.5 text-sm text-rose-600 font-semibold">
                       {item.tdsAmount ? `- ${formatCurrency(item.tdsAmount)}` : '—'}
                     </td>
-                    <td className="px-4 py-4 text-sm font-bold text-emerald-700 whitespace-nowrap">{formatCurrency(item.netAmount)}</td>
-                    <td className="px-4 py-4 text-sm text-gray-800 font-medium whitespace-nowrap">{item.vendor || '—'}</td>
-                    <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{item.location || '—'}</td>
-                    <td className="px-4 py-4 whitespace-nowrap">
+                    <td className="px-3 py-2.5 text-sm font-bold text-emerald-700">{formatCurrency(item.netAmount)}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-800 font-medium">{item.vendor || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600">{item.location || '—'}</td>
+                    <td className="px-3 py-2.5">
                       <span className={cn(
                         "px-2.5 py-1 text-xs font-semibold rounded-full",
                         item.status === 'Completed'       ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
@@ -376,8 +394,14 @@ const Tally = () => {
                         {item.status || '—'}
                       </span>
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-700 font-medium whitespace-nowrap">{item.billNo || '—'}</td>
-                    <td className="px-4 py-4 whitespace-nowrap">
+                    <td className="px-3 py-2.5 text-sm text-gray-600">{item.status3 || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600 max-w-xs truncate" title={item.remarks3}>{item.remarks3 || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600">{item.status4 || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600 max-w-xs truncate" title={item.remarks4}>{item.remarks4 || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600">{item.status5 || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600 max-w-xs truncate" title={item.remarks5}>{item.remarks5 || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-700 font-medium">{item.billNo || '—'}</td>
+                    <td className="px-3 py-2.5">
                       {item.billCopy ? (
                         <a href={getDriveViewUrl(item.billCopy)} target="_blank" rel="noreferrer"
                           className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 transition-colors">
@@ -387,7 +411,7 @@ const Tally = () => {
                     </td>
 
                     {/* Planned Date — stage-wise */}
-                    <td className="px-4 py-4 whitespace-nowrap">
+                    <td className="px-3 py-2.5">
                       {(() => {
                         const planned =
                           activeTab === 'audit'     ? item.planned3 :
@@ -403,7 +427,7 @@ const Tally = () => {
                     </td>
 
                     {activeTab === 'rectify' && (
-                      <td className="px-4 py-4 text-xs font-semibold text-rose-600 max-w-xs whitespace-nowrap" title={item.auditRemarks}>
+                      <td className="px-3 py-2.5 text-xs font-semibold text-rose-600 max-w-xs" title={item.auditRemarks}>
                         <div className="flex items-center gap-1">
                           <AlertTriangle size={12} className="shrink-0" />
                           <span className="truncate max-w-[160px]">{item.auditRemarks || 'Needs corrections'}</span>
@@ -412,16 +436,16 @@ const Tally = () => {
                     )}
                     {activeTab === 'completed' && (
                       <>
-                        <td className="px-4 py-4 text-sm font-bold text-gray-700 whitespace-nowrap">
+                        <td className="px-3 py-2.5 text-sm font-bold text-gray-700">
                           {item.tallyVoucher || <span className="text-gray-300 italic text-xs">N/A</span>}
                         </td>
-                        <td className="px-4 py-4 text-sm text-gray-500 font-medium whitespace-nowrap">
+                        <td className="px-3 py-2.5 text-sm text-gray-500 font-medium">
                           {item.actual5 || '—'}
                         </td>
                       </>
                     )}
 
-                    <td className="px-4 py-4 text-right whitespace-nowrap">
+                    <td className="px-3 py-2.5 text-right">
                       {activeTab === 'audit' && (
                         <button onClick={() => openAuditModal(item)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-bold transition-all cursor-pointer">
@@ -451,7 +475,7 @@ const Tally = () => {
 
                 {activeTabItems.length === 0 && (
                   <tr>
-                    <td colSpan={15} className="px-6 py-12 text-center text-gray-400 text-sm">
+                    <td colSpan={21} className="px-6 py-12 text-center text-gray-400 text-sm">
                       <div className="flex flex-col items-center gap-2">
                         <Database className="text-gray-300" size={32} />
                         <p className="font-semibold text-gray-400">No records found in this stage.</p>

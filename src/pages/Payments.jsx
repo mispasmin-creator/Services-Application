@@ -2,17 +2,20 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Search, CreditCard, Loader2, CheckCircle2,
   Clock, IndianRupee, Wrench, Zap, ExternalLink, X, AlertCircle,
-  Upload, Paperclip
+  Upload, Paperclip, RefreshCw
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, uploadFileToDrive, nowDateTime, getDriveViewUrl } from '../lib/utils';
+import { cn, formatCurrency, uploadFileToDrive, nowDateTime, getDriveViewUrl, formatDateForSubmit } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
+import useStickyTableHead from '../hooks/useStickyTableHead';
 
 const Payments = () => {
   const { user: currentUser } = useAuthStore();
-  const { services, utilities, loading, updateService, updateUtility } = useDataStore();
+  const { services, utilities, loading, updateService, updateUtility, fetchData } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const tableScrollRef = useRef(null);
+  useStickyTableHead(tableScrollRef);
   const [filterType, setFilterType] = useState('All');
   const [activeTab, setActiveTab] = useState('active'); // active, history
   const [isSaving, setIsSaving] = useState(false);
@@ -137,13 +140,12 @@ const Payments = () => {
       if (selectedItem.type === 'Service') {
         await updateService(selectedItem.sheetRowIndex, {
           actual2: nowDateTime(),
-          planned2: '',
           paymentProof: paymentProof || ''
         });
       } else {
         await updateUtility(selectedItem.sheetRowIndex, {
           status: 'Paid',
-          actual1: paymentDate
+          actual1: formatDateForSubmit(paymentDate)
         });
       }
       setIsPayModalOpen(false);
@@ -156,10 +158,11 @@ const Payments = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div data-sticky-header-region className="sticky top-7 z-20 bg-[#f2f5ec] space-y-4 pb-4">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Payment Processing</h1>
-        <p className="text-gray-500">Release payments for verified bills and upload payment proofs.</p>
+        <h1 className="text-xl font-bold text-gray-900">Payment Processing</h1>
+        <p className="text-gray-500 text-sm">Release payments for verified bills and upload payment proofs.</p>
       </div>
 
       {/* Tab Selector */}
@@ -169,7 +172,7 @@ const Payments = () => {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "px-5 py-4 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
+              "px-4 py-2.5 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
               activeTab === tab.id
                 ? "border-gray-900 text-gray-900 font-bold"
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -187,23 +190,23 @@ const Payments = () => {
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-amber-500 border border-gray-200 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">Pending Payment</p>
-          <h4 className="text-2xl font-bold text-gray-900 mt-1">{pendingCount}</h4>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="bg-white p-3 rounded-2xl border-l-4 border-l-amber-500 border border-gray-200 shadow-sm">
+          <p className="text-xs font-medium text-gray-500">Pending Payment</p>
+          <h4 className="text-lg font-bold text-gray-900 mt-0.5">{pendingCount}</h4>
         </div>
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-emerald-500 border border-gray-200 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">Payments Released</p>
-          <h4 className="text-2xl font-bold text-gray-900 mt-1">{paidCount}</h4>
+        <div className="bg-white p-3 rounded-2xl border-l-4 border-l-emerald-500 border border-gray-200 shadow-sm">
+          <p className="text-xs font-medium text-gray-500">Payments Released</p>
+          <h4 className="text-lg font-bold text-gray-900 mt-0.5">{paidCount}</h4>
         </div>
-        <div className="bg-white p-6 rounded-2xl border-l-4 border-l-gray-900 border border-gray-200 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">Total Net Amount</p>
-          <h4 className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(totalAmount)}</h4>
+        <div className="bg-white p-3 rounded-2xl border-l-4 border-l-gray-900 border border-gray-200 shadow-sm">
+          <p className="text-xs font-medium text-gray-500">Total Net Amount</p>
+          <h4 className="text-lg font-bold text-gray-900 mt-0.5">{formatCurrency(totalAmount)}</h4>
         </div>
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center gap-4">
+      <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center gap-4">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input
@@ -211,7 +214,7 @@ const Payments = () => {
             placeholder="Search by reference ID or vendor..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
+            className="w-full pl-10 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -230,6 +233,14 @@ const Payments = () => {
             </button>
           ))}
         </div>
+        <button
+          onClick={() => fetchData()}
+          className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
+          title="Refresh from Sheet"
+        >
+          <RefreshCw size={16} className={cn(loading && "animate-spin")} />
+        </button>
+      </div>
       </div>
 
       {/* Payment Table */}
@@ -239,25 +250,25 @@ const Payments = () => {
           <p className="text-gray-400 text-sm">Loading payments...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-240px)]">
-          <div className="overflow-auto flex-1">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto" ref={tableScrollRef}>
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Reference</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Pay To</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Amount</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">TDS</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Net Payable</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Reference</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Pay To</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Amount</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">TDS</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Net Payable</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {allPayments.map((item, index) => (
                   <tr key={`pay-${item.type}-${item.sheetRowIndex}-${index}`} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3">
                       <span className={cn(
                         "px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1 w-fit",
                         item.type === 'Service'
@@ -268,14 +279,14 @@ const Payments = () => {
                         {item.type}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{item.id}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600 font-medium">{item.paidTo}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatCurrency(item.amount)}</td>
-                    <td className="px-6 py-4 text-sm text-rose-600 font-semibold">
+                    <td className="px-3 py-3 text-sm font-bold text-gray-900">{item.id}</td>
+                    <td className="px-3 py-3 text-sm text-gray-600 font-medium">{item.paidTo}</td>
+                    <td className="px-3 py-3 text-sm font-bold text-gray-900">{formatCurrency(item.amount)}</td>
+                    <td className="px-3 py-3 text-sm text-rose-600 font-semibold">
                       {item.tdsAmount ? `- ${formatCurrency(item.tdsAmount)}` : '—'}
                     </td>
-                    <td className="px-6 py-4 text-sm font-bold text-emerald-700">{formatCurrency(item.netAmount)}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3 text-sm font-bold text-emerald-700">{formatCurrency(item.netAmount)}</td>
+                    <td className="px-3 py-3">
                       <span className={cn(
                         "px-2.5 py-1 rounded-full text-xs font-bold",
                         (item.paymentStatus === 'Paid' || item.paymentStatus === 'Payment Done') && "bg-emerald-100 text-emerald-700",
@@ -286,7 +297,7 @@ const Payments = () => {
                         {item.paymentStatus}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-3 py-3 text-right">
                       {item.paymentStatus !== 'Paid' && item.paymentStatus !== 'Payment Done' ? (
                         <button
                           onClick={() => openPayModal(item)}

@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search, FileSpreadsheet, FileText, Clock, IndianRupee,
-  Wrench, Zap, FileSignature, AlertCircle, Loader2
+  Wrench, Zap, FileSignature, AlertCircle, Loader2, RefreshCw
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
 import useAuthStore from '../store/useAuthStore';
 import { cn, formatCurrency } from '../lib/utils';
 import { getAllowedTabs } from '../lib/permissions';
+import useStickyTableHead from '../hooks/useStickyTableHead';
 
 const STAGE_LABELS = {
   Pending: 'Offer - Pending Approval',
@@ -34,10 +35,12 @@ const daysSince = (dateStr) => {
 
 const Reports = () => {
   const { user: currentUser } = useAuthStore();
-  const { offers, services, utilities, loading } = useDataStore();
+  const { offers, services, utilities, loading, fetchData } = useDataStore();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
+  const tableScrollRef = useRef(null);
+  useStickyTableHead(tableScrollRef);
 
   const tabsConfig = [
     { id: 'dashboard', label: 'Dashboard' },
@@ -162,10 +165,11 @@ const Reports = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div data-sticky-header-region className="sticky top-7 z-20 bg-[#f2f5ec] space-y-4 pb-4">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-        <p className="text-gray-500">See where work is stuck across Offers, Services, and Utility expenses.</p>
+        <h1 className="text-xl font-bold text-gray-900">Reports</h1>
+        <p className="text-gray-500 text-sm">See where work is stuck across Offers, Services, and Utility expenses.</p>
       </div>
 
       {/* Tab Selector */}
@@ -175,7 +179,7 @@ const Reports = () => {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "px-5 py-4 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
+              "px-4 py-2.5 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
               activeTab === tab.id
                 ? "border-gray-900 text-gray-900 font-bold"
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -185,6 +189,7 @@ const Reports = () => {
           </button>
         ))}
       </div>
+      </div>
 
       {loading ? (
         <div className="py-12 flex flex-col items-center justify-center gap-2">
@@ -192,33 +197,33 @@ const Reports = () => {
           <p className="text-gray-400 text-sm">Loading report data...</p>
         </div>
       ) : activeTab === 'dashboard' ? (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Total Pending</p>
-              <h3 className="text-2xl font-bold text-gray-900">{allPendingItems.length}</h3>
-              <p className="text-xs text-gray-400 mt-1.5 font-medium">Across all modules</p>
+              <h3 className="text-lg font-bold text-gray-900">{allPendingItems.length}</h3>
+              <p className="text-xs text-gray-400 mt-1 font-medium">Across all modules</p>
             </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+            <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Offers Pending</p>
-              <h3 className="text-2xl font-bold text-gray-900">{pendingOffers.length}</h3>
-              <p className="text-xs text-gray-400 mt-1.5 font-medium">Not completed or converted</p>
+              <h3 className="text-lg font-bold text-gray-900">{pendingOffers.length}</h3>
+              <p className="text-xs text-gray-400 mt-1 font-medium">Not completed or converted</p>
             </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+            <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Services Pending</p>
-              <h3 className="text-2xl font-bold text-gray-900">{pendingServices.length}</h3>
-              <p className="text-xs text-gray-400 mt-1.5 font-medium">Somewhere in execution</p>
+              <h3 className="text-lg font-bold text-gray-900">{pendingServices.length}</h3>
+              <p className="text-xs text-gray-400 mt-1 font-medium">Somewhere in execution</p>
             </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+            <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Utility Pending</p>
-              <h3 className="text-2xl font-bold text-gray-900">{pendingUtilities.length}</h3>
-              <p className="text-xs text-gray-400 mt-1.5 font-medium">Approval or payment queue</p>
+              <h3 className="text-lg font-bold text-gray-900">{pendingUtilities.length}</h3>
+              <p className="text-xs text-gray-400 mt-1 font-medium">Approval or payment queue</p>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
               <h3 className="font-bold text-gray-900">Pending Value</h3>
               <span className="text-lg font-bold text-gray-900">{formatCurrency(totalPendingValue)}</span>
             </div>
@@ -226,8 +231,8 @@ const Reports = () => {
           </div>
 
           {/* Stage Breakdown */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-            <h3 className="font-bold text-gray-900 mb-4">Where Work Is Stuck</h3>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+            <h3 className="font-bold text-gray-900 mb-3">Where Work Is Stuck</h3>
             {stageEntries.length === 0 ? (
               <p className="text-sm text-gray-400">Nothing pending right now.</p>
             ) : (
@@ -249,9 +254,9 @@ const Reports = () => {
           </div>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Filter Bar */}
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center gap-4">
+          <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center gap-4">
             <div className="relative flex-1 min-w-[240px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
@@ -259,7 +264,7 @@ const Reports = () => {
                 placeholder="Search by ID, vendor, firm or stage..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
+                className="w-full pl-10 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -295,22 +300,29 @@ const Reports = () => {
                 <FileText size={15} className="text-rose-600" />
                 <span>Print Report</span>
               </button>
+              <button
+                onClick={() => fetchData()}
+                className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
+                title="Refresh from Sheet"
+              >
+                <RefreshCw size={15} className={cn(loading && "animate-spin")} />
+              </button>
             </div>
           </div>
 
           {/* Pending Work Table */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-240px)]">
-            <div className="overflow-auto flex-1">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto" ref={tableScrollRef}>
             <table className="w-full text-left">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Reference</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Pending With</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Stuck At</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Days Pending</th>
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Reference</th>
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm</th>
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Pending With</th>
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Stuck At</th>
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Days Pending</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -318,22 +330,22 @@ const Reports = () => {
                     const Icon = TYPE_ICON[item.type] || Clock;
                     return (
                       <tr key={`${item.type}-${item.id}-${index}`} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-4">
+                        <td className="px-3 py-3">
                           <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase border bg-gray-100 text-gray-700 border-gray-200 flex items-center gap-1 w-fit">
                             <Icon size={11} />
                             {item.type}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm font-bold text-gray-900">{item.id}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{item.firmName || '—'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 font-medium">{item.pendingWith || '—'}</td>
-                        <td className="px-6 py-4">
+                        <td className="px-3 py-3 text-sm font-bold text-gray-900">{item.id}</td>
+                        <td className="px-3 py-3 text-sm text-gray-600">{item.firmName || '—'}</td>
+                        <td className="px-3 py-3 text-sm text-gray-600 font-medium">{item.pendingWith || '—'}</td>
+                        <td className="px-3 py-3">
                           <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
                             {STAGE_LABELS[item.stage] || item.stage || 'Unknown'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatCurrency(item.amount)}</td>
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-700">
+                        <td className="px-3 py-3 text-sm font-bold text-gray-900">{formatCurrency(item.amount)}</td>
+                        <td className="px-3 py-3 text-sm font-semibold text-gray-700">
                           {item.daysPending !== null ? `${item.daysPending} day${item.daysPending === 1 ? '' : 's'}` : '—'}
                         </td>
                       </tr>

@@ -159,7 +159,7 @@ const Dashboard = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-0.5">{today}</p>
-          <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: NAV }}>{greeting} 👋</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: NAV }}>{greeting}</h1>
           <p className="text-sm text-gray-500 mt-0.5"></p>
         </div>
         <div className="flex items-center gap-3">

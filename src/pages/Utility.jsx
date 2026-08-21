@@ -7,13 +7,16 @@ import {
   ChevronLeft, ChevronRight, CheckSquare, RefreshCw, Filter, Trash2
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, uploadFileToDrive, getDriveViewUrl } from '../lib/utils';
+import { cn, formatCurrency, uploadFileToDrive, getDriveViewUrl, formatDateForSubmit } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
+import useStickyTableHead from '../hooks/useStickyTableHead';
 
 const Utility = () => {
   const { user: currentUser } = useAuthStore();
   const { utilities, loading, error, addUtility, updateUtility, departments, groupHeads, firms, fmsNames, fetchData } = useDataStore();
+  const tableScrollRef = useRef(null);
+  useStickyTableHead(tableScrollRef);
 
   const masterFirms = firms && firms.length > 0 ? firms : ['Pmmpl', 'Rkl', 'Purab'];
 
@@ -67,8 +70,6 @@ const Utility = () => {
   const [uploadedFile, setUploadedFile] = useState(null);
   
   const fileInputRef = useRef(null);
-  const payFileInputRef = useRef(null);
-  const bulkPayFileInputRef = useRef(null);
   const approvalFileInputRef = useRef(null);
 
   // Auto generated inputs when opening modals
@@ -86,9 +87,7 @@ const Utility = () => {
     billDate: '',
     dueDate: '',
     remarks: '',
-    billImage: '',
-    planned1: '', // Planned Approval
-    planned2: ''  // Planned Payment
+    billImage: ''
   });
 
   const [approvalFields, setApprovalFields] = useState({
@@ -237,9 +236,7 @@ const Utility = () => {
       billDate: today,
       dueDate: plannedPay,
       remarks: '',
-      billImage: '',
-      planned1: '',
-      planned2: ''
+      billImage: ''
     });
     setUploadedFile(null);
     setUploadError('');
@@ -337,13 +334,11 @@ const Utility = () => {
         tdsAmount: parseFloat(newUtility.tdsAmount) || 0,
         amountPaid: parseFloat(newUtility.amountPaid) || 0,
         outstanding: parseFloat(newUtility.outstanding) || 0,
-        billDate: newUtility.billDate,
-        dueDate: newUtility.dueDate,
+        billDate: formatDateForSubmit(newUtility.billDate),
+        dueDate: formatDateForSubmit(newUtility.dueDate),
         remarks: newUtility.remarks,
         billImage: newUtility.billImage,
-        status: 'Pending Approval',
-        planned1: newUtility.planned1,
-        planned2: newUtility.planned2
+        status: 'Pending Approval'
       });
 
       if (res.success) {
@@ -377,20 +372,22 @@ const Utility = () => {
       let updates = {};
       if (selectedUtility.status === 'Pending Approval') {
         updates = {
-          actual1: approvalFields.actualDate, // col — Actual 1
+          status: approvalFields.approvalStatus === 'Yes' ? 'Approved' : 'Rejected',
+          actual1: formatDateForSubmit(approvalFields.actualDate), // col — Actual 1
+          delay1: approvalFields.delayDays,
           remark1: approvalFields.remarks     // col U — Remark 1
         };
       } else {
         updates = {
-          actual1: approvalFields.actualDate,
+          actual1: formatDateForSubmit(approvalFields.actualDate),
           remark1: approvalFields.remarks
         };
       }
-      
+
       const res = await updateUtility(selectedUtility.sheetRowIndex, updates);
       if (res.success) {
         setIsDetailModalOpen(false);
-        alert(`Utility successfully marked as ${updates.status}!`);
+        alert(updates.status ? `Utility successfully marked as ${updates.status}!` : 'Utility details updated successfully!');
       } else {
         setSaveError(res.message || 'Failed to update approval status.');
       }
@@ -405,26 +402,21 @@ const Utility = () => {
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
     setSaveError('');
-    
-    if (!paymentFields.paymentNo || !paymentFields.paymentDate || !paymentFields.transactionRef) {
-      setSaveError('Please enter Payment Number, Payment Date, and Transaction Reference.');
-      return;
-    }
 
     setIsSaving(true);
     try {
       const updates = {
         status: 'Completed',
-        actual2: paymentFields.paymentDate,
+        actual2: formatDateForSubmit(paymentFields.paymentDate),
         delay2: paymentFields.delayDays, // write delay to Dalay 2
         outstanding: 0, // fully paid
         amountPaid: selectedUtility.amountPaid, // record actual paid
-        
+
         // Payment Info
         paymentNo: paymentFields.paymentNo,
         paymentMode: paymentFields.paymentMode,
         transactionRef: paymentFields.transactionRef,
-        paymentDate: paymentFields.paymentDate,
+        paymentDate: formatDateForSubmit(paymentFields.paymentDate),
         paymentAttachment: paymentFields.paymentAttachment,
         paymentRemarks: paymentFields.paymentRemarks
       };
@@ -464,7 +456,7 @@ const Utility = () => {
         const delay = getDelayDays(utility.planned1, today);
         const updates = {
           status: 'Approved',
-          actual1: today,
+          actual1: formatDateForSubmit(today),
           delay1: delay,
           remarks: 'Bulk Approved'
         };
@@ -485,14 +477,10 @@ const Utility = () => {
   // Bulk Payment Handler
   const handleBulkPaymentSubmit = async (e) => {
     e.preventDefault();
-    if (!bulkPaymentFields.paymentDate || !bulkPaymentFields.transactionRef) {
-      alert('Please fill in transaction reference and payment date.');
-      return;
-    }
 
     setIsSaving(true);
     const approvedRows = utilities.filter(
-      u => selectedRows.includes(u.sheetRowIndex) && u.status === 'Approved'
+      u => selectedRows.includes(u.sheetRowIndex) && u.actual1 && !u.actual2
     );
 
     if (approvedRows.length === 0) {
@@ -516,15 +504,15 @@ const Utility = () => {
 
         const updates = {
           status: 'Completed',
-          actual2: bulkPaymentFields.paymentDate,
+          actual2: formatDateForSubmit(bulkPaymentFields.paymentDate),
           delay2: delay,
           outstanding: 0,
           amountPaid: utility.amountPaid,
-          
+
           paymentNo: currentPayNo,
           paymentMode: bulkPaymentFields.paymentMode,
           transactionRef: bulkPaymentFields.transactionRef,
-          paymentDate: bulkPaymentFields.paymentDate,
+          paymentDate: formatDateForSubmit(bulkPaymentFields.paymentDate),
           paymentAttachment: bulkPaymentFields.paymentAttachment,
           paymentRemarks: bulkPaymentFields.paymentRemarks
         };
@@ -786,16 +774,17 @@ const Utility = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen max-w-[1600px] mx-auto pb-4 space-y-6">
+    <div className="flex flex-col max-w-[1600px] mx-auto pb-4 space-y-4">
+      <div data-sticky-header-region className="sticky top-7 z-20 bg-[#f2f5ec] space-y-4 pb-4">
       {/* Header section with modern design */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-gray-200 text-gray-900 p-6 rounded-3xl shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-gray-200 text-gray-900 p-4 rounded-3xl shadow-sm">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">Utility Expenses Workflow</h1>
-          <p className="text-gray-500 mt-1.5 text-sm font-medium"></p>
+          <h1 className="text-xl font-extrabold tracking-tight text-gray-900">Utility Expenses Workflow</h1>
+          <p className="text-gray-500 mt-1 text-sm font-medium"></p>
         </div>
-        <button 
+        <button
           onClick={openCreateModal}
-          className="flex items-center justify-center gap-2 px-5 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-2xl transition-all shadow-lg shadow-gray-900/20 active:scale-95 font-semibold shrink-0 cursor-pointer"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-2xl transition-all shadow-lg shadow-gray-900/20 active:scale-95 font-semibold shrink-0 cursor-pointer"
         >
           <Plus size={18} />
           <span>Create Utility Entry</span>
@@ -818,17 +807,17 @@ const Utility = () => {
       )}
 
       {/* Dynamic Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: 'Total Budget Managed', value: formatCurrency(metrics.totalExpenses), color: 'border-l-gray-900', bg: 'bg-gray-100', text: 'text-gray-700', icon: Database },
           { label: 'Pending Approval', value: metrics.pendingApproval, color: 'border-l-amber-500', bg: 'bg-amber-50/50', text: 'text-amber-700', icon: Clock },
-          { label: 'Approved (Payment Queue)', value: metrics.approved, color: 'border-l-indigo-500', bg: 'bg-indigo-50/50', text: 'text-indigo-700', icon: CreditCard },
+          { label: 'Approved (Payment Queue)', value: metrics.pendingTally, color: 'border-l-indigo-500', bg: 'bg-indigo-50/50', text: 'text-indigo-700', icon: CreditCard },
           { label: 'Completed Payments', value: metrics.completed, color: 'border-l-emerald-500', bg: 'bg-emerald-50/50', text: 'text-emerald-700', icon: CheckCircle2 }
         ].map((card, i) => (
-          <div key={i} className={cn("p-6 rounded-2xl border-l-4 bg-white border border-gray-200 shadow-sm flex items-center justify-between transition-all hover:scale-[1.02]", card.color)}>
-            <div className="space-y-1">
+          <div key={i} className={cn("p-3 rounded-2xl border-l-4 bg-white border border-gray-200 shadow-sm flex items-center justify-between transition-all hover:scale-[1.02]", card.color)}>
+            <div className="space-y-0.5">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{card.label}</p>
-              <h4 className="text-2xl font-bold text-gray-900">{card.value}</h4>
+              <h4 className="text-lg font-bold text-gray-900">{card.value}</h4>
             </div>
             <div className={cn("p-3 rounded-xl", card.bg, card.text)}>
               <card.icon size={22} />
@@ -844,7 +833,7 @@ const Utility = () => {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "px-5 py-4 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
+              "px-4 py-2.5 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
               activeTab === tab.id
                 ? "border-gray-900 text-gray-900 font-bold"
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -860,12 +849,13 @@ const Utility = () => {
           </button>
         ))}
       </div>
+      </div>
 
       {/* Professional Data Table Component */}
-      <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden flex flex-col flex-1 min-h-0">
-        
+      <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+
         {/* Datatable Toolbar */}
-        <div className="p-5 border-b border-gray-200 bg-gray-50/50 space-y-4">
+        <div className="p-3 border-b border-gray-200 bg-gray-50/50 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-4">
             
             {/* Search Input */}
@@ -1044,13 +1034,13 @@ const Utility = () => {
             <p className="text-gray-400 text-sm font-semibold">Fetching utility records from Sheets...</p>
           </div>
         ) : (
-          <div className="overflow-auto flex-1">
+          <div className="overflow-x-auto" ref={tableScrollRef}>
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   {/* Selection Checkbox (Bulk) */}
                   {(activeTab === 'payment' || activeTab === 'approval') && (
-                    <th className="w-12 px-6 py-4">
+                    <th className="sticky top-0 z-10 bg-gray-50 w-12 px-3 py-3">
                       <input 
                         type="checkbox" 
                         className="rounded-md border-gray-300 focus:ring-gray-900/20 w-4 h-4 cursor-pointer"
@@ -1064,61 +1054,61 @@ const Utility = () => {
                   )}
 
                   {activeTab === 'create' && (
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Timestamp</th>
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Timestamp</th>
                   )}
-                  <th onClick={() => handleSort('id')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <th onClick={() => handleSort('id')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-1"><span>Utility No.</span>{sortColumn === 'id' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-                  <th onClick={() => handleSort('firmName')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <th onClick={() => handleSort('firmName')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-1"><span>Firm Name</span>{sortColumn === 'firmName' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-                  <th onClick={() => handleSort('personName')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <th onClick={() => handleSort('personName')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-1"><span>Person Name</span>{sortColumn === 'personName' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
                   {activeTab === 'create' && (
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer">Name Of User</th>
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer">Name Of User</th>
                   )}
-                  <th onClick={() => handleSort('department')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <th onClick={() => handleSort('department')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-1"><span>Department</span>{sortColumn === 'department' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-                  <th onClick={() => handleSort('groupHead')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <th onClick={() => handleSort('groupHead')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-1"><span>Group Head</span>{sortColumn === 'groupHead' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-                  <th onClick={() => handleSort('payTo')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <th onClick={() => handleSort('payTo')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-1"><span>Pay To</span>{sortColumn === 'payTo' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-                  <th onClick={() => handleSort('amount')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right">
+                  <th onClick={() => handleSort('amount')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right">
                     <div className="flex items-center gap-1 justify-end"><span>Bill Amount</span>{sortColumn === 'amount' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
                   {activeTab === 'create' && (
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Bill Image</th>
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Bill Image</th>
                   )}
                   {activeTab !== 'create' && (
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Bill Copy</th>
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Bill Copy</th>
                   )}
-                  <th onClick={() => handleSort('billDate')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <th onClick={() => handleSort('billDate')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-1"><span>Bill Date</span>{sortColumn === 'billDate' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-                  <th onClick={() => handleSort('dueDate')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <th onClick={() => handleSort('dueDate')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-1"><span>Due Date</span>{sortColumn === 'dueDate' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Remarks</th>
-                  <th onClick={() => handleSort('tdsAmount')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right">
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remarks</th>
+                  <th onClick={() => handleSort('tdsAmount')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right">
                     <div className="flex items-center gap-1 justify-end"><span>TDS Amount</span>{sortColumn === 'tdsAmount' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-                  <th onClick={() => handleSort('amountPaid')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right">
+                  <th onClick={() => handleSort('amountPaid')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors text-right">
                     <div className="flex items-center gap-1 justify-end"><span>Amount To Be Paid</span>{sortColumn === 'amountPaid' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Outstanding Amount</th>
-                  <th onClick={() => handleSort('status')} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Outstanding Amount</th>
+                  <th onClick={() => handleSort('status')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-1"><span>Status</span>{sortColumn === 'status' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Planned 1</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Planned 1</th>
                   {activeTab === 'approval' && (
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
                   )}
                   {activeTab !== 'create' && activeTab !== 'approval' && (
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                   )}
                 </tr>
               </thead>
@@ -1137,40 +1127,40 @@ const Utility = () => {
                     >
                       {/* Bulk Selection checkbox */}
                       {(activeTab === 'payment' || activeTab === 'approval') && (
-                        <td className="px-6 py-4">
+                        <td className="px-3 py-3">
                           <input type="checkbox" className="rounded-md border-gray-300 focus:ring-gray-900/20 w-4 h-4 cursor-pointer" checked={isChecked} onChange={(e) => handleSelectRow(e, utility.sheetRowIndex)} />
                         </td>
                       )}
 
                       {activeTab === 'create' && (
-                        <td className="px-6 py-4 text-gray-500 font-medium whitespace-nowrap">{utility.timestamp || '—'}</td>
+                        <td className="px-3 py-3 text-gray-500 font-medium">{utility.timestamp || '—'}</td>
                       )}
-                      <td className="px-6 py-4 font-bold text-gray-950 whitespace-nowrap">
+                      <td className="px-3 py-3 font-bold text-gray-950">
                         <div className="flex items-center gap-1.5"><Zap size={14} className="text-gray-700" /><span>{utility.id}</span></div>
                       </td>
-                      <td className="px-6 py-4 text-gray-800 font-medium whitespace-nowrap">{utility.firmName || '—'}</td>
-                      <td className="px-6 py-4 text-gray-800 font-medium whitespace-nowrap">{utility.personName || '—'}</td>
+                      <td className="px-3 py-3 text-gray-800 font-medium">{utility.firmName || '—'}</td>
+                      <td className="px-3 py-3 text-gray-800 font-medium">{utility.personName || '—'}</td>
                       {activeTab === 'create' && (
-                        <td className="px-6 py-4 text-gray-800 font-medium whitespace-nowrap">{utility.userName || '—'}</td>
+                        <td className="px-3 py-3 text-gray-800 font-medium">{utility.userName || '—'}</td>
                       )}
-                      <td className="px-6 py-4 text-gray-600 font-medium whitespace-nowrap">{utility.department || '—'}</td>
-                      <td className="px-6 py-4 text-gray-600 font-medium whitespace-nowrap">{utility.groupHead || '—'}</td>
-                      <td className="px-6 py-4 font-medium text-gray-700 whitespace-nowrap">{utility.payTo}</td>
-                      <td className="px-6 py-4 text-right font-bold text-gray-900 whitespace-nowrap">{formatCurrency(utility.amount)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <td className="px-3 py-3 text-gray-600 font-medium">{utility.department || '—'}</td>
+                      <td className="px-3 py-3 text-gray-600 font-medium">{utility.groupHead || '—'}</td>
+                      <td className="px-3 py-3 font-medium text-gray-700">{utility.payTo}</td>
+                      <td className="px-3 py-3 text-right font-bold text-gray-900">{formatCurrency(utility.amount)}</td>
+                      <td className="px-3 py-3 text-center">
                         {utility.billImage ? (
                           <a href={getDriveViewUrl(utility.billImage)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-gray-700 hover:text-gray-900 font-bold hover:underline">
                             <Paperclip size={13} /><span>View</span>
                           </a>
                         ) : (<span className="text-gray-400 italic text-xs">No File</span>)}
                       </td>
-                      <td className="px-6 py-4 text-gray-500 font-medium whitespace-nowrap">{utility.billDate ? utility.billDate.split('T')[0] : '—'}</td>
-                      <td className="px-6 py-4 text-gray-500 font-medium whitespace-nowrap">{utility.dueDate ? utility.dueDate.split('T')[0] : '—'}</td>
-                      <td className="px-6 py-4 text-gray-500 max-w-[180px] truncate whitespace-nowrap" title={utility.remarks}>{utility.remarks || '—'}</td>
-                      <td className="px-6 py-4 text-right font-bold text-rose-600 whitespace-nowrap">{utility.tdsAmount > 0 ? `-${formatCurrency(utility.tdsAmount)}` : 'No TDS'}</td>
-                      <td className="px-6 py-4 text-right font-bold text-emerald-700 whitespace-nowrap">{formatCurrency(utility.amountPaid)}</td>
-                      <td className="px-6 py-4 text-right font-bold text-amber-600 whitespace-nowrap">{formatCurrency(utility.outstanding)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 py-3 text-gray-500 font-medium">{utility.billDate ? utility.billDate.split('T')[0] : '—'}</td>
+                      <td className="px-3 py-3 text-gray-500 font-medium">{utility.dueDate ? utility.dueDate.split('T')[0] : '—'}</td>
+                      <td className="px-3 py-3 text-gray-500 max-w-[180px] truncate" title={utility.remarks}>{utility.remarks || '—'}</td>
+                      <td className="px-3 py-3 text-right font-bold text-rose-600">{utility.tdsAmount > 0 ? `-${formatCurrency(utility.tdsAmount)}` : 'No TDS'}</td>
+                      <td className="px-3 py-3 text-right font-bold text-emerald-700">{formatCurrency(utility.amountPaid)}</td>
+                      <td className="px-3 py-3 text-right font-bold text-amber-600">{formatCurrency(utility.outstanding)}</td>
+                      <td className="px-3 py-3">
                         <span className={cn(
                           "px-2.5 py-1 rounded-full text-xs font-bold inline-block text-center border min-w-[110px]",
                           utility.status === 'Completed' && "bg-emerald-50 text-emerald-700 border-emerald-100",
@@ -1180,7 +1170,7 @@ const Utility = () => {
                           utility.status === 'On Hold' && "bg-gray-100 text-gray-700 border-gray-200"
                         )}>{utility.status}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 py-3">
                         {utility.planned1 ? (
                           <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">{utility.planned1}</span>
                         ) : <span className="text-gray-400 text-xs">—</span>}
@@ -1188,7 +1178,7 @@ const Utility = () => {
 
                       {/* Approval Tab Action button */}
                       {activeTab === 'approval' && (
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-3 py-3 text-right">
                           <button
                             onClick={() => openApprovalModal(utility)}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl text-xs font-bold transition-all border border-amber-200 cursor-pointer"
@@ -1201,7 +1191,7 @@ const Utility = () => {
 
                       {/* Row Action buttons */}
                       {activeTab !== 'create' && activeTab !== 'approval' && (
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-3 py-3 text-right">
                           <div className="flex justify-end items-center gap-2">
 
                           
@@ -1217,7 +1207,7 @@ const Utility = () => {
                           )}
                           
                           {/* Step 3 Payment Action */}
-                          {activeTab === 'payment' && utility.status === 'Approved' && (
+                          {activeTab === 'payment' && utility.actual1 && !utility.actual2 && (
                             <button
                               onClick={() => openPaymentModal(utility)}
                               className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-all border border-indigo-100 cursor-pointer"
@@ -2006,128 +1996,9 @@ const Utility = () => {
                 </div>
               </div>
 
-              {/* Payment Number and Date */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Payment No (Auto)</label>
-                  <input
-                    type="text"
-                    disabled
-                    value={paymentFields.paymentNo}
-                    className="w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-600"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Payment Date *</label>
-                  <input
-                    type="date"
-                    value={paymentFields.paymentDate}
-                    onChange={(e) => setPaymentFields({...paymentFields, paymentDate: e.target.value})}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Mode and Transaction Ref */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Payment Mode *</label>
-                  <select
-                    value={paymentFields.paymentMode}
-                    onChange={(e) => setPaymentFields({...paymentFields, paymentMode: e.target.value})}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500"
-                    required
-                  >
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="UPI">UPI</option>
-                    <option value="Net Banking">Net Banking</option>
-                    <option value="Credit Card">Credit Card</option>
-                    <option value="Cheque">Cheque</option>
-                    <option value="Cash">Cash</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Transaction Reference *</label>
-                  <input
-                    type="text"
-                    placeholder="Enter UTR / UPI Transaction ID"
-                    value={paymentFields.transactionRef}
-                    onChange={(e) => setPaymentFields({...paymentFields, transactionRef: e.target.value})}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono focus:ring-1 focus:ring-indigo-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Timelines tracking display */}
-              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 text-[11px] grid grid-cols-3 gap-2">
-                <div>
-                  <span className="text-gray-400 block font-bold uppercase">Planned Date</span>
-                  <span className="font-semibold text-gray-800">{paymentFields.plannedDate}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400 block font-bold uppercase">Actual Date</span>
-                  <span className="font-semibold text-gray-800">{paymentFields.actualDate}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400 block font-bold uppercase">Calculated Delay</span>
-                  <span className={cn("font-bold block", paymentFields.delayDays > 0 ? "text-rose-600" : "text-emerald-700")}>
-                    {paymentFields.delayDays} Days
-                  </span>
-                </div>
-              </div>
-
-              {/* Upload Payment Proof attachment */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Payment Proof Upload</label>
-                
-                <input
-                  ref={payFileInputRef}
-                  type="file"
-                  accept="image/*,.pdf,.doc,.docx"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFileUpload(file, 'payment');
-                  }}
-                />
-
-                {paymentFields.paymentAttachment ? (
-                  <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
-                    <span className="text-emerald-800 font-bold truncate flex-1 pr-2">Payment receipt copy ready</span>
-                    <button 
-                      type="button" 
-                      onClick={() => setPaymentFields(prev => ({ ...prev, paymentAttachment: '' }))}
-                      className="text-gray-400 hover:text-red-500 font-bold cursor-pointer"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={isUploading}
-                    onClick={() => payFileInputRef.current?.click()}
-                    className="w-full py-4 border-2 border-dashed border-gray-300 hover:border-indigo-400 bg-gray-50 hover:bg-indigo-50/10 rounded-xl flex items-center justify-center gap-2 text-gray-500 text-xs font-bold cursor-pointer"
-                  >
-                    {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                    <span>{isUploading ? 'Uploading proof...' : 'Upload Payment Receipt Copy'}</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Remarks */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Remarks</label>
-                <input
-                  type="text"
-                  placeholder="Payment remarks details..."
-                  value={paymentFields.paymentRemarks}
-                  onChange={(e) => setPaymentFields({...paymentFields, paymentRemarks: e.target.value})}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
+              <p className="text-sm text-gray-600">
+                This will mark this utility as <b>Completed</b> with today's date. No payment details need to be entered.
+              </p>
 
               {/* Buttons */}
               <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
@@ -2141,10 +2012,10 @@ const Utility = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving || isUploading}
+                  disabled={isSaving}
                   className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-lg shadow-indigo-600/10 cursor-pointer"
                 >
-                  {isSaving ? 'Recording Payment...' : 'Record Payment Complete'}
+                  {isSaving ? 'Processing...' : 'Mark Done'}
                 </button>
               </div>
             </form>
@@ -2212,7 +2083,7 @@ const Utility = () => {
                   <CreditCard className="text-indigo-600" size={18} />
                   <span>Bulk Payment Queue Release</span>
                 </h3>
-                <p className="text-xs text-gray-500 mt-0.5">Recording payment for {utilities.filter(u => selectedRows.includes(u.sheetRowIndex) && u.status === 'Approved').length} selected items</p>
+                <p className="text-xs text-gray-500 mt-0.5">Recording payment for {utilities.filter(u => selectedRows.includes(u.sheetRowIndex) && u.actual1 && !u.actual2).length} selected items</p>
               </div>
               <button 
                 disabled={isSaving}
@@ -2224,95 +2095,9 @@ const Utility = () => {
             </div>
 
             <form onSubmit={handleBulkPaymentSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Payment Mode *</label>
-                  <select
-                    value={bulkPaymentFields.paymentMode}
-                    onChange={(e) => setBulkPaymentFields({...bulkPaymentFields, paymentMode: e.target.value})}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs"
-                    required
-                  >
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="UPI">UPI</option>
-                    <option value="Net Banking">Net Banking</option>
-                    <option value="Cheque">Cheque</option>
-                    <option value="Cash">Cash</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Payment Date *</label>
-                  <input
-                    type="date"
-                    value={bulkPaymentFields.paymentDate}
-                    onChange={(e) => setBulkPaymentFields({...bulkPaymentFields, paymentDate: e.target.value})}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Transaction Reference ID *</label>
-                <input
-                  type="text"
-                  placeholder="Enter common transaction reference"
-                  value={bulkPaymentFields.transactionRef}
-                  onChange={(e) => setBulkPaymentFields({...bulkPaymentFields, transactionRef: e.target.value})}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono"
-                  required
-                />
-              </div>
-
-              {/* Upload Proof */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Upload Payment Receipt Copy</label>
-                
-                <input
-                  ref={bulkPayFileInputRef}
-                  type="file"
-                  accept="image/*,.pdf,.doc,.docx"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFileUpload(file, 'bulk-payment');
-                  }}
-                />
-
-                {bulkPaymentFields.paymentAttachment ? (
-                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs flex justify-between items-center">
-                    <span className="text-emerald-800 font-bold truncate">Attachment attached successfully</span>
-                    <button 
-                      type="button" 
-                      onClick={() => setBulkPaymentFields(prev => ({ ...prev, paymentAttachment: '' }))}
-                      className="text-gray-400 hover:text-red-500 font-bold cursor-pointer"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={isUploading}
-                    onClick={() => bulkPayFileInputRef.current?.click()}
-                    className="w-full py-4 border-2 border-dashed border-gray-300 hover:border-indigo-400 bg-gray-50 hover:bg-indigo-50/10 rounded-xl flex items-center justify-center gap-2 text-gray-500 text-xs font-bold cursor-pointer"
-                  >
-                    {isUploading ? <Loader2 size={14} className="animate-spin text-indigo-600" /> : <Upload size={14} />}
-                    <span>{isUploading ? 'Uploading proof...' : 'Upload receipt file'}</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Remarks</label>
-                <input
-                  type="text"
-                  placeholder="Bulk payment remarks..."
-                  value={bulkPaymentFields.paymentRemarks}
-                  onChange={(e) => setBulkPaymentFields({...bulkPaymentFields, paymentRemarks: e.target.value})}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs"
-                />
-              </div>
+              <p className="text-sm text-gray-600">
+                This will mark all selected utility records as <b>Completed</b> with today's date. No payment details need to be entered.
+              </p>
 
               {/* Buttons */}
               <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
@@ -2326,10 +2111,10 @@ const Utility = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving || isUploading}
+                  disabled={isSaving}
                   className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl text-xs shadow-lg shadow-indigo-600/10 cursor-pointer"
                 >
-                  {isSaving ? 'Processing...' : 'Confirm Bulk Payments'}
+                  {isSaving ? 'Processing...' : 'Mark Done'}
                 </button>
               </div>
             </form>

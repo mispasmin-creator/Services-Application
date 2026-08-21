@@ -2,17 +2,20 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Plus, Search, CheckCircle2,
   ArrowRight, Loader2, AlertCircle, X,
-  FileText, Upload, Paperclip, ExternalLink
+  FileText, Upload, Paperclip, ExternalLink, RefreshCw
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
 import { cn, formatCurrency, uploadFileToDrive, nowDateTime, getDriveViewUrl } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
+import useStickyTableHead from '../hooks/useStickyTableHead';
 
 const Offers = () => {
   const { user: currentUser } = useAuthStore();
-  const { offers, services, loading, addOffer, updateOffer, addService, firms } = useDataStore();
+  const { offers, services, loading, addOffer, updateOffer, addService, firms, fetchData } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const tableScrollRef = useRef(null);
+  useStickyTableHead(tableScrollRef);
 
   const masterFirms = firms && firms.length > 0 ? firms : ['Pmmpl', 'Rkl', 'Purab'];
 
@@ -275,11 +278,12 @@ const Offers = () => {
   }, [visibleTabIds, activeTab]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div data-sticky-header-region className="sticky top-7 z-20 bg-[#f2f5ec] space-y-4 pb-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Offer Management</h1>
-          <p className="text-gray-500"></p>
+          <h1 className="text-xl font-bold text-gray-900">Offer Management</h1>
+          <p className="text-gray-500 text-sm"></p>
         </div>
         <button
           onClick={() => {
@@ -310,7 +314,7 @@ const Offers = () => {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "px-5 py-4 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
+              "px-4 py-2.5 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
               activeTab === tab.id
                 ? "border-gray-900 text-gray-900 font-bold"
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -327,7 +331,7 @@ const Offers = () => {
         ))}
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center gap-4">
+      <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center gap-4">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input
@@ -335,9 +339,17 @@ const Offers = () => {
             placeholder="Search by offer no, vendor or location..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
+            className="w-full pl-10 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
           />
         </div>
+        <button
+          onClick={() => fetchData()}
+          className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
+          title="Refresh from Sheet"
+        >
+          <RefreshCw size={16} className={cn(loading && "animate-spin")} />
+        </button>
+      </div>
       </div>
 
       {loading ? (
@@ -346,43 +358,43 @@ const Offers = () => {
           <p className="text-gray-400 text-sm">Fetching offers...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-240px)]">
-          <div className="overflow-auto flex-1">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto" ref={tableScrollRef}>
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  {/* <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Timestamp</th> */}
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer No</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm Name</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Amount To Be Paid</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Outstanding Amount</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Is There An Offer</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer Copy</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                  {/* <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Timestamp</th> */}
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer No</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm Name</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Amount To Be Paid</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Outstanding Amount</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Is There An Offer</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer Copy</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredOffers.map((offer) => (
                   <tr key={offer.sheetRowIndex} className="hover:bg-gray-50 transition-colors group">
-                    {/* <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
+                    {/* <td className="px-3 py-3 text-sm text-gray-600">
                       {offer.timestamp ? new Date(offer.timestamp).toLocaleString() : '—'}
                     </td> */}
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{offer.id}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-600">{offer.firmName}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3 text-sm font-bold text-gray-900">{offer.id}</td>
+                    <td className="px-3 py-3 text-sm font-medium text-gray-600">{offer.firmName}</td>
+                    <td className="px-3 py-3">
                       <span className="text-sm font-semibold text-gray-900">{offer.vendor}</span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">{offer.description}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{offer.location}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatCurrency(offer.amount)}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatCurrency(offer.amountPaid)}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{formatCurrency(offer.outstanding)}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3 text-sm text-gray-600 max-w-xs truncate">{offer.description}</td>
+                    <td className="px-3 py-3 text-sm text-gray-600">{offer.location}</td>
+                    <td className="px-3 py-3 text-sm font-bold text-gray-900">{formatCurrency(offer.amount)}</td>
+                    <td className="px-3 py-3 text-sm font-bold text-gray-900">{formatCurrency(offer.amountPaid)}</td>
+                    <td className="px-3 py-3 text-sm font-bold text-gray-900">{formatCurrency(offer.outstanding)}</td>
+                    <td className="px-3 py-3">
                       <span className={cn(
                         "px-2.5 py-1 rounded-full text-xs font-bold inline-block",
                         offer.isOffer === 'Yes' ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"
@@ -390,7 +402,7 @@ const Offers = () => {
                         {offer.isOffer || '—'}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3">
                       {offer.offerCopy ? (
                         <a href={getDriveViewUrl(offer.offerCopy)} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 transition-colors">
                           <FileText size={14} />
@@ -400,7 +412,7 @@ const Offers = () => {
                         <span className="text-xs text-gray-400 font-medium">—</span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3">
                       <span className={cn(
                         "px-2.5 py-1 rounded-full text-xs font-bold inline-block text-center min-w-[80px]",
                         offer.status === 'Approved' && "bg-emerald-100 text-emerald-700",
@@ -412,7 +424,7 @@ const Offers = () => {
                         {offer.status || '—'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-3 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         {!isDone(offer.status) && (
                           <button

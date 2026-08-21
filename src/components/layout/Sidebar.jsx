@@ -1,76 +1,155 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, FileText, Wrench, Zap, Receipt,
-  Database, Users, LogOut, ChevronLeft, ChevronRight, ClipboardList
+  LayoutDashboard,
+  FileText,
+  Wrench,
+  Zap,
+  Receipt,
+  Database,
+  Users,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  UserCircle2,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import useAuthStore from '../../store/useAuthStore';
 import useDataStore from '../../store/useDataStore';
 import { hasPageAccess } from '../../lib/permissions';
 
-const menuItems = [
-  { key: 'Dashboard',  icon: LayoutDashboard, label: 'Dashboard',       path: '/dashboard',  section: 'main' },
-  { key: 'Offers',     icon: FileText,         label: 'Offers',          path: '/offers',     section: 'main' },
-  { key: 'Services',   icon: Wrench,           label: 'Services',        path: '/services',   section: 'main' },
-  { key: 'Bills',      icon: Receipt,          label: 'Bills',           path: '/bills',      section: 'finance' },
-  { key: 'Tally',      icon: Database,         label: 'Tally',           path: '/tally',      section: 'finance' },
-  { key: 'Utility',    icon: Zap,              label: 'Utility',         path: '/utility',    section: 'finance' },
-  { key: 'Reports',    icon: ClipboardList,    label: 'Reports',         path: '/reports',    section: 'admin' },
-  { key: 'Users',      icon: Users,            label: 'User Management', path: '/users',      section: 'admin' },
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+const MENU_ITEMS = [
+  { key: 'Dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', section: 'main' },
+  { key: 'Offers',    icon: FileText,        label: 'Offers',    path: '/offers',    section: 'main' },
+  { key: 'Services',  icon: Wrench,          label: 'Services',  path: '/services',  section: 'main' },
+  { key: 'Bills',     icon: Receipt,         label: 'Bills',     path: '/bills',     section: 'finance' },
+  { key: 'Tally',     icon: Database,        label: 'Tally',     path: '/tally',     section: 'finance' },
+  { key: 'Utility',   icon: Zap,             label: 'Utility',   path: '/utility',   section: 'finance' },
+  { key: 'Reports',   icon: ClipboardList,   label: 'Reports',   path: '/reports',   section: 'admin' },
+  { key: 'Users',     icon: Users,           label: 'User Management', path: '/users', section: 'admin' },
 ];
 
-const LogoIcon = ({ size = 28 }) => (
-  <img
-    src="/logo.png"
-    alt="logo"
-    width={size}
-    height={size}
-    style={{ objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
-  />
-);
-
-const UserAvatar = ({ user }) => (
-  <div className="relative shrink-0">
-    <div className="rounded-[12px] p-[2px]" style={{ background: 'linear-gradient(135deg, #9dbb63, #3a4820)' }}>
-      <img
-        src={user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`}
-        alt="avatar"
-        className="rounded-[10px] object-cover block"
-        style={{ width: 36, height: 36, background: '#fff' }}
-      />
-    </div>
-    <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: '#34d399' }} />
-      <span className="relative inline-flex rounded-full h-3 w-3 border-2" style={{ background: '#34d399', borderColor: '#f2f5ec' }} />
-    </span>
-  </div>
-);
-
-const SectionLabel = ({ label }) => (
-  <p className="px-4 pt-5 pb-1.5 text-[11px] font-black uppercase tracking-[0.18em]"
-    style={{ color: '#94a3b8' }}>
-    {label}
-  </p>
-);
-
-const sections = [
+const SECTIONS = [
   { key: 'main',    label: '' },
   { key: 'finance', label: '' },
   { key: 'admin',   label: '' },
 ];
 
+// ─── Sub‑Components (memoized) ─────────────────────────────────────────────
+
+const Logo = React.memo(({ size = 28 }) => (
+  <img
+    src="/logo.png"
+    alt="Service FMS Logo"
+    width={size}
+    height={size}
+    className="object-contain brightness-0 invert"
+  />
+));
+Logo.displayName = 'Logo';
+
+const UserAvatar = React.memo(({ user }) => {
+  return (
+    <div className="relative shrink-0">
+      <div
+        className="rounded-[12px] p-[2px]"
+        style={{ background: 'linear-gradient(135deg, #9dbb63, #3a4820)' }}
+      >
+        <div
+          className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-white"
+          title={`${user?.name || 'User'} avatar`}
+        >
+          <UserCircle2 className="h-6 w-6 text-[#3a4820]" strokeWidth={1.75} />
+        </div>
+      </div>
+      <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+        <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-[#f2f5ec] bg-emerald-400" />
+      </span>
+    </div>
+  );
+});
+UserAvatar.displayName = 'UserAvatar';
+
+const SectionLabel = React.memo(({ label }) => (
+  <p className="px-4 pb-1.5 pt-5 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+    {label}
+  </p>
+));
+SectionLabel.displayName = 'SectionLabel';
+
+const MenuItem = React.memo(({ item, isCollapsed, isActive }) => {
+  const Icon = item.icon;
+  return (
+    <NavLink
+      to={item.path}
+      title={isCollapsed ? item.label : undefined}
+      className="block"
+      aria-current={isActive ? 'page' : undefined}
+    >
+      {({ isActive: active }) => (
+        <div
+          className={cn(
+            'relative flex cursor-pointer items-center overflow-hidden rounded-[10px] transition-all duration-200',
+            isCollapsed ? 'w-full justify-center py-3' : 'gap-4 px-4 py-[12px]',
+            active
+              ? 'bg-gradient-to-br from-[#e8edda] to-[#d0dbb5] shadow-sm'
+              : 'hover:bg-[#f2f5ec]'
+          )}
+        >
+          {active && !isCollapsed && (
+            <div className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-gradient-to-b from-[#3a4820] to-[#7a9445]" />
+          )}
+          <Icon
+            size={22}
+            className="shrink-0 transition-colors duration-150"
+            style={{ color: active ? '#3a4820' : '#94a3b8' }}
+          />
+          {!isCollapsed && (
+            <span
+              className="text-[15px] font-semibold tracking-[-0.01em] transition-colors duration-150"
+              style={{ color: active ? '#3a4820' : '#64748b' }}
+            >
+              {item.label}
+            </span>
+          )}
+        </div>
+      )}
+    </NavLink>
+  );
+});
+MenuItem.displayName = 'MenuItem';
+
+// ─── Main Sidebar Component ──────────────────────────────────────────────
+
 const Sidebar = ({ collapsed, setCollapsed }) => {
   const { user, logout } = useAuthStore();
-  const clearData = useDataStore(state => state.clearData);
-  const visibleMenuItems = menuItems.filter(item => hasPageAccess(user, item.key));
-  const handleLogout = () => { clearData(); logout(); };
+  const clearData = useDataStore((state) => state.clearData);
+
+  // Memoize filtered menu items based on user permissions
+  const visibleMenuItems = useMemo(
+    () => MENU_ITEMS.filter((item) => hasPageAccess(user, item.key)),
+    [user]
+  );
+
+  const handleLogout = useCallback(() => {
+    clearData();
+    logout();
+  }, [clearData, logout]);
+
+  const toggleCollapse = useCallback(
+    () => setCollapsed((prev) => !prev),
+    [setCollapsed]
+  );
 
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 h-screen z-50 flex flex-col transition-all duration-300 select-none",
-        collapsed ? "w-[72px]" : "w-[260px]"
+        'fixed left-0 top-0 z-50 flex h-screen select-none flex-col transition-all duration-300',
+        collapsed ? 'w-[72px]' : 'w-[260px]'
       )}
       style={{
         background: 'linear-gradient(180deg, #ffffff 0%, #f5f7f0 100%)',
@@ -78,113 +157,93 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
         boxShadow: '4px 0 24px rgba(74,92,42,0.08)',
       }}
     >
-
       {/* ── Brand Header ── */}
-      <div className={cn(
-        "flex items-center px-4 py-[18px] border-b",
-        collapsed ? "justify-center" : "justify-between",
-      )}>
-        {!collapsed && (
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="relative w-[40px] h-[40px] rounded-[12px] flex items-center justify-center shrink-0 overflow-hidden"
-              style={{
-                background: 'linear-gradient(145deg, #4a5c2a 0%, #3a4820 55%, #2c3818 100%)',
-                boxShadow: '0 6px 16px rgba(58,72,32,0.4), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -6px 10px rgba(0,0,0,0.15)',
-              }}>
-              <div className="absolute inset-0 rounded-[12px]" style={{ border: '1px solid rgba(255,255,255,0.12)' }} />
-              <LogoIcon size={22} />
+      <div
+        className={cn(
+          'flex items-center border-b border-[#d0dbb5] px-4 py-[18px]',
+          collapsed ? 'justify-center' : 'justify-between'
+        )}
+      >
+        {!collapsed ? (
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[12px]">
+              <div
+                className="absolute inset-0 rounded-[12px]"
+                style={{
+                  background:
+                    'linear-gradient(145deg, #4a5c2a 0%, #3a4820 55%, #2c3818 100%)',
+                  boxShadow:
+                    '0 6px 16px rgba(58,72,32,0.4), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -6px 10px rgba(0,0,0,0.15)',
+                }}
+              />
+              <div className="absolute inset-0 rounded-[12px] border border-white/20" />
+              <Logo size={22} />
             </div>
             <div className="min-w-0">
-              <p className="font-black text-[16px] tracking-tight leading-none" style={{ color: '#3a4820' }}>Service FMS</p>
-              <p className="text-[10px] font-bold tracking-[0.15em] uppercase mt-1.5" style={{ color: '#7a9445' }}>Facility Management</p>
+              <p className="text-[16px] font-black leading-none tracking-tight text-[#3a4820]">
+                Service FMS
+              </p>
+              <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-[#7a9445]" />
             </div>
           </div>
-        )}
-        {collapsed && (
-          <div className="relative w-[40px] h-[40px] rounded-[12px] flex items-center justify-center overflow-hidden"
-            style={{
-              background: 'linear-gradient(145deg, #4a5c2a 0%, #3a4820 55%, #2c3818 100%)',
-              boxShadow: '0 6px 16px rgba(58,72,32,0.4), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -6px 10px rgba(0,0,0,0.15)',
-            }}>
-            <div className="absolute inset-0 rounded-[12px]" style={{ border: '1px solid rgba(255,255,255,0.12)' }} />
-            <LogoIcon size={22} />
+        ) : (
+          <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-[12px]">
+            <div
+              className="absolute inset-0 rounded-[12px]"
+              style={{
+                background:
+                  'linear-gradient(145deg, #4a5c2a 0%, #3a4820 55%, #2c3818 100%)',
+                boxShadow:
+                  '0 6px 16px rgba(58,72,32,0.4), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -6px 10px rgba(0,0,0,0.15)',
+              }}
+            />
+            <div className="absolute inset-0 rounded-[12px] border border-white/20" />
+            <Logo size={22} />
           </div>
         )}
+
         {!collapsed && (
-          <button onClick={() => setCollapsed(true)}
-            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-            style={{ color: '#94a3b8' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#f2f5ec'; e.currentTarget.style.color = '#3a4820'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}>
+          <button
+            onClick={toggleCollapse}
+            aria-label="Collapse sidebar"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-[#f2f5ec] hover:text-[#3a4820]"
+          >
             <ChevronLeft size={16} />
           </button>
         )}
       </div>
 
-      {/* Expand when collapsed */}
+      {/* Expand button when collapsed */}
       {collapsed && (
-        <div className="flex justify-center py-2.5 border-b" style={{ borderColor: '#d0dbb5' }}>
-          <button onClick={() => setCollapsed(false)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-            style={{ color: '#94a3b8' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#f2f5ec'; e.currentTarget.style.color = '#3a4820'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}>
+        <div className="flex justify-center border-b border-[#d0dbb5] py-2.5">
+          <button
+            onClick={toggleCollapse}
+            aria-label="Expand sidebar"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-[#f2f5ec] hover:text-[#3a4820]"
+          >
             <ChevronRight size={16} />
           </button>
         </div>
       )}
 
       {/* ── Navigation ── */}
-      <nav className="flex-1 overflow-y-auto pb-4 mt-1" style={{ scrollbarWidth: 'none' }}>
-        {sections.map(section => {
-          const items = visibleMenuItems.filter(i => i.section === section.key);
-          if (!items.length) return null;
+      <nav className="flex-1 overflow-y-auto pb-4 pt-1" style={{ scrollbarWidth: 'none' }}>
+        {SECTIONS.map((section) => {
+          const items = visibleMenuItems.filter((i) => i.section === section.key);
+          if (items.length === 0) return null;
+
           return (
             <div key={section.key}>
               {!collapsed && <SectionLabel label={section.label} />}
               {collapsed && <div className="h-3" />}
 
-              <div className={cn("space-y-0.5", collapsed ? "px-2" : "px-3")}>
-                {items.map(item => (
-                  <NavLink key={item.path} to={item.path} title={collapsed ? item.label : undefined} className="block">
-                    {({ isActive }) => (
-                      <div className={cn(
-                        "relative flex items-center rounded-[10px] transition-all duration-200 overflow-hidden cursor-pointer",
-                        collapsed ? "justify-center py-3 w-full" : "gap-4 px-4 py-[12px]",
-                      )}
-                        style={isActive ? {
-                          background: 'linear-gradient(135deg, #e8edda 0%, #d0dbb5 100%)',
-                          boxShadow: '0 2px 10px rgba(74,92,42,0.12)',
-                        } : {}}
-                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f2f5ec'; }}
-                        onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
-                      >
-                        {/* Active left bar */}
-                        {isActive && !collapsed && (
-                          <div className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full"
-                            style={{ background: 'linear-gradient(180deg, #3a4820, #7a9445)' }} />
-                        )}
-
-                        <item.icon
-                          size={22}
-                          className="shrink-0 transition-colors duration-150"
-                          style={{
-                            color: isActive ? '#3a4820' : '#94a3b8',
-                            marginLeft: !collapsed ? '4px' : '0',
-                            marginRight: collapsed ? 'auto' : '0',
-                            marginLeft: collapsed ? 'auto' : (isActive ? '4px' : '4px'),
-                          }}
-                        />
-
-                        {!collapsed && (
-                          <span className="text-[15px] font-semibold tracking-[-0.01em] transition-colors duration-150"
-                            style={{ color: isActive ? '#3a4820' : '#64748b' }}>
-                            {item.label}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </NavLink>
+              <div className={cn('space-y-0.5', collapsed ? 'px-2' : 'px-3')}>
+                {items.map((item) => (
+                  <MenuItem
+                    key={item.path}
+                    item={item}
+                    isCollapsed={collapsed}
+                  />
                 ))}
               </div>
             </div>
@@ -192,42 +251,39 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
         })}
       </nav>
 
-      {/* ── User Card + Logout ── */}
-      <div className="px-3 pb-4 pt-3 border-t" style={{ borderColor: '#d0dbb5' }}>
-
+      {/* ── User Card & Logout ── */}
+      <div className="border-t border-[#d0dbb5] px-3 pb-4 pt-3">
         {!collapsed ? (
           <div
-            className="flex items-center gap-3 rounded-[14px] border p-2.5 transition-all duration-200"
-            style={{ background: '#f2f5ec', borderColor: '#d0dbb5' }}
-            onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 18px rgba(74,92,42,0.16)'; e.currentTarget.style.borderColor = '#b9c890'; }}
-            onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = '#d0dbb5'; }}
+            className="flex items-center gap-3 rounded-[14px] border border-[#d0dbb5] bg-[#f2f5ec] p-2.5 transition-all duration-200 hover:border-[#b9c890] hover:shadow-md"
           >
             <UserAvatar user={user} />
 
             <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-bold truncate leading-tight" style={{ color: '#3a4820' }}>{user?.name}</p>
-              <span className="inline-block mt-1 px-2 py-[1px] rounded-full text-[10px] font-black tracking-wider uppercase"
-                style={{ background: '#e2e8cf', color: '#5c7031' }}>
-                {user?.role}
+              <p className="truncate text-[14px] font-bold leading-tight text-[#3a4820]">
+                {user?.name || 'Guest'}
+              </p>
+              <span className="mt-1 inline-block rounded-full bg-[#e2e8cf] px-2 py-[1px] text-[10px] font-black uppercase tracking-wider text-[#5c7031]">
+                {user?.role || 'N/A'}
               </span>
             </div>
 
-            <button onClick={handleLogout} title="Logout"
-              className="shrink-0 w-8 h-8 rounded-[9px] flex items-center justify-center transition-all duration-150 cursor-pointer"
-              style={{ color: '#94a3b8' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#ef4444'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}>
+            <button
+              onClick={handleLogout}
+              aria-label="Logout"
+              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[9px] text-slate-400 transition-all duration-150 hover:bg-red-100 hover:text-red-500"
+            >
               <LogOut size={16} />
             </button>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2.5">
             <UserAvatar user={user} />
-            <button onClick={handleLogout} title="Logout"
-              className="w-8 h-8 rounded-[9px] flex items-center justify-center transition-all duration-150 cursor-pointer"
-              style={{ color: '#94a3b8' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#ef4444'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}>
+            <button
+              onClick={handleLogout}
+              aria-label="Logout"
+              className="flex h-8 w-8 items-center justify-center rounded-[9px] text-slate-400 transition-all duration-150 hover:bg-red-100 hover:text-red-500"
+            >
               <LogOut size={16} />
             </button>
           </div>
@@ -237,4 +293,4 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
   );
 };
 
-export default Sidebar;
+export default React.memo(Sidebar);

@@ -1,19 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Search, Loader2, FileText, X,
-  Upload, Paperclip, ExternalLink
+  Upload, Paperclip, ExternalLink, RefreshCw
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
 import { cn, formatCurrency, uploadFileToDrive, getDriveViewUrl } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs } from '../lib/permissions';
+import useStickyTableHead from '../hooks/useStickyTableHead';
 
 const Bills = () => {
   const { user: currentUser } = useAuthStore();
-  const { services, loading, updateService } = useDataStore();
+  const { services, loading, updateService, fetchData } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('active');
   const [isSaving, setIsSaving] = useState(false);
+  const tableScrollRef = useRef(null);
+  useStickyTableHead(tableScrollRef);
 
   // ── Upload Bill modal ────────────────────────────────────────────
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -65,13 +68,16 @@ const Bills = () => {
     }
   };
 
-  // Helper to check if bill process is done
+  // Helper to check if bill process is done — must actually have a Bill No.
+  // or Bill Copy on file. (Previously this also fell back to checking the
+  // service's overall pipeline status, e.g. 'Payment Pending'/'Completed',
+  // but that status can advance without a bill ever being uploaded — e.g.
+  // getServiceStatus() falls through to 'Payment Pending' whenever actual1
+  // is set and planned1 is blank, regardless of billNo/billCopy — which
+  // incorrectly moved un-billed services into the History tab.)
   const isBillDone = (s) => {
     if (!s) return false;
-    if (s.billCopy || s.billNo) return true;
-    const status = String(s.status || '').trim().toLowerCase();
-    if (['completed', 'tally pending', 'payment pending', 'bill received'].includes(status)) return true;
-    return false;
+    return !!(s.billCopy || s.billNo);
   };
 
   // billStatus helper — History = billCopy uploaded or bill processed
@@ -127,10 +133,11 @@ const Bills = () => {
   }, [visibleTabIds, activeTab]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div data-sticky-header-region className="sticky top-7 z-20 bg-[#f2f5ec] space-y-4 pb-4">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Centralized Bills</h1>
-        <p className="text-gray-500">Upload, verify and track all service bills.</p>
+        <h1 className="text-xl font-bold text-gray-900">Centralized Bills</h1>
+        <p className="text-gray-500 text-sm">Upload, verify and track all service bills.</p>
       </div>
 
       {/* Tabs */}
@@ -140,7 +147,7 @@ const Bills = () => {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "px-5 py-4 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
+              "px-4 py-2.5 font-semibold text-sm transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap cursor-pointer",
               activeTab === tab.id
                 ? "border-gray-900 text-gray-900 font-bold"
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -158,29 +165,37 @@ const Bills = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white p-5 rounded-2xl border-l-4 border-l-red-400 border border-gray-200 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">Awaiting Bill</p>
-          <h4 className="text-2xl font-bold text-gray-900 mt-1">{activeCount}</h4>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="bg-white p-3 rounded-2xl border-l-4 border-l-red-400 border border-gray-200 shadow-sm">
+          <p className="text-xs font-medium text-gray-500">Awaiting Bill</p>
+          <h4 className="text-lg font-bold text-gray-900 mt-0.5">{activeCount}</h4>
         </div>
-        <div className="bg-white p-5 rounded-2xl border-l-4 border-l-emerald-600 border border-gray-200 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">Bill Uploaded</p>
-          <h4 className="text-2xl font-bold text-gray-900 mt-1">{historyCount}</h4>
+        <div className="bg-white p-3 rounded-2xl border-l-4 border-l-emerald-600 border border-gray-200 shadow-sm">
+          <p className="text-xs font-medium text-gray-500">Bill Uploaded</p>
+          <h4 className="text-lg font-bold text-gray-900 mt-0.5">{historyCount}</h4>
         </div>
       </div>
 
       {/* Search */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
-        <div className="relative">
+      <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-3">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input
             type="text"
             placeholder="Search by service no, offer no, vendor, firm or bill no..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
+            className="w-full pl-10 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
           />
         </div>
+        <button
+          onClick={() => fetchData()}
+          className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
+          title="Refresh from Sheet"
+        >
+          <RefreshCw size={16} className={cn(loading && "animate-spin")} />
+        </button>
+      </div>
       </div>
 
       {/* Table */}
@@ -190,29 +205,29 @@ const Bills = () => {
           <p className="text-gray-400 text-sm">Loading bills...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-240px)]">
-          <div className="overflow-auto flex-1">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto" ref={tableScrollRef}>
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Offer No.</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Service No.</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Firm Name</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Checker</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Amount</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">TDS</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Vendor</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Location</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Service Status</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Planned Date</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer No.</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Service No.</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm Name</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Checker</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Total Amount</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">TDS</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Service Status</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Planned Date</th>
                   {activeTab === 'history' && (
                     <>
-                      <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill No.</th>
-                      <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Copy</th>
+                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill No.</th>
+                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Copy</th>
                     </>
                   )}
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Status</th>
-                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right whitespace-nowrap">Action</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Status</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -220,20 +235,20 @@ const Bills = () => {
                   const billStatus = getBillStatus(s);
                   return (
                     <tr key={s.sheetRowIndex} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-4 text-sm font-semibold text-gray-600 whitespace-nowrap">{s.offerNo}</td>
-                      <td className="px-4 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{s.id}</td>
-                      <td className="px-4 py-4 text-sm text-gray-600 font-medium whitespace-nowrap">{s.firmName}</td>
-                      <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{s.checker}</td>
-                      <td className="px-4 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{formatCurrency(s.amount)}</td>
-                      <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{formatCurrency(s.tdsAmount)}</td>
-                      <td className="px-4 py-4 text-sm text-gray-800 font-medium whitespace-nowrap">{s.vendor}</td>
-                      <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{s.location}</td>
-                      <td className="px-4 py-4 whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-sm font-semibold text-gray-600">{s.offerNo}</td>
+                      <td className="px-3 py-2.5 text-sm font-bold text-gray-900">{s.id}</td>
+                      <td className="px-3 py-2.5 text-sm text-gray-600 font-medium">{s.firmName}</td>
+                      <td className="px-3 py-2.5 text-sm text-gray-600">{s.checker}</td>
+                      <td className="px-3 py-2.5 text-sm font-bold text-gray-900">{formatCurrency(s.amount)}</td>
+                      <td className="px-3 py-2.5 text-sm text-gray-600">{formatCurrency(s.tdsAmount)}</td>
+                      <td className="px-3 py-2.5 text-sm text-gray-800 font-medium">{s.vendor}</td>
+                      <td className="px-3 py-2.5 text-sm text-gray-600">{s.location}</td>
+                      <td className="px-3 py-2.5">
                         <span className={cn("px-2.5 py-1 text-xs font-semibold rounded-full", getStatusColor(s.status))}>
                           {s.status}
                         </span>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
+                      <td className="px-3 py-2.5">
                         {s.planned1 ? (
                           <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full">
                             {s.planned1}
@@ -244,8 +259,8 @@ const Bills = () => {
                       </td>
                       {activeTab === 'history' && (
                         <>
-                          <td className="px-4 py-4 text-sm text-gray-700 font-medium whitespace-nowrap">{s.billNo || '—'}</td>
-                          <td className="px-4 py-4 whitespace-nowrap">
+                          <td className="px-3 py-2.5 text-sm text-gray-700 font-medium">{s.billNo || '—'}</td>
+                          <td className="px-3 py-2.5">
                             {s.billCopy ? (
                               <a href={getDriveViewUrl(s.billCopy)} target="_blank" rel="noreferrer"
                                 className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-gray-900 transition-colors">
@@ -255,12 +270,12 @@ const Bills = () => {
                           </td>
                         </>
                       )}
-                      <td className="px-4 py-4 whitespace-nowrap">
+                      <td className="px-3 py-2.5">
                         <span className={cn("px-2.5 py-1 text-xs font-semibold rounded-full", getBillStatusColor(billStatus))}>
                           {billStatus}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-right whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-right">
                         {billStatus === 'Awaiting Bill' && (
                           <button onClick={() => openUploadModal(s)} disabled={isSaving}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-all ml-auto">

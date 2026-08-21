@@ -32,6 +32,15 @@ export function nowDateTime() {
   return `${M}/${d}/${yyyy} ${HH}:${mm}:${ss}`;
 }
 
+/* Converts a <input type="date"> value ('yyyy-MM-dd') into M/d/yyyy so every
+   date submitted to the sheet matches nowDateTime()'s date format. */
+export function formatDateForSubmit(isoDate) {
+  if (!isoDate || typeof isoDate !== 'string') return isoDate;
+  const [y, m, d] = isoDate.split('-');
+  if (!y || !m || !d) return isoDate;
+  return `${parseInt(m, 10)}/${parseInt(d, 10)}/${y}`;
+}
+
 export function getDriveViewUrl(url) {
   if (!url || typeof url !== 'string') return url;
 
