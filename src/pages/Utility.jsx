@@ -387,7 +387,7 @@ const Utility = () => {
       const res = await updateUtility(selectedUtility.sheetRowIndex, updates);
       if (res.success) {
         setIsDetailModalOpen(false);
-        alert(updates.status ? `Utility successfully marked as ${updates.status}!` : 'Utility details updated successfully!');
+        alert(`Utility ${selectedUtility.id} approval updated successfully!`);
       } else {
         setSaveError(res.message || 'Failed to update approval status.');
       }
@@ -453,12 +453,9 @@ const Utility = () => {
       let successCount = 0;
       
       for (const utility of pendingApprovalRows) {
-        const delay = getDelayDays(utility.planned1, today);
         const updates = {
-          status: 'Approved',
-          actual1: formatDateForSubmit(today),
-          delay1: delay,
-          remarks: 'Bulk Approved'
+          actual1: today,
+          remark1: 'Bulk Approved'
         };
         const res = await updateUtility(utility.sheetRowIndex, updates);
         if (res.success) successCount++;
@@ -772,6 +769,30 @@ const Utility = () => {
       setSortOrder('desc');
     }
   };
+
+  // ── Make Payment: Firm → Google Form URL mapping ──────────────────────────
+  const firmFormLinks = {
+    "Purab": "https://docs.google.com/forms/d/e/1FAIpQLSdLWKfGPNXK62Orndb137GPKadFiRQZS8W_MM0c11HvdR4KkA/viewform",
+    "Rkl": "https://docs.google.com/forms/d/e/1FAIpQLScJJFvh6zchRosSzX0mU-u7-oeMaQW6iv1osE70hRDoE-uVrg/viewform",
+    "Refrasynth": "https://docs.google.com/forms/d/e/1FAIpQLSdHF5shP_liUbm1tsyOS3nrEmNUY9Y5zl4y2odXK0weaDjcpA/viewform",
+    "Pmmpl": "https://docs.google.com/forms/d/e/1FAIpQLScn8tHEUldlOM_8DKpHUfHHiRImDVjkpkhhfduaZUIxpxlJrA/viewform",
+    "Refratech": "https://docs.google.com/forms/d/e/1FAIpQLScTunRezHE3TKtNpXjISVWjnywDwUcT6F62DYtkLlgXL6MMaQ/viewform",
+    // Add more firm: link pairs here
+  };
+
+  const handleMakePayment = (firmName) => {
+    // Normalize firm name for lookup (case-insensitive match)
+    const matchedKey = Object.keys(firmFormLinks).find(
+      key => key.toLowerCase() === (firmName || '').toLowerCase()
+    );
+    const formUrl = matchedKey ? firmFormLinks[matchedKey] : undefined;
+    if (formUrl) {
+      window.open(formUrl, '_blank');
+    } else {
+      alert('Payment form not configured for this firm yet.');
+    }
+  };
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col max-w-[1600px] mx-auto pb-4 space-y-4">
@@ -1245,6 +1266,18 @@ const Utility = () => {
                             >
                               <Eye size={14} />
                               <span>View</span>
+                            </button>
+                          )}
+
+                          {/* Make Payment button — Tally Entry tab only */}
+                          {activeTab === 'payment' && (
+                            <button
+                              onClick={() => handleMakePayment(utility.firmName)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold transition-all border border-emerald-200 cursor-pointer"
+                              title="Open payment form for this firm"
+                            >
+                              <ExternalLink size={14} />
+                              <span>Make Payment</span>
                             </button>
                           )}
                         </div>
