@@ -453,6 +453,43 @@ const useDataStore = create((set, get) => ({
     }
   },
 
+  saveCell: async (sheetName, rowIndex, columnIndex, value, retries = 3) => {
+    const params = new URLSearchParams();
+    params.append('sheetName', sheetName);
+    params.append('action', 'updateCell');
+    params.append('rowIndex', String(rowIndex));
+    params.append('columnIndex', String(columnIndex));
+    params.append('value', value !== undefined && value !== null ? String(value) : '');
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        body: params,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        throw new Error(`Invalid JSON response: ${text.slice(0, 100)}`);
+      }
+      if (data && data.success === false) {
+        throw new Error(data.message || data.error || 'Server returned failure');
+      }
+      return data;
+    } catch (err) {
+      if (retries > 0) {
+        console.warn(`saveCell failed for ${sheetName} row ${rowIndex} col ${columnIndex}, retrying in 300ms... (${retries} left). Error: ${err.message}`);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        return get().saveCell(sheetName, rowIndex, columnIndex, value, retries - 1);
+      }
+      throw err;
+    }
+  },
+
   addOffer: async (offer) => {
     const rawHeaders = get().offerHeaders;
     const defaultHeaders = [
@@ -751,55 +788,146 @@ const useDataStore = create((set, get) => ({
     }));
 
     const headers = get().utilityHeaders;
-    const rowDataArray = headers.map(header => {
-      // Helper: only return a value if it was explicitly passed in updatedFields
-      const norm = h => String(h || '').trim().toLowerCase().replace(/\s+/g, '');
-      const hn = norm(header);
+    const norm = h => String(h || '').trim().toLowerCase().replace(/\s+/g, '');
 
-      // Map header → field key
-      if (hn === 'timestamp') return null; // never overwrite timestamp
-      if (hn === 'ut-utilityno.' || hn === 'utilityno.' || hn === 'utilityno') return null; // never overwrite ID
+    const findColIdx = (predicate) => {
+      const idx = headers.findIndex(h => predicate(norm(h)));
+      return idx >= 0 ? idx + 1 : null;
+    };
 
-      if ('firmName' in updatedFields && hn === 'firmname') return updatedFields.firmName;
-      if ('personName' in updatedFields && hn === 'personname') return updatedFields.personName;
-      if ('userName' in updatedFields && hn === 'nameofuser') return updatedFields.userName;
-      if ('department' in updatedFields && hn === 'department') return updatedFields.department;
-      if ('groupHead' in updatedFields && hn === 'grouphead') return updatedFields.groupHead;
-      if ('payTo' in updatedFields && hn === 'payto') return updatedFields.payTo;
-      if ('amount' in updatedFields && hn === 'billamount') return updatedFields.amount;
-      if ('billImage' in updatedFields && hn === 'billimage') return updatedFields.billImage;
-      if ('billDate' in updatedFields && hn === 'billdate') return updatedFields.billDate;
-      if ('dueDate' in updatedFields && hn === 'duedate') return updatedFields.dueDate;
-      if ('remarks' in updatedFields && hn === 'remarks') return updatedFields.remarks;      // col M
-      if ('remark1' in updatedFields && hn === 'remark1') return updatedFields.remark1;       // col U
-      if ('tdsAmount' in updatedFields && hn === 'tdsdeductionamount') return updatedFields.tdsAmount;
-      if ('amountPaid' in updatedFields && hn === 'amounttobepaid') return updatedFields.amountPaid;
-      if ('outstanding' in updatedFields && hn === 'outstandingamount') return updatedFields.outstanding;
-      if ('status' in updatedFields && hn === 'status') return updatedFields.status;
-      if (hn.startsWith('planned')) return null; // Formula columns — always preserve
-      if ('actual1' in updatedFields && hn === 'actual1') return updatedFields.actual1;
-      if ('delay1' in updatedFields && hn === 'delay1') return updatedFields.delay1;
-      if ('actual2' in updatedFields && hn === 'actual2') return updatedFields.actual2;
-      if ('delay2' in updatedFields && (hn === 'delay2' || hn === 'dalay2')) return updatedFields.delay2;
-      if ('paymentFormLink' in updatedFields && hn === 'paymentformlink') return updatedFields.paymentFormLink;
-      if ('fmsName' in updatedFields && hn === 'fmsname') return updatedFields.fmsName;
-      if ('details' in updatedFields && hn === 'details') return updatedFields.details;
-      if ('approvalAttachment' in updatedFields && hn === 'approvalattachment') return updatedFields.approvalAttachment;
-      if ('paymentNo' in updatedFields && hn === 'paymentnumber') return updatedFields.paymentNo;
-      if ('paymentMode' in updatedFields && hn === 'paymentmode') return updatedFields.paymentMode;
-      if ('transactionRef' in updatedFields && hn === 'transactionreference') return updatedFields.transactionRef;
-      if ('paymentDate' in updatedFields && hn === 'paymentdate') return updatedFields.paymentDate;
-      if ('paymentAttachment' in updatedFields && hn === 'paymentattachment') return updatedFields.paymentAttachment;
-      if ('paymentRemarks' in updatedFields && hn === 'paymentremarks') return updatedFields.paymentRemarks;
+    const updatesToMake = [];
 
-      return null; // all other columns → preserve existing value in sheet
-    });
-    const res = await get().saveRow('UTILITY', 'update', rowIndex, rowDataArray);
-    // Background refetch — UI already updated optimistically above (line ~584)
-    if (res && res.success) {
-      get().fetchData();
+    if ('firmName' in updatedFields) {
+      const col = findColIdx(h => h === 'firmname');
+      if (col) updatesToMake.push({ col, val: updatedFields.firmName });
     }
-    return res;
+    if ('personName' in updatedFields) {
+      const col = findColIdx(h => h === 'personname');
+      if (col) updatesToMake.push({ col, val: updatedFields.personName });
+    }
+    if ('userName' in updatedFields) {
+      const col = findColIdx(h => h === 'nameofuser');
+      if (col) updatesToMake.push({ col, val: updatedFields.userName });
+    }
+    if ('department' in updatedFields) {
+      const col = findColIdx(h => h === 'department');
+      if (col) updatesToMake.push({ col, val: updatedFields.department });
+    }
+    if ('groupHead' in updatedFields) {
+      const col = findColIdx(h => h === 'grouphead');
+      if (col) updatesToMake.push({ col, val: updatedFields.groupHead });
+    }
+    if ('payTo' in updatedFields) {
+      const col = findColIdx(h => h === 'payto');
+      if (col) updatesToMake.push({ col, val: updatedFields.payTo });
+    }
+    if ('amount' in updatedFields) {
+      const col = findColIdx(h => h === 'billamount');
+      if (col) updatesToMake.push({ col, val: updatedFields.amount });
+    }
+    if ('billImage' in updatedFields) {
+      const col = findColIdx(h => h === 'billimage');
+      if (col) updatesToMake.push({ col, val: updatedFields.billImage });
+    }
+    if ('billDate' in updatedFields) {
+      const col = findColIdx(h => h === 'billdate');
+      if (col) updatesToMake.push({ col, val: updatedFields.billDate });
+    }
+    if ('dueDate' in updatedFields) {
+      const col = findColIdx(h => h === 'duedate');
+      if (col) updatesToMake.push({ col, val: updatedFields.dueDate });
+    }
+    if ('remarks' in updatedFields) {
+      const col = findColIdx(h => h === 'remarks' || h === 'remark');
+      if (col) updatesToMake.push({ col, val: updatedFields.remarks });
+    }
+    if ('remark1' in updatedFields) {
+      const col = findColIdx(h => h === 'remark1' || h === 'remarks1');
+      if (col) updatesToMake.push({ col, val: updatedFields.remark1 });
+    }
+    if ('tdsAmount' in updatedFields) {
+      const col = findColIdx(h => h === 'tdsdeductionamount');
+      if (col) updatesToMake.push({ col, val: updatedFields.tdsAmount });
+    }
+    if ('amountPaid' in updatedFields) {
+      const col = findColIdx(h => h === 'amounttobepaid');
+      if (col) updatesToMake.push({ col, val: updatedFields.amountPaid });
+    }
+    if ('outstanding' in updatedFields) {
+      const col = findColIdx(h => h === 'outstandingamount');
+      if (col) updatesToMake.push({ col, val: updatedFields.outstanding });
+    }
+    if ('status' in updatedFields) {
+      const col = findColIdx(h => h === 'status');
+      if (col) updatesToMake.push({ col, val: updatedFields.status });
+    }
+    if ('actual1' in updatedFields) {
+      const col = findColIdx(h => h === 'actual1');
+      if (col) updatesToMake.push({ col, val: updatedFields.actual1 });
+    }
+    if ('delay1' in updatedFields) {
+      const col = findColIdx(h => h === 'delay1');
+      if (col) updatesToMake.push({ col, val: updatedFields.delay1 });
+    }
+    if ('actual2' in updatedFields) {
+      const col = findColIdx(h => h === 'actual2');
+      if (col) updatesToMake.push({ col, val: updatedFields.actual2 });
+    }
+    if ('delay2' in updatedFields) {
+      const col = findColIdx(h => h === 'delay2' || h === 'dalay2');
+      if (col) updatesToMake.push({ col, val: updatedFields.delay2 });
+    }
+    if ('paymentFormLink' in updatedFields) {
+      const col = findColIdx(h => h === 'paymentformlink');
+      if (col) updatesToMake.push({ col, val: updatedFields.paymentFormLink });
+    }
+    if ('fmsName' in updatedFields) {
+      const col = findColIdx(h => h === 'fmsname');
+      if (col) updatesToMake.push({ col, val: updatedFields.fmsName });
+    }
+    if ('details' in updatedFields) {
+      const col = findColIdx(h => h === 'details');
+      if (col) updatesToMake.push({ col, val: updatedFields.details });
+    }
+    if ('approvalAttachment' in updatedFields) {
+      const col = findColIdx(h => h === 'approvalattachment');
+      if (col) updatesToMake.push({ col, val: updatedFields.approvalAttachment });
+    }
+    if ('paymentNo' in updatedFields) {
+      const col = findColIdx(h => h === 'paymentnumber' || h === 'paymentno.' || h === 'paymentno');
+      if (col) updatesToMake.push({ col, val: updatedFields.paymentNo });
+    }
+    if ('paymentMode' in updatedFields) {
+      const col = findColIdx(h => h === 'paymentmode');
+      if (col) updatesToMake.push({ col, val: updatedFields.paymentMode });
+    }
+    if ('transactionRef' in updatedFields) {
+      const col = findColIdx(h => h === 'transactionreference' || h === 'transactionref');
+      if (col) updatesToMake.push({ col, val: updatedFields.transactionRef });
+    }
+    if ('paymentDate' in updatedFields) {
+      const col = findColIdx(h => h === 'paymentdate');
+      if (col) updatesToMake.push({ col, val: updatedFields.paymentDate });
+    }
+    if ('paymentAttachment' in updatedFields) {
+      const col = findColIdx(h => h === 'paymentattachment');
+      if (col) updatesToMake.push({ col, val: updatedFields.paymentAttachment });
+    }
+    if ('paymentRemarks' in updatedFields) {
+      const col = findColIdx(h => h === 'paymentremarks');
+      if (col) updatesToMake.push({ col, val: updatedFields.paymentRemarks });
+    }
+
+    if (updatesToMake.length === 0) return { success: true };
+
+    for (const u of updatesToMake) {
+      await get().saveCell('UTILITY', rowIndex, u.col, u.val);
+    }
+
+    // Background refetch — UI already updated optimistically above
+    get().fetchData();
+
+    return { success: true };
   },
 
   clearData: () => set({ offers: [], services: [], utilities: [] })
