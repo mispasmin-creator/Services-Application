@@ -557,9 +557,12 @@ const Utility = () => {
   const filteredUtilities = utilities.filter(u => {
     // Tab stage filter
     if (activeTab === 'create') {
+      // Show only pending entries that have NOT been submitted yet (Actual column empty)
       if (!u.status?.toLowerCase().includes('pending')) return false;
+      if (!!u.actual) return false;
     } else if (activeTab === 'approval') {
-      if (!!u.actual1) return false;
+      // Show entries that ARE submitted (Actual set) but NOT yet approved (Actual 1 empty)
+      if (!u.actual || !!u.actual1) return false;
     } else if (activeTab === 'payment') {
       if (!u.actual1 || !!u.actual2) return false;
     } else if (activeTab === 'completed') {
@@ -794,6 +797,30 @@ const Utility = () => {
   };
   // ─────────────────────────────────────────────────────────────────────────
 
+  // ── Submit for Approval: sets "Actual" column with today's date ───────────
+  const handleSubmitForApproval = async () => {
+    if (selectedRows.length === 0) return;
+    const today = new Date().toISOString().split('T')[0];
+    const eligible = utilities.filter(u => selectedRows.includes(u.sheetRowIndex));
+    if (eligible.length === 0) return;
+
+    setIsSaving(true);
+    try {
+      let successCount = 0;
+      for (const utility of eligible) {
+        const res = await updateUtility(utility.sheetRowIndex, { actual: today });
+        if (res.success) successCount++;
+      }
+      setSelectedRows([]);
+      alert(`${successCount} entr${successCount === 1 ? 'y' : 'ies'} submitted for approval successfully!`);
+    } catch (err) {
+      alert('Error submitting for approval: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
   return (
     <div className="flex flex-col max-w-[1600px] mx-auto pb-4 space-y-4">
       <div data-sticky-header-region className="sticky top-7 z-20 bg-[#f2f5ec] space-y-4 pb-4">
@@ -1007,6 +1034,17 @@ const Utility = () => {
               <div className="ml-auto flex items-center gap-2 bg-gray-100 border border-gray-200 rounded-xl px-3 py-1 animate-pulse">
                 <span className="text-[11px] font-bold text-gray-700">{selectedRows.length} selected</span>
                 
+                {activeTab === 'create' && (
+                  <button
+                    disabled={isSaving}
+                    onClick={handleSubmitForApproval}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-[11px] font-bold transition-all shadow-xs cursor-pointer disabled:opacity-60"
+                  >
+                    <ArrowRight size={12} />
+                    <span>{isSaving ? 'Submitting...' : 'Submit for Approval'}</span>
+                  </button>
+                )}
+
                 {activeTab === 'approval' && (
                   <button
                     onClick={() => setIsBulkApproveModalOpen(true)}
@@ -1059,8 +1097,8 @@ const Utility = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  {/* Selection Checkbox (Bulk) */}
-                  {(activeTab === 'payment' || activeTab === 'approval') && (
+                  {/* Selection Checkbox (Bulk) — create, payment, approval tabs */}
+                  {(activeTab === 'create' || activeTab === 'payment' || activeTab === 'approval') && (
                     <th className="sticky top-0 z-10 bg-gray-50 w-12 px-3 py-3">
                       <input 
                         type="checkbox" 
@@ -1125,6 +1163,9 @@ const Utility = () => {
                     <div className="flex items-center gap-1"><span>Status</span>{sortColumn === 'status' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Planned 1</th>
+                  {activeTab === 'create' && (
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Payment Form</th>
+                  )}
                   {activeTab === 'approval' && (
                     <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
                   )}
@@ -1146,8 +1187,8 @@ const Utility = () => {
                         isChecked && "bg-gray-100"
                       )}
                     >
-                      {/* Bulk Selection checkbox */}
-                      {(activeTab === 'payment' || activeTab === 'approval') && (
+                      {/* Bulk Selection checkbox — create, payment, approval tabs */}
+                      {(activeTab === 'create' || activeTab === 'payment' || activeTab === 'approval') && (
                         <td className="px-3 py-3">
                           <input type="checkbox" className="rounded-md border-gray-300 focus:ring-gray-900/20 w-4 h-4 cursor-pointer" checked={isChecked} onChange={(e) => handleSelectRow(e, utility.sheetRowIndex)} />
                         </td>
@@ -1196,6 +1237,20 @@ const Utility = () => {
                           <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">{utility.planned1}</span>
                         ) : <span className="text-gray-400 text-xs">—</span>}
                       </td>
+
+                      {/* Make Payment button — Utility Entries tab only, next to Planned 1 */}
+                      {activeTab === 'create' && (
+                        <td className="px-3 py-3 text-center">
+                          <button
+                            onClick={() => handleMakePayment(utility.firmName)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold transition-all border border-emerald-200 cursor-pointer"
+                            title="Open payment form for this firm"
+                          >
+                            <ExternalLink size={14} />
+                            <span>Make Payment</span>
+                          </button>
+                        </td>
+                      )}
 
                       {/* Approval Tab Action button */}
                       {activeTab === 'approval' && (
@@ -1269,17 +1324,7 @@ const Utility = () => {
                             </button>
                           )}
 
-                          {/* Make Payment button — Tally Entry tab only */}
-                          {activeTab === 'payment' && (
-                            <button
-                              onClick={() => handleMakePayment(utility.firmName)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold transition-all border border-emerald-200 cursor-pointer"
-                              title="Open payment form for this firm"
-                            >
-                              <ExternalLink size={14} />
-                              <span>Make Payment</span>
-                            </button>
-                          )}
+
                         </div>
                                               </td>
                       )}

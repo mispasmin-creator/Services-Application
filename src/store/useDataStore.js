@@ -300,6 +300,7 @@ const useDataStore = create((set, get) => ({
                 amountPaid: parseFloat(getVal('Amount To Be Paid', amountVal - tdsVal)) || (amountVal - tdsVal),
                 outstanding: parseFloat(getVal('Outstanding Amount', amountVal - tdsVal)) || (amountVal - tdsVal),
                 status: getVal('Status') || 'Pending Approval',
+                actual: getVal('Actual'),          // NEW: submission date from Utility Entries tab
                 planned1: formatSheetDate(getVal('Planned 1')),
                 actual1: getVal('Actual 1'),
                 delay1: getVal('Delay 1'),
@@ -880,6 +881,11 @@ const useDataStore = create((set, get) => ({
     if ('paymentFormLink' in updatedFields) {
       const col = findColIdx(h => h === 'paymentformlink');
       if (col) updatesToMake.push({ col, val: updatedFields.paymentFormLink });
+    }
+    // NEW: "Actual" column — set by Utility Entries tab Submit for Approval action
+    if ('actual' in updatedFields) {
+      const col = findColIdx(h => h === 'actual');
+      if (col) updatesToMake.push({ col, val: updatedFields.actual });
     }
     if ('fmsName' in updatedFields) {
       const col = findColIdx(h => h === 'fmsname');
