@@ -152,11 +152,16 @@ function doPost(e) {
             var mergedData = existingData.map(function (existingVal, i) {
                 var headerName = String(headerRow[i] || '').trim().toLowerCase();
 
-                // CRITICAL: "Planned X" columns must NEVER be auto-updated by formula recalculation.
-                // Write back the static existing VALUE (not the formula string), so that
-                // updating status/bills/payments does not trigger Planned formulas to auto-fill a date.
-                if (headerName.indexOf('planned') !== -1) {
-                    return existingVal; // Always freeze the current static value
+                // CRITICAL: "Planned X" and "Delay X" columns contain Google Sheet formulas.
+                // ALWAYS preserve the formula if one exists — never overwrite with a static value.
+                // Previously, Planned columns wrote existingVal (destroying the formula),
+                // and Delay columns received their formula-calculated value from the frontend
+                // and treated it as new data, also destroying the formula.
+                if (headerName.indexOf('planned') !== -1 || headerName.indexOf('delay') !== -1) {
+                    if (existingFormulas && existingFormulas[i] !== '') {
+                        return existingFormulas[i]; // Preserve the formula — never freeze to static value
+                    }
+                    return existingVal; // No formula present — keep whatever static value exists
                 }
 
                 // If new data is provided, overwrite it

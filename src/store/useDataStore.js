@@ -681,18 +681,18 @@ const useDataStore = create((set, get) => ({
       if (header === 'Service Location') return merged.location;
       if (norm.includes('planned')) return null;
       if (norm === 'actual1') return merged.actual1 || null;
-      if (norm === 'delay1') return merged.delay1 || null;
+      if (norm === 'delay1') return null; // Formula column — never send value; Code.gs preserves the formula
       if (header === 'Bill No.') return merged.billNo || null;
       if (header === 'Bill Copy') return merged.billCopy || null;
       if (norm === 'actual2') return merged.actual2 || null;
       if (norm === 'delay2') return merged.delay2 || null;
       if (header === 'Payment Proof') return merged.paymentProof || null;
       if (norm === 'actual3') return merged.actual3 || null;
-      if (norm === 'delay3') return merged.delay3 || null;
+      if (norm === 'delay3') return null; // Formula column — never send value; Code.gs preserves the formula
       if (norm === 'status3') return merged.status3 || null;
       if (norm === 'remarks3') return merged.remarks3 || null;
       if (norm === 'actual4') return merged.actual4 || null;
-      if (norm === 'delay4') return merged.delay4 || null;
+      if (norm === 'delay4') return null; // Formula column — never send value; Code.gs preserves the formula
       if (norm === 'status4') return merged.status4 || null;
       if (norm === 'remarks4') return merged.remarks4 || null;
       if (norm === 'actual5') return merged.actual5 || null;
