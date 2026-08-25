@@ -105,24 +105,37 @@ function doPost(e) {
         if (action === 'insert') {
             var rowData = JSON.parse(params.rowData);
 
-            // Use appendRow for single row - it's optimized internally
-            sheet.appendRow(rowData);
+            // Replace null with '' for appendRow (null would be inserted as "null" text)
+            // but track which indices were null so we can restore formulas for those cells.
+            var nullIndices = {};
+            var cleanRowData = rowData.map(function(v, i) {
+                if (v === null || v === undefined) {
+                    nullIndices[i] = true;
+                    return '';
+                }
+                return v;
+            });
+
+            sheet.appendRow(cleanRowData);
             var newRowIdx = sheet.getLastRow();
 
-            // Auto-copy formulas from row above for any blank/unprovided cells
-            // (Timestamp, Offer No., Amount To Be Paid, Outstanding Amount, Status formulas)
+            // Auto-copy formulas from row above for:
+            // 1. Any cell where the incoming data was null (Planned/Delay/formula columns)
+            // 2. Any blank/unprovided cells that have a formula in the row above
             if (newRowIdx > 2) {
-                var prevFormulas = sheet.getRange(newRowIdx - 1, 1, 1, rowData.length).getFormulas()[0];
+                var prevFormulas = sheet.getRange(newRowIdx - 1, 1, 1, cleanRowData.length).getFormulas()[0];
                 for (var f = 0; f < prevFormulas.length; f++) {
-                    if (prevFormulas[f] && prevFormulas[f] !== '' && (rowData[f] === null || rowData[f] === '' || rowData[f] === undefined)) {
-                        sheet.getRange(newRowIdx, f + 1).setFormulaR1C1(sheet.getRange(newRowIdx - 1, f + 1).getFormulaR1C1());
+                    if (prevFormulas[f] && prevFormulas[f] !== '') {
+                        // Copy formula if cell was null/empty in incoming data
+                        if (nullIndices[f] || cleanRowData[f] === '' || cleanRowData[f] === undefined) {
+                            sheet.getRange(newRowIdx, f + 1).setFormulaR1C1(sheet.getRange(newRowIdx - 1, f + 1).getFormulaR1C1());
+                        }
                     }
                 }
             }
 
-            // Flush to ensure immediate write
             SpreadsheetApp.flush();
-            invalidateSheetCache(sheetName); // Clear cache so next GET returns fresh data
+            invalidateSheetCache(sheetName);
 
             return jsonSuccess("Data inserted successfully");
         }

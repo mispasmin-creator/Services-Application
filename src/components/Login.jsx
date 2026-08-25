@@ -61,29 +61,29 @@ const Login = ({ onLogin }) => {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-4 bg-[#f2f5ec] overflow-hidden">
+    <div className="relative min-h-screen flex items-center justify-center p-4 bg-transparent overflow-hidden">
       {/* Decorative background glow */}
       <div className="pointer-events-none absolute -top-32 -left-24 w-[420px] h-[420px] rounded-full opacity-30 blur-3xl"
-        style={{ background: 'radial-gradient(circle, #7a9445 0%, transparent 70%)' }} />
+        style={{ background: 'radial-gradient(circle, #2dd4bf 0%, transparent 70%)' }} />
       <div className="pointer-events-none absolute -bottom-32 -right-24 w-[420px] h-[420px] rounded-full opacity-30 blur-3xl"
-        style={{ background: 'radial-gradient(circle, #3a4820 0%, transparent 70%)' }} />
+        style={{ background: 'radial-gradient(circle, #0f766e 0%, transparent 70%)' }} />
 
-      <div className="relative w-full max-w-[420px] bg-white rounded-3xl shadow-2xl shadow-[#3a4820]/10 border border-gray-100 overflow-hidden">
-        <div className="h-[4px] w-full bg-gradient-to-r from-[#3a4820] via-[#7a9445] to-[#4a5c2a]" />
+      <div className="relative w-full max-w-[420px] bg-white rounded-3xl shadow-2xl shadow-[#0f766e]/10 border border-gray-100 overflow-hidden">
+        <div className="h-[4px] w-full bg-gradient-to-r from-[#0f766e] via-[#14b8a6] to-[#0d9488]" />
         <div className="p-8 sm:p-10">
 
           {/* Header */}
           <div className="flex flex-col items-center mb-10">
              <div className="relative w-[72px] h-[72px] rounded-2xl flex items-center justify-center mb-5 overflow-hidden"
                style={{
-                 background: 'linear-gradient(145deg, #4a5c2a 0%, #3a4820 55%, #2c3818 100%)',
-                 boxShadow: '0 10px 24px rgba(58,72,32,0.35), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -8px 14px rgba(0,0,0,0.15)',
+                 background: 'linear-gradient(145deg, #2dd4bf 0%, #14b8a6 55%, #0f766e 100%)',
+                 boxShadow: '0 10px 24px rgba(15,118,110,0.35), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -8px 14px rgba(0,0,0,0.15)',
                }}>
                <div className="absolute inset-0 rounded-2xl" style={{ border: '1px solid rgba(255,255,255,0.12)' }} />
                <LogoMark size={34} />
              </div>
              <h2 className="text-2xl font-black text-gray-900 tracking-tight">Service FMS</h2>
-             <p className="text-[11px] font-bold text-[#7a9445] mt-1.5 uppercase tracking-[0.2em]">Facility Management</p>
+             <p className="text-[11px] font-bold text-[#14b8a6] mt-1.5 uppercase tracking-[0.2em]">Facility Management</p>
           </div>
 
           {/* Error Message */}
@@ -103,7 +103,7 @@ const Login = ({ onLogin }) => {
                   type="text" required disabled={isLoading}
                   value={username} onChange={e => setUsername(e.target.value)}
                   placeholder="Enter your username"
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-[#4a5c2a]/20 focus:border-[#4a5c2a] transition-all outline-none"
+                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-[#14b8a6]/20 focus:border-[#14b8a6] transition-all outline-none"
                 />
               </div>
             </div>
@@ -116,13 +116,13 @@ const Login = ({ onLogin }) => {
                   type={showPassword ? 'text' : 'password'} required disabled={isLoading}
                   value={password} onChange={e => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="w-full pl-12 pr-11 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-[#4a5c2a]/20 focus:border-[#4a5c2a] transition-all outline-none"
+                  className="w-full pl-12 pr-11 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-[#14b8a6]/20 focus:border-[#14b8a6] transition-all outline-none"
                 />
                 <button
                   type="button"
                   tabIndex={-1}
                   onClick={() => setShowPassword(s => !s)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#4a5c2a] transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#14b8a6] transition-colors"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
@@ -132,7 +132,7 @@ const Login = ({ onLogin }) => {
 
             <button
               type="submit" disabled={isLoading}
-              className="w-full py-4 mt-2 bg-gradient-to-r from-[#3a4820] to-[#4a5c2a] hover:from-[#2c3618] hover:to-[#3a4820] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#4a5c2a]/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-4 mt-2 bg-gradient-to-r from-[#0f766e] to-[#0d9488] hover:from-[#0d9488] hover:to-[#0f766e] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#0d9488]/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <>

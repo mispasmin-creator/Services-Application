@@ -1,27 +1,27 @@
 @import "tailwindcss";
 
 /* ════════════════════════════════════════════════
-   BRAND PALETTE  —  Olive Green (#4a5c2a)
+   BRAND PALETTE  —  Teal/Mint (#14b8a6)
 ════════════════════════════════════════════════ */
 :root {
-  --brand:         #91a76c;
-  --brand-dark:    #91a76c;
-  --brand-mid:     #91a76c;
-  --brand-light:   #91a76c;
-  --brand-xlight:  #9ab85a;
-  --brand-50:      #f5f7f0;
-  --brand-100:     #e8edda;
-  --brand-200:     #d0dbb5;
+  --brand:         #14b8a6; /* teal-500 */
+  --brand-dark:    #0f766e; /* teal-700 */
+  --brand-mid:     #0d9488; /* teal-600 */
+  --brand-light:   #2dd4bf; /* teal-400 */
+  --brand-xlight:  #5eead4; /* teal-300 */
+  --brand-50:      #f0fdfa; /* teal-50 */
+  --brand-100:     #ccfbf1; /* teal-100 */
+  --brand-200:     #99f6e4; /* teal-200 */
 
   --surface:       #ffffff;
-  --surface-2:     #f8faf4;
-  --surface-3:     #f2f5ec;
+  --surface-2:     #f8fafc; /* slate-50 */
+  --surface-3:     #f1f5f9; /* slate-100 */
 
-  --shadow-sm:  0 1px 3px rgba(74,92,42,0.08), 0 1px 2px rgba(74,92,42,0.05);
-  --shadow-md:  0 4px 12px rgba(74,92,42,0.10), 0 2px 6px rgba(74,92,42,0.06);
-  --shadow-lg:  0 10px 28px rgba(74,92,42,0.13), 0 4px 12px rgba(74,92,42,0.07);
-  --shadow-xl:  0 20px 48px rgba(74,92,42,0.16), 0 8px 20px rgba(74,92,42,0.10);
-  --shadow-brand: 0 6px 20px rgba(74,92,42,0.40);
+  --shadow-sm:  0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --shadow-md:  0 4px 12px rgba(15, 23, 42, 0.05), 0 2px 6px rgba(15, 23, 42, 0.03);
+  --shadow-lg:  0 10px 28px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04);
+  --shadow-xl:  0 20px 48px rgba(15, 23, 42, 0.08), 0 8px 20px rgba(15, 23, 42, 0.05);
+  --shadow-brand: 0 6px 20px rgba(20, 184, 166, 0.25);
 }
 
 /* ════════════════════════════════════════════════
@@ -35,9 +35,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: var(--surface-3);
   background-image:
-    radial-gradient(circle at 20% 10%, rgba(74,92,42,0.04) 0%, transparent 60%),
-    radial-gradient(circle at 80% 90%, rgba(122,148,69,0.04) 0%, transparent 60%),
-    radial-gradient(rgba(74,92,42,0.035) 1px, transparent 1px);
+    radial-gradient(circle at 20% 10%, rgba(20, 184, 166, 0.04) 0%, transparent 60%),
+    radial-gradient(circle at 80% 90%, rgba(45, 212, 191, 0.04) 0%, transparent 60%),
+    radial-gradient(rgba(15, 23, 42, 0.02) 1px, transparent 1px);
   background-size: auto, auto, 28px 28px;
 }
 
@@ -107,7 +107,7 @@ button.border-b-2      { transition: color 0.15s ease, border-color 0.15s ease !
 input:focus, select:focus, textarea:focus {
   outline: none !important;
   border-color: var(--brand) !important;
-  box-shadow: 0 0 0 3px rgba(74,92,42,0.12), 0 1px 4px rgba(74,92,42,0.08) !important;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12), 0 1px 4px rgba(15, 23, 42, 0.05) !important;
   background: white !important;
   transition: all 0.15s ease !important;
 }
@@ -125,33 +125,33 @@ input[type="radio"] { accent-color: var(--brand); }
 .animate-spin { color: var(--brand) !important; }
 
 /* ════════════════════════════════════════════════
-   CARDS
+   CARDS — flat, no border, no shadow (blend with page bg)
 ════════════════════════════════════════════════ */
 .rounded-2xl.bg-white,
 .rounded-xl.bg-white {
-  transition: box-shadow 0.25s cubic-bezier(0.4,0,0.2,1), transform 0.25s cubic-bezier(0.4,0,0.2,1);
-  box-shadow: var(--shadow-md) !important;
-  border: 1px solid rgba(74,92,42,0.09) !important;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  box-shadow: none !important;
+  border: none !important;
 }
 .rounded-2xl.bg-white:hover,
 .rounded-xl.bg-white:hover {
-  box-shadow: var(--shadow-lg) !important;
-  transform: translateY(-1px);
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 /* ════════════════════════════════════════════════
-   TABLE WRAPPER
+   TABLE WRAPPER — flat, no border, no shadow
 ════════════════════════════════════════════════ */
 .bg-white.rounded-2xl.overflow-hidden,
 .bg-white.rounded-2xl.border.overflow-hidden {
-  border: 1px solid rgba(74,92,42,0.10) !important;
-  box-shadow: 0 2px 12px rgba(74,92,42,0.08), 0 8px 32px rgba(74,92,42,0.05) !important;
+  border: none !important;
+  box-shadow: none !important;
   border-radius: 16px !important;
   overflow: hidden !important;
 }
 .bg-white.rounded-2xl.overflow-hidden:hover,
 .bg-white.rounded-2xl.border.overflow-hidden:hover {
-  box-shadow: 0 4px 20px rgba(74,92,42,0.12), 0 12px 40px rgba(74,92,42,0.08) !important;
+  box-shadow: none !important;
 }
 
 table {
@@ -257,7 +257,7 @@ a.hover\:text-gray-900:hover { color: var(--brand) !important; }
 }
 .bg-gray-50.border.border-gray-200.rounded-xl:focus-within {
   border-color: var(--brand-200) !important;
-  box-shadow: 0 0 0 3px rgba(74,92,42,0.08) !important;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.08) !important;
   background: white !important;
 }
 
@@ -290,3 +290,195 @@ a.hover\:text-gray-900:hover { color: var(--brand) !important; }
   backdrop-filter: blur(16px) saturate(1.8) !important;
   border: 1px solid rgba(255,255,255,0.55) !important;
 }
+
+/* ════════════════════════════════════════════════
+   RESPONSIVE — BASE (all screens)
+════════════════════════════════════════════════ */
+html, body, #root {
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Fix for Windows display scaling (125% / 150%) on laptops */
+@media (max-width: 1600px) {
+  html { font-size: 14px; }
+  body { zoom: 0.95; }
+}
+@media (max-width: 1366px) {
+  html { font-size: 13px; }
+  body { zoom: 0.9; }
+}
+@media (max-width: 1024px) {
+  html { font-size: 14px; } /* Back to normal for tablet/touch */
+  body { zoom: 1; }
+}
+@media (max-width: 767px) {
+  html { font-size: 15px; } /* Normal for mobile */
+}
+
+/* All table wrappers scroll horizontally */
+.overflow-x-auto {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Modal safe scroll */
+.modal-scroll {
+  overflow-y: auto;
+  max-height: calc(100vh - 80px);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ════════════════════════════════════════════════
+   RESPONSIVE — MOBILE  (≤ 639px)
+════════════════════════════════════════════════ */
+@media (max-width: 639px) {
+
+  /* ── Tables: always horizontally scrollable ── */
+  .bg-white.rounded-2xl.overflow-hidden,
+  .bg-white.rounded-2xl.border.overflow-hidden {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  table { min-width: 560px; }
+
+  /* ── KPI / stat grids: 2 columns ── */
+  .grid.grid-cols-4,
+  .grid.grid-cols-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+
+  /* ── Workflow pipeline (6 columns → 2 columns) ── */
+  .grid.grid-cols-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* ── Charts row: single column ── */
+  .grid.lg\:grid-cols-3,
+  .grid.lg\:grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Page header: stack vertically ── */
+  .flex.sm\:flex-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  /* ── Cards: remove hover lift (no hover on touch) ── */
+  .rounded-2xl.bg-white:hover,
+  .rounded-xl.bg-white:hover {
+    transform: none !important;
+    box-shadow: var(--shadow-md) !important;
+  }
+
+  /* ── Headings ── */
+  h1 { font-size: 1.25rem !important; line-height: 1.3 !important; }
+  h2 { font-size: 1.1rem !important; }
+  h3 { font-size: 0.95rem !important; }
+
+  /* ── Touch tap targets ── */
+  button { min-height: 38px; }
+
+  /* ── Modals: full screen on mobile ── */
+  .fixed.inset-0 > .relative.bg-white,
+  .fixed.inset-0 > .bg-white.rounded-2xl,
+  .fixed.inset-0 > .bg-white.rounded-xl {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* ── Filter bars: wrap on small screens ── */
+  .flex.items-center.gap-2,
+  .flex.items-center.gap-3 {
+    flex-wrap: wrap;
+  }
+
+  /* ── Reduce large number font in KPI cards ── */
+  .text-3xl { font-size: 1.6rem !important; }
+  .text-4xl { font-size: 1.8rem !important; }
+}
+
+/* ════════════════════════════════════════════════
+   RESPONSIVE — SMALL TABLET  (640px – 767px)
+════════════════════════════════════════════════ */
+@media (min-width: 640px) and (max-width: 767px) {
+
+  table { min-width: 620px; }
+
+  .grid.grid-cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .grid.grid-cols-6 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .grid.lg\:grid-cols-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  h1 { font-size: 1.35rem !important; }
+}
+
+/* ════════════════════════════════════════════════
+   RESPONSIVE — TABLET  (768px – 1023px)
+════════════════════════════════════════════════ */
+@media (min-width: 768px) and (max-width: 1023px) {
+
+  table { min-width: 700px; }
+
+  /* KPI: 2 cols on tablet */
+  .grid.grid-cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Pipeline: 3 cols on tablet */
+  .grid.grid-cols-6 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  /* Charts: 1 col on tablet (sidebar takes space) */
+  .grid.lg\:grid-cols-3 {
+    grid-template-columns: 1fr !important;
+  }
+  .grid.lg\:grid-cols-2 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  h1 { font-size: 1.5rem !important; }
+}
+
+/* ════════════════════════════════════════════════
+   RESPONSIVE — LAPTOP  (1024px – 1279px)
+════════════════════════════════════════════════ */
+@media (min-width: 1024px) and (max-width: 1279px) {
+
+  /* KPI: 4 cols fits on laptop with sidebar collapsed */
+  .grid.grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  /* Pipeline: all 6 fit */
+  .grid.lg\:grid-cols-6 {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  }
+}
+
+/* ════════════════════════════════════════════════
+   RESPONSIVE — DESKTOP  (≥ 1280px)
+════════════════════════════════════════════════ */
+@media (min-width: 1280px) {
+  /* Full grid layouts restored */
+  .grid.grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+  .grid.lg\:grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+

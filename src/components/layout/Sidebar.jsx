@@ -13,6 +13,7 @@ import {
   ChevronRight,
   ClipboardList,
   UserCircle2,
+  X,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import useAuthStore from '../../store/useAuthStore';
@@ -56,18 +57,18 @@ const UserAvatar = React.memo(({ user }) => {
     <div className="relative shrink-0">
       <div
         className="rounded-[12px] p-[2px]"
-        style={{ background: 'linear-gradient(135deg, #9dbb63, #3a4820)' }}
+        style={{ background: 'linear-gradient(135deg, #2dd4bf, #0f766e)' }}
       >
         <div
           className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-white"
           title={`${user?.name || 'User'} avatar`}
         >
-          <UserCircle2 className="h-6 w-6 text-[#3a4820]" strokeWidth={1.75} />
+          <UserCircle2 className="h-6 w-6 text-[#0f766e]" strokeWidth={1.75} />
         </div>
       </div>
       <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-        <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-[#f2f5ec] bg-emerald-400" />
+        <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
       </span>
     </div>
   );
@@ -81,14 +82,14 @@ const SectionLabel = React.memo(({ label }) => (
 ));
 SectionLabel.displayName = 'SectionLabel';
 
-const MenuItem = React.memo(({ item, isCollapsed, isActive }) => {
+const MenuItem = React.memo(({ item, isCollapsed, onNavigate }) => {
   const Icon = item.icon;
   return (
     <NavLink
       to={item.path}
       title={isCollapsed ? item.label : undefined}
       className="block"
-      aria-current={isActive ? 'page' : undefined}
+      onClick={onNavigate}
     >
       {({ isActive: active }) => (
         <div
@@ -96,22 +97,19 @@ const MenuItem = React.memo(({ item, isCollapsed, isActive }) => {
             'relative flex cursor-pointer items-center overflow-hidden rounded-[10px] transition-all duration-200',
             isCollapsed ? 'w-full justify-center py-3' : 'gap-4 px-4 py-[12px]',
             active
-              ? 'bg-gradient-to-br from-[#e8edda] to-[#d0dbb5] shadow-sm'
-              : 'hover:bg-[#f2f5ec]'
+              ? 'bg-[#14b8a6] shadow-md'
+              : 'hover:bg-slate-50'
           )}
         >
-          {active && !isCollapsed && (
-            <div className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-gradient-to-b from-[#3a4820] to-[#7a9445]" />
-          )}
           <Icon
             size={22}
             className="shrink-0 transition-colors duration-150"
-            style={{ color: active ? '#3a4820' : '#94a3b8' }}
+            style={{ color: active ? '#ffffff' : '#94a3b8' }}
           />
           {!isCollapsed && (
             <span
               className="text-[15px] font-semibold tracking-[-0.01em] transition-colors duration-150"
-              style={{ color: active ? '#3a4820' : '#64748b' }}
+              style={{ color: active ? '#ffffff' : '#64748b' }}
             >
               {item.label}
             </span>
@@ -125,11 +123,10 @@ MenuItem.displayName = 'MenuItem';
 
 // ─── Main Sidebar Component ──────────────────────────────────────────────
 
-const Sidebar = ({ collapsed, setCollapsed }) => {
+const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   const { user, logout } = useAuthStore();
   const clearData = useDataStore((state) => state.clearData);
 
-  // Memoize filtered menu items based on user permissions
   const visibleMenuItems = useMemo(
     () => MENU_ITEMS.filter((item) => hasPageAccess(user, item.key)),
     [user]
@@ -145,81 +142,95 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
     [setCollapsed]
   );
 
-  return (
+  const closeMobile = useCallback(() => {
+    if (setMobileOpen) setMobileOpen(false);
+  }, [setMobileOpen]);
+
+  const handleNavClick = useCallback(() => {
+    closeMobile();
+  }, [closeMobile]);
+
+  const SidebarInner = ({ isMobile }) => (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-50 flex h-screen select-none flex-col transition-all duration-300',
-        collapsed ? 'w-[72px]' : 'w-[260px]'
+        'flex h-full min-h-screen select-none flex-col',
+        isMobile ? 'w-[240px]' : (collapsed ? 'w-[72px]' : 'w-[240px]')
       )}
       style={{
-        background: 'linear-gradient(180deg, #ffffff 0%, #f5f7f0 100%)',
-        borderRight: '1.5px solid #d0dbb5',
-        boxShadow: '4px 0 24px rgba(74,92,42,0.08)',
+        background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+        borderRight: '1.5px solid #e2e8f0',
+        boxShadow: '4px 0 24px rgba(15, 23, 42, 0.04)',
       }}
     >
       {/* ── Brand Header ── */}
       <div
         className={cn(
           'flex items-center border-b border-[#d0dbb5] px-4 py-[18px]',
-          collapsed ? 'justify-center' : 'justify-between'
+          (!isMobile && collapsed) ? 'justify-center' : 'justify-between'
         )}
       >
-        {!collapsed ? (
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[12px]">
-              <div
-                className="absolute inset-0 rounded-[12px]"
-                style={{
-                  background:
-                    'linear-gradient(145deg, #4a5c2a 0%, #3a4820 55%, #2c3818 100%)',
-                  boxShadow:
-                    '0 6px 16px rgba(58,72,32,0.4), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -6px 10px rgba(0,0,0,0.15)',
-                }}
-              />
-              <div className="absolute inset-0 rounded-[12px] border border-white/20" />
-              <Logo size={22} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[16px] font-black leading-none tracking-tight text-[#3a4820]">
-                Service FMS
-              </p>
-              <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-[#7a9445]" />
-            </div>
-          </div>
-        ) : (
+        {(!isMobile && collapsed) ? (
           <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-[12px]">
             <div
               className="absolute inset-0 rounded-[12px]"
               style={{
-                background:
-                  'linear-gradient(145deg, #4a5c2a 0%, #3a4820 55%, #2c3818 100%)',
-                boxShadow:
-                  '0 6px 16px rgba(58,72,32,0.4), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -6px 10px rgba(0,0,0,0.15)',
+                background: 'linear-gradient(145deg, #2dd4bf 0%, #14b8a6 55%, #0f766e 100%)',
+                boxShadow: '0 6px 16px rgba(15,118,110,0.3), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -6px 10px rgba(0,0,0,0.15)',
               }}
             />
             <div className="absolute inset-0 rounded-[12px] border border-white/20" />
             <Logo size={22} />
           </div>
-        )}
+        ) : (
+          <>
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[12px]">
+                <div
+                  className="absolute inset-0 rounded-[12px]"
+                  style={{
+                    background: 'linear-gradient(145deg, #2dd4bf 0%, #14b8a6 55%, #0f766e 100%)',
+                    boxShadow: '0 6px 16px rgba(15,118,110,0.3), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -6px 10px rgba(0,0,0,0.15)',
+                  }}
+                />
+                <div className="absolute inset-0 rounded-[12px] border border-white/20" />
+                <Logo size={22} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[16px] font-black leading-none tracking-tight text-[#0f766e]">
+                  Service FMS
+                </p>
+                <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-[#14b8a6]" />
+              </div>
+            </div>
 
-        {!collapsed && (
-          <button
-            onClick={toggleCollapse}
-            aria-label="Collapse sidebar"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-[#f2f5ec] hover:text-[#3a4820]"
-          >
-            <ChevronLeft size={16} />
-          </button>
+            {isMobile ? (
+              <button
+                onClick={closeMobile}
+                aria-label="Close sidebar"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-slate-100 hover:text-[#0f766e]"
+              >
+                <X size={18} />
+              </button>
+            ) : (
+              <button
+                onClick={toggleCollapse}
+                aria-label="Collapse sidebar"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-slate-100 hover:text-[#0f766e]"
+              >
+                <ChevronLeft size={16} />
+              </button>
+            )}
+          </>
         )}
       </div>
 
-      {/* Expand button when collapsed */}
-      {collapsed && (
+      {/* Expand button when collapsed (desktop only) */}
+      {!isMobile && collapsed && (
         <div className="flex justify-center border-b border-[#d0dbb5] py-2.5">
           <button
             onClick={toggleCollapse}
             aria-label="Expand sidebar"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-[#f2f5ec] hover:text-[#3a4820]"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-slate-100 hover:text-[#0f766e]"
           >
             <ChevronRight size={16} />
           </button>
@@ -234,15 +245,16 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
 
           return (
             <div key={section.key}>
-              {!collapsed && <SectionLabel label={section.label} />}
-              {collapsed && <div className="h-3" />}
+              {(isMobile || !collapsed) && <SectionLabel label={section.label} />}
+              {!isMobile && collapsed && <div className="h-3" />}
 
-              <div className={cn('space-y-0.5', collapsed ? 'px-2' : 'px-3')}>
+              <div className={cn('space-y-0.5', (!isMobile && collapsed) ? 'px-2' : 'px-3')}>
                 {items.map((item) => (
                   <MenuItem
                     key={item.path}
                     item={item}
-                    isCollapsed={collapsed}
+                    isCollapsed={!isMobile && collapsed}
+                    onNavigate={isMobile ? handleNavClick : undefined}
                   />
                 ))}
               </div>
@@ -252,31 +264,8 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
       </nav>
 
       {/* ── User Card & Logout ── */}
-      <div className="border-t border-[#d0dbb5] px-3 pb-4 pt-3">
-        {!collapsed ? (
-          <div
-            className="flex items-center gap-3 rounded-[14px] border border-[#d0dbb5] bg-[#f2f5ec] p-2.5 transition-all duration-200 hover:border-[#b9c890] hover:shadow-md"
-          >
-            <UserAvatar user={user} />
-
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] font-bold leading-tight text-[#3a4820]">
-                {user?.name || 'Guest'}
-              </p>
-              <span className="mt-1 inline-block rounded-full bg-[#e2e8cf] px-2 py-[1px] text-[10px] font-black uppercase tracking-wider text-[#5c7031]">
-                {user?.role || 'N/A'}
-              </span>
-            </div>
-
-            <button
-              onClick={handleLogout}
-              aria-label="Logout"
-              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[9px] text-slate-400 transition-all duration-150 hover:bg-red-100 hover:text-red-500"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
-        ) : (
+      <div className="border-t border-slate-200 px-3 pb-4 pt-3">
+        {(!isMobile && collapsed) ? (
           <div className="flex flex-col items-center gap-2.5">
             <UserAvatar user={user} />
             <button
@@ -287,9 +276,59 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
               <LogOut size={16} />
             </button>
           </div>
+        ) : (
+          <div
+            className="flex items-center gap-3 rounded-[14px] border border-[#d0dbb5] bg-[#f2f5ec] p-2.5 transition-all duration-200 hover:border-[#b9c890] hover:shadow-md"
+          >
+            <UserAvatar user={user} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[14px] font-bold leading-tight text-[#3a4820]">
+                {user?.name || 'Guest'}
+              </p>
+              <span className="mt-1 inline-block rounded-full bg-[#e2e8cf] px-2 py-[1px] text-[10px] font-black uppercase tracking-wider text-[#5c7031]">
+                {user?.role || 'N/A'}
+              </span>
+            </div>
+            <button
+              onClick={handleLogout}
+              aria-label="Logout"
+              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[9px] text-slate-400 transition-all duration-150 hover:bg-red-100 hover:text-red-500"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         )}
       </div>
     </aside>
+  );
+
+  return (
+    <>
+      {/* ── Desktop Sidebar (hidden on mobile <768px) ── */}
+      <div
+        className={cn(
+          'fixed left-0 top-0 z-50 h-screen hidden md:block transition-all duration-300',
+          collapsed ? 'w-[72px]' : 'w-[240px]'
+        )}
+      >
+        <SidebarInner isMobile={false} />
+      </div>
+
+      {/* ── Mobile Overlay Drawer (visible only on mobile) ── */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={closeMobile}
+          />
+          {/* Drawer */}
+          <div className="relative z-10 h-full overflow-hidden shadow-2xl">
+            <SidebarInner isMobile={true} />
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

@@ -620,7 +620,9 @@ const useDataStore = create((set, get) => ({
     for (let i = fullArray.length - 1; i >= 0; i--) {
       if (fullArray[i] !== null) { lastMatchIdx = i; break; }
     }
-    const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? '' : v);
+    // Keep null as null — Code.gs insert treats null as "skip this cell" so formulas
+    // (Planned 1, Delay 1 … Planned 5, Delay 5) are never overwritten with blank strings.
+    const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? null : v);
 
     // Optimistic UI update — add new service to state immediately
     const nowTs = nowDateTime();
