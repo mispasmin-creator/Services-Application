@@ -530,11 +530,11 @@ const Utility = () => {
 
   // Metrics calculation
   const metrics = (() => {
-    const totalExpenses = utilities.reduce((sum, u) => sum + u.amount, 0);
-    const pendingCreation = utilities.filter(u => u.status?.toLowerCase().includes('pending')).length;
-    const pendingApproval = utilities.filter(u => !u.actual1).length;
+    const totalExpenses = utilities.reduce((sum, u) => sum + (parseFloat(u.amount) || 0), 0);
+    const pendingCreation = utilities.filter(u => !u.actual && !u.actual1 && !u.actual2).length;
+    const pendingApproval = utilities.filter(u => !!u.actual && !u.actual1 && !u.actual2).length;
     const pendingTally = utilities.filter(u => !!u.actual1 && !u.actual2).length;
-    const completed = utilities.filter(u => u.status === 'Completed' || !!u.actual2).length;
+    const completed = utilities.filter(u => !!u.actual2).length;
     return { totalExpenses, pendingCreation, pendingApproval, pendingTally, completed };
   })();
 
@@ -555,18 +555,19 @@ const Utility = () => {
 
   // Filter & Search Logic
   const filteredUtilities = utilities.filter(u => {
-    // Tab stage filter
+    // Tab stage filter - strict sequential progression:
+    // Stage 1 (create): Not submitted yet (actual, actual1, actual2 all empty)
+    // Stage 2 (approval): Submitted from stage 1 (actual set, actual1 & actual2 empty)
+    // Stage 3 (payment): Approved from stage 2 (actual1 set, actual2 empty)
+    // Stage 4 (completed): Tally/Payment released (actual2 set)
     if (activeTab === 'create') {
-      // Show only pending entries that have NOT been submitted yet (Actual column empty)
-      if (!u.status?.toLowerCase().includes('pending')) return false;
-      if (!!u.actual) return false;
+      if (!!u.actual || !!u.actual1 || !!u.actual2) return false;
     } else if (activeTab === 'approval') {
-      // Show entries that ARE submitted (Actual set) but NOT yet approved (Actual 1 empty)
-      if (!u.actual || !!u.actual1) return false;
+      if (!u.actual || !!u.actual1 || !!u.actual2) return false;
     } else if (activeTab === 'payment') {
       if (!u.actual1 || !!u.actual2) return false;
     } else if (activeTab === 'completed') {
-      if (u.status !== 'Completed' && !u.actual2) return false;
+      if (!u.actual2) return false;
     }
     
     // Fuzzy Search (ID, PayTo, PersonName, Department, Remarks)
@@ -783,12 +784,44 @@ const Utility = () => {
     // Add more firm: link pairs here
   };
 
-  const handleMakePayment = (firmName) => {
-    // Normalize firm name for lookup (case-insensitive match)
+  const getPrefilledFormUrl = (utility) => {
+    if (!utility) return '';
+    const firmName = typeof utility === 'string' ? utility : (utility.firmName || '');
     const matchedKey = Object.keys(firmFormLinks).find(
-      key => key.toLowerCase() === (firmName || '').toLowerCase()
+      key => key.toLowerCase() === (firmName || '').trim().toLowerCase()
     );
-    const formUrl = matchedKey ? firmFormLinks[matchedKey] : undefined;
+    const baseUrl = matchedKey ? firmFormLinks[matchedKey] : undefined;
+    if (!baseUrl) return '';
+
+    if (typeof utility === 'string') {
+      return baseUrl;
+    }
+
+    const id = utility.id || '';
+    const fmsName = utility.fmsName || 'Utility FMS';
+    const payTo = utility.payTo || '';
+    const amountVal = utility.amountPaid !== undefined && utility.amountPaid !== null && utility.amountPaid !== ''
+      ? utility.amountPaid
+      : ((parseFloat(utility.amount) || 0) - (parseFloat(utility.tdsAmount) || 0));
+    const amountStr = String(amountVal);
+    const isApproval = 'Yes';
+    const paymentType = 'Utility Payment';
+
+    const params = new URLSearchParams({
+      usp: 'pp_url',
+      'entry.1200639812': id,
+      'entry.604194301': fmsName,
+      'entry.1358288895': isApproval,
+      'entry.1091308719': payTo,
+      'entry.1486176123': amountStr,
+      'entry.2102057582': paymentType
+    });
+
+    return `${baseUrl}?${params.toString()}`;
+  };
+
+  const handleMakePayment = (utilityOrFirm) => {
+    const formUrl = getPrefilledFormUrl(utilityOrFirm);
     if (formUrl) {
       window.open(formUrl, '_blank');
     } else {
@@ -1162,7 +1195,6 @@ const Utility = () => {
                   <th onClick={() => handleSort('status')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-1"><span>Status</span>{sortColumn === 'status' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
-                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Planned 1</th>
                   {activeTab === 'create' && (
                     <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Payment Form</th>
                   )}
@@ -1225,26 +1257,21 @@ const Utility = () => {
                       <td className="px-3 py-3">
                         <span className={cn(
                           "px-2.5 py-1 rounded-full text-xs font-bold inline-block text-center border min-w-[110px]",
-                          utility.status === 'Completed' && "bg-emerald-50 text-emerald-700 border-emerald-100",
-                          utility.status === 'Approved' && "bg-indigo-50 text-indigo-700 border-indigo-100",
-                          utility.status?.includes('Pending') && "bg-amber-50 text-amber-700 border-amber-100",
+                          (utility.actual2 || utility.status === 'Completed') && "bg-emerald-50 text-emerald-700 border-emerald-100",
+                          (!utility.actual2 && (utility.actual1 || utility.status === 'Approved')) && "bg-indigo-50 text-indigo-700 border-indigo-100",
+                          (!utility.actual2 && !utility.actual1 && utility.status?.includes('Pending')) && "bg-amber-50 text-amber-700 border-amber-100",
                           utility.status === 'Rejected' && "bg-rose-50 text-rose-700 border-rose-100",
                           utility.status === 'On Hold' && "bg-gray-100 text-gray-700 border-gray-200"
-                        )}>{utility.status}</span>
-                      </td>
-                      <td className="px-3 py-3">
-                        {utility.planned1 ? (
-                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">{utility.planned1}</span>
-                        ) : <span className="text-gray-400 text-xs">—</span>}
+                        )}>{utility.actual2 ? 'Completed' : utility.status}</span>
                       </td>
 
-                      {/* Make Payment button — Utility Entries tab only, next to Planned 1 */}
+                      {/* Make Payment button — Utility Entries tab only */}
                       {activeTab === 'create' && (
                         <td className="px-3 py-3 text-center">
                           <button
-                            onClick={() => handleMakePayment(utility.firmName)}
+                            onClick={() => handleMakePayment(utility)}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold transition-all border border-emerald-200 cursor-pointer"
-                            title="Open payment form for this firm"
+                            title="Open prefilled payment form for this entry"
                           >
                             <ExternalLink size={14} />
                             <span>Make Payment</span>
@@ -1269,47 +1296,24 @@ const Utility = () => {
                       {activeTab !== 'create' && activeTab !== 'approval' && (
                         <td className="px-3 py-3 text-right">
                           <div className="flex justify-end items-center gap-2">
+                            {/* Step 3 Payment Action (only in payment tab) */}
+                            {activeTab === 'payment' && utility.actual1 && !utility.actual2 && (
+                              <button
+                                onClick={() => openPaymentModal(utility)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-all border border-indigo-100 cursor-pointer"
+                              >
+                                <CreditCard size={14} />
+                                <span>Release Payment</span>
+                              </button>
+                            )}
 
-                          
-                          {/* Step 2 Approval Action */}
-                          {utility.status === 'Pending Approval' && (
-                            <button
-                              onClick={() => openApprovalModal(utility)}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl text-xs font-bold transition-all border border-amber-100 cursor-pointer"
-                            >
-                              <ShieldCheck size={14} />
-                              <span>Verify & Approve</span>
-                            </button>
-                          )}
-                          
-                          {/* Step 3 Payment Action */}
-                          {activeTab === 'payment' && utility.actual1 && !utility.actual2 && (
-                            <button
-                              onClick={() => openPaymentModal(utility)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-all border border-indigo-100 cursor-pointer"
-                            >
-                              <CreditCard size={14} />
-                              <span>Release Payment</span>
-                            </button>
-                          )}
-
-                          {/* Completed Display */}
-                          {utility.status === 'Completed' && (
-                            <div className="flex items-center gap-1 text-emerald-600 text-xs font-bold bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg">
-                              <CheckCircle2 size={13} />
-                              <span>Completed</span>
-                            </div>
-                          )}
-
-                          {/* Detail Timeline preview */}
-                          {utility.status !== 'Pending Approval' && (
+                            {/* Detail / View preview */}
                             <button
                               onClick={() => {
                                 setSelectedUtility(utility);
                                 setIsDetailModalOpen(true);
-                                // prefill fields for preview mode (not editing status)
                                 setApprovalFields({
-                                  status: utility.status,
+                                  status: utility.actual2 ? 'Completed' : utility.status,
                                   remarks: utility.remarks || '',
                                   plannedDate: utility.planned1 || '',
                                   actualDate: utility.actual1 || '',
@@ -1317,16 +1321,13 @@ const Utility = () => {
                                 });
                               }}
                               className="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-gray-800 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                              title="View details and timeline tracking"
+                              title="View details"
                             >
                               <Eye size={14} />
                               <span>View</span>
                             </button>
-                          )}
-
-
-                        </div>
-                                              </td>
+                          </div>
+                        </td>
                       )}
                     </tr>
                   );
@@ -1335,7 +1336,7 @@ const Utility = () => {
                 {/* Empty State */}
                 {totalItems === 0 && (
                   <tr>
-                    <td colSpan={16} className="px-6 py-16 text-center text-gray-400 bg-white">
+                    <td colSpan={15} className="px-6 py-16 text-center text-gray-400 bg-white">
                       <div className="flex flex-col items-center gap-3">
                         <Database className="text-gray-200 animate-pulse" size={42} />
                         <div>

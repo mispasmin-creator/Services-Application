@@ -279,6 +279,18 @@ const useDataStore = create((set, get) => ({
               
               const amountVal = parseFloat(getVal('Bill Amount', 0)) || 0;
               const tdsVal = parseFloat(getVal('TDS Deduction Amount', 0)) || 0;
+              const actual1Val = getVal('Actual 1');
+              const actual2Val = getVal('Actual 2');
+              let statusVal = getVal('Status');
+              if (actual2Val || statusVal === 'Completed') {
+                statusVal = 'Completed';
+              } else if (actual1Val || statusVal === 'Approved') {
+                statusVal = 'Approved';
+              } else if (statusVal === 'Rejected') {
+                statusVal = 'Rejected';
+              } else if (!statusVal || statusVal === '#REF!') {
+                statusVal = 'Pending Approval';
+              }
               
               return {
                 sheetRowIndex: headerIdx + 2 + idx,
@@ -299,7 +311,7 @@ const useDataStore = create((set, get) => ({
                 tdsAmount: tdsVal,
                 amountPaid: parseFloat(getVal('Amount To Be Paid', amountVal - tdsVal)) || (amountVal - tdsVal),
                 outstanding: parseFloat(getVal('Outstanding Amount', amountVal - tdsVal)) || (amountVal - tdsVal),
-                status: getVal('Status') || 'Pending Approval',
+                status: statusVal,
                 actual: getVal('Actual'),          // NEW: submission date from Utility Entries tab
                 planned1: formatSheetDate(getVal('Planned 1')),
                 actual1: getVal('Actual 1'),
