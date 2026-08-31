@@ -347,12 +347,6 @@ const Tally = () => {
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status 3</th>
-                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remarks 3</th>
-                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status 4</th>
-                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remarks 4</th>
-                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status 5</th>
-                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remarks 5</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Copy</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Planned Date</th>
@@ -394,12 +388,6 @@ const Tally = () => {
                         {item.status || '—'}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-sm text-gray-600">{item.status3 || '—'}</td>
-                    <td className="px-3 py-2.5 text-sm text-gray-600 max-w-xs truncate" title={item.remarks3}>{item.remarks3 || '—'}</td>
-                    <td className="px-3 py-2.5 text-sm text-gray-600">{item.status4 || '—'}</td>
-                    <td className="px-3 py-2.5 text-sm text-gray-600 max-w-xs truncate" title={item.remarks4}>{item.remarks4 || '—'}</td>
-                    <td className="px-3 py-2.5 text-sm text-gray-600">{item.status5 || '—'}</td>
-                    <td className="px-3 py-2.5 text-sm text-gray-600 max-w-xs truncate" title={item.remarks5}>{item.remarks5 || '—'}</td>
                     <td className="px-3 py-2.5 text-sm text-gray-700 font-medium">{item.billNo || '—'}</td>
                     <td className="px-3 py-2.5">
                       {item.billCopy ? (

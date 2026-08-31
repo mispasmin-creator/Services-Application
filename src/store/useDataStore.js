@@ -680,40 +680,49 @@ const useDataStore = create((set, get) => ({
     saveCache('services', updatedServices);
 
     const headers = get().serviceHeaders;
+    // CRITICAL FIX: Only write columns that are explicitly present in updatedFields.
+    // Previously, 'merged' was used for all stage columns — meaning if a service already
+    // had actual4/status4/actual5/status5 set, those became non-null in fullArray,
+    // pushing lastMatchIdx far right and causing delay5 (and other formula columns)
+    // to be overwritten as static values on every stage update.
+    const hasField = (key) => Object.prototype.hasOwnProperty.call(updatedFields, key);
     const fullArray = headers.map(header => {
       const norm = String(header || '').trim().toLowerCase().replace(/\s+/g, '');
       if (header === 'Timestamp') return null; // Never overwrite original Column A timestamp
-      if (header === 'Offer No.') return merged.offerNo;
-      if (header === 'Service No.') return merged.id;
-      if (header === 'Firm Name') return merged.firmName;
-      if (header === 'Service Checker') return merged.checker;
-      if (header === 'Total Amount') return merged.amount;
-      if (header === 'TDS Deduction Amount') return merged.tdsAmount;
-      if (norm === 'remark' || norm === 'remarks') return merged.remark;
-      if (header === 'Vendor Name') return merged.vendor;
-      if (header === 'Work Description') return merged.description;
-      if (header === 'Service Location') return merged.location;
-      if (norm.includes('planned')) return null;
-      if (norm === 'actual1') return merged.actual1 || null;
-      if (norm === 'delay1') return null; // Formula column — never send value; Code.gs preserves the formula
-      if (header === 'Bill No.') return merged.billNo || null;
-      if (header === 'Bill Copy') return merged.billCopy || null;
-      if (norm === 'actual2') return merged.actual2 || null;
-      if (norm === 'delay2') return merged.delay2 || null;
-      if (header === 'Payment Proof') return merged.paymentProof || null;
-      if (norm === 'actual3') return merged.actual3 || null;
-      if (norm === 'delay3') return null; // Formula column — never send value; Code.gs preserves the formula
-      if (norm === 'status3') return merged.status3 || null;
-      if (norm === 'remarks3') return merged.remarks3 || null;
-      if (norm === 'actual4') return merged.actual4 || null;
-      if (norm === 'delay4') return null; // Formula column — never send value; Code.gs preserves the formula
-      if (norm === 'status4') return merged.status4 || null;
-      if (norm === 'remarks4') return merged.remarks4 || null;
-      if (norm === 'actual5') return merged.actual5 || null;
-      if (norm === 'delay5') return merged.delay5 || null;
-      if (norm === 'status5') return merged.status5 || null;
-      if (norm === 'remarks5' || header === 'Remarks 5') return null; // Never touch Column AH Remarks 5
-      if (header === 'Payment Form' || header === 'Payment Form Link' || norm === 'paymentform') return null; // Do not touch Column AI Payment Form
+      if (header === 'Offer No.') return hasField('offerNo') ? merged.offerNo : null;
+      if (header === 'Service No.') return hasField('id') ? merged.id : null;
+      if (header === 'Firm Name') return hasField('firmName') ? merged.firmName : null;
+      if (header === 'Service Checker') return hasField('checker') ? merged.checker : null;
+      if (header === 'Total Amount') return hasField('amount') ? merged.amount : null;
+      if (header === 'TDS Deduction Amount') return hasField('tdsAmount') ? merged.tdsAmount : null;
+      if (norm === 'remark' || norm === 'remarks') return hasField('remark') ? merged.remark : null;
+      if (header === 'Vendor Name') return hasField('vendor') ? merged.vendor : null;
+      if (header === 'Work Description') return hasField('description') ? merged.description : null;
+      if (header === 'Service Location') return hasField('location') ? merged.location : null;
+      if (norm.includes('planned')) return null; // Formula columns — never overwrite
+      if (norm === 'actual1') return hasField('actual1') ? (merged.actual1 || null) : null;
+      if (norm === 'delay1') return null; // Formula column — never send value
+      if (header === 'Bill No.') return hasField('billNo') ? (merged.billNo || null) : null;
+      if (header === 'Bill Copy') return hasField('billCopy') ? (merged.billCopy || null) : null;
+      if (norm === 'actual2') return hasField('actual2') ? (merged.actual2 || null) : null;
+      if (norm === 'delay2') return hasField('delay2') ? (merged.delay2 || null) : null;
+      if (header === 'Payment Proof') return hasField('paymentProof') ? (merged.paymentProof || null) : null;
+      // Audit Stage columns (stage 3) — only write if explicitly updating these
+      if (norm === 'actual3') return hasField('actual3') ? (merged.actual3 || null) : null;
+      if (norm === 'delay3') return null; // Formula column — never send value
+      if (norm === 'status3') return hasField('status3') ? (merged.status3 || null) : null;
+      if (norm === 'remarks3') return hasField('remarks3') ? (merged.remarks3 || null) : null;
+      // Rectify Stage columns (stage 4) — only write if explicitly updating these
+      if (norm === 'actual4') return hasField('actual4') ? (merged.actual4 || null) : null;
+      if (norm === 'delay4') return null; // Formula column — never send value
+      if (norm === 'status4') return hasField('status4') ? (merged.status4 || null) : null;
+      if (norm === 'remarks4') return hasField('remarks4') ? (merged.remarks4 || null) : null;
+      // Tally Entry columns (stage 5) — only write if explicitly updating these
+      if (norm === 'actual5') return hasField('actual5') ? (merged.actual5 || null) : null;
+      if (norm === 'delay5') return null; // Formula column — never send value (same as delay3/delay4)
+      if (norm === 'status5') return hasField('status5') ? (merged.status5 || null) : null;
+      if (norm === 'remarks5' || header === 'Remarks 5') return hasField('remarks5') ? (merged.remarks5 || null) : null; // Save tally voucher data
+      if (header === 'Payment Form' || header === 'Payment Form Link' || norm === 'paymentform') return null; // Do not touch Payment Form column
       return null;
     });
 
