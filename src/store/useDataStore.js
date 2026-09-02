@@ -679,69 +679,127 @@ const useDataStore = create((set, get) => ({
     set({ services: updatedServices });
     saveCache('services', updatedServices);
 
-    const headers = get().serviceHeaders;
-    // CRITICAL FIX: Only write columns that are explicitly present in updatedFields.
-    // Previously, 'merged' was used for all stage columns — meaning if a service already
-    // had actual4/status4/actual5/status5 set, those became non-null in fullArray,
-    // pushing lastMatchIdx far right and causing delay5 (and other formula columns)
-    // to be overwritten as static values on every stage update.
-    const hasField = (key) => Object.prototype.hasOwnProperty.call(updatedFields, key);
-    const fullArray = headers.map(header => {
-      const norm = String(header || '').trim().toLowerCase().replace(/\s+/g, '');
-      if (header === 'Timestamp') return null; // Never overwrite original Column A timestamp
-      if (header === 'Offer No.') return hasField('offerNo') ? merged.offerNo : null;
-      if (header === 'Service No.') return hasField('id') ? merged.id : null;
-      if (header === 'Firm Name') return hasField('firmName') ? merged.firmName : null;
-      if (header === 'Service Checker') return hasField('checker') ? merged.checker : null;
-      if (header === 'Total Amount') return hasField('amount') ? merged.amount : null;
-      if (header === 'TDS Deduction Amount') return hasField('tdsAmount') ? merged.tdsAmount : null;
-      if (norm === 'remark' || norm === 'remarks') return hasField('remark') ? merged.remark : null;
-      if (header === 'Vendor Name') return hasField('vendor') ? merged.vendor : null;
-      if (header === 'Work Description') return hasField('description') ? merged.description : null;
-      if (header === 'Service Location') return hasField('location') ? merged.location : null;
-      if (norm.includes('planned')) return null; // Formula columns — never overwrite
-      if (norm === 'actual1') return hasField('actual1') ? (merged.actual1 || null) : null;
-      if (norm === 'delay1') return null; // Formula column — never send value
-      if (header === 'Bill No.') return hasField('billNo') ? (merged.billNo || null) : null;
-      if (header === 'Bill Copy') return hasField('billCopy') ? (merged.billCopy || null) : null;
-      if (norm === 'actual2') return hasField('actual2') ? (merged.actual2 || null) : null;
-      if (norm === 'delay2') return hasField('delay2') ? (merged.delay2 || null) : null;
-      if (header === 'Payment Proof') return hasField('paymentProof') ? (merged.paymentProof || null) : null;
-      // Audit Stage columns (stage 3) — only write if explicitly updating these
-      if (norm === 'actual3') return hasField('actual3') ? (merged.actual3 || null) : null;
-      if (norm === 'delay3') return null; // Formula column — never send value
-      if (norm === 'status3') return hasField('status3') ? (merged.status3 || null) : null;
-      if (norm === 'remarks3') return hasField('remarks3') ? (merged.remarks3 || null) : null;
-      // Rectify Stage columns (stage 4) — only write if explicitly updating these
-      if (norm === 'actual4') return hasField('actual4') ? (merged.actual4 || null) : null;
-      if (norm === 'delay4') return null; // Formula column — never send value
-      if (norm === 'status4') return hasField('status4') ? (merged.status4 || null) : null;
-      if (norm === 'remarks4') return hasField('remarks4') ? (merged.remarks4 || null) : null;
-      // Tally Entry columns (stage 5) — only write if explicitly updating these
-      if (norm === 'actual5') return hasField('actual5') ? (merged.actual5 || null) : null;
-      if (norm === 'delay5') return null; // Formula column — never send value (same as delay3/delay4)
-      if (norm === 'status5') return hasField('status5') ? (merged.status5 || null) : null;
-      if (norm === 'remarks5' || header === 'Remarks 5') return hasField('remarks5') ? (merged.remarks5 || null) : null; // Save tally voucher data
-      if (header === 'Payment Form' || header === 'Payment Form Link' || norm === 'paymentform') return null; // Do not touch Payment Form column
-      return null;
-    });
+    const headers = (get().serviceHeaders && get().serviceHeaders.length > 0) ? get().serviceHeaders : [];
+    const norm = h => String(h || '').trim().toLowerCase().replace(/\s+/g, '');
 
-    let lastMatchIdx = -1;
-    for (let i = fullArray.length - 1; i >= 0; i--) {
-      if (fullArray[i] !== null && fullArray[i] !== undefined) { lastMatchIdx = i; break; }
+    const findColIdx = (predicate) => {
+      const idx = headers.findIndex(h => predicate(norm(h)));
+      return idx >= 0 ? idx + 1 : null;
+    };
+
+    const updatesToMake = [];
+
+    if ('offerNo' in updatedFields) {
+      const col = findColIdx(h => h === 'offerno.' || h === 'offerno');
+      if (col) updatesToMake.push({ col, val: updatedFields.offerNo });
+    }
+    if ('id' in updatedFields) {
+      const col = findColIdx(h => h === 'serviceno.' || h === 'serviceno');
+      if (col) updatesToMake.push({ col, val: updatedFields.id });
+    }
+    if ('firmName' in updatedFields) {
+      const col = findColIdx(h => h === 'firmname');
+      if (col) updatesToMake.push({ col, val: updatedFields.firmName });
+    }
+    if ('checker' in updatedFields) {
+      const col = findColIdx(h => h === 'servicechecker' || h === 'checker');
+      if (col) updatesToMake.push({ col, val: updatedFields.checker });
+    }
+    if ('amount' in updatedFields) {
+      const col = findColIdx(h => h === 'totalamount' || h === 'amount');
+      if (col) updatesToMake.push({ col, val: updatedFields.amount });
+    }
+    if ('tdsAmount' in updatedFields) {
+      const col = findColIdx(h => h === 'tdsdeductionamount' || h === 'tdsamount');
+      if (col) updatesToMake.push({ col, val: updatedFields.tdsAmount });
+    }
+    if ('remark' in updatedFields) {
+      const col = findColIdx(h => h === 'remark' || h === 'remarks');
+      if (col) updatesToMake.push({ col, val: updatedFields.remark });
+    }
+    if ('vendor' in updatedFields) {
+      const col = findColIdx(h => h === 'vendorname' || h === 'vendor');
+      if (col) updatesToMake.push({ col, val: updatedFields.vendor });
+    }
+    if ('description' in updatedFields) {
+      const col = findColIdx(h => h === 'workdescription' || h === 'description');
+      if (col) updatesToMake.push({ col, val: updatedFields.description });
+    }
+    if ('location' in updatedFields) {
+      const col = findColIdx(h => h === 'servicelocation' || h === 'location');
+      if (col) updatesToMake.push({ col, val: updatedFields.location });
+    }
+    if ('actual1' in updatedFields) {
+      const col = findColIdx(h => h === 'actual1');
+      if (col) updatesToMake.push({ col, val: updatedFields.actual1 });
+    }
+    if ('billNo' in updatedFields) {
+      const col = findColIdx(h => h === 'billno.' || h === 'billnumber' || h === 'billno');
+      if (col) updatesToMake.push({ col, val: updatedFields.billNo });
+    }
+    if ('billCopy' in updatedFields) {
+      const col = findColIdx(h => h === 'billcopy' || h === 'billimage');
+      if (col) updatesToMake.push({ col, val: updatedFields.billCopy });
+    }
+    if ('actual2' in updatedFields) {
+      const col = findColIdx(h => h === 'actual2');
+      if (col) updatesToMake.push({ col, val: updatedFields.actual2 });
+    }
+    if ('delay2' in updatedFields) {
+      const col = findColIdx(h => h === 'delay2' || h === 'dalay2');
+      if (col) updatesToMake.push({ col, val: updatedFields.delay2 });
+    }
+    if ('paymentProof' in updatedFields) {
+      const col = findColIdx(h => h === 'paymentproof' || h === 'paymentproofurl' || h === 'paymentreference');
+      if (col) updatesToMake.push({ col, val: updatedFields.paymentProof });
+    }
+    if ('actual3' in updatedFields) {
+      const col = findColIdx(h => h === 'actual3');
+      if (col) updatesToMake.push({ col, val: updatedFields.actual3 });
+    }
+    if ('status3' in updatedFields) {
+      const col = findColIdx(h => h === 'status3');
+      if (col) updatesToMake.push({ col, val: updatedFields.status3 });
+    }
+    if ('remarks3' in updatedFields) {
+      const col = findColIdx(h => h === 'remarks3' || h === 'remark3');
+      if (col) updatesToMake.push({ col, val: updatedFields.remarks3 });
+    }
+    if ('actual4' in updatedFields) {
+      const col = findColIdx(h => h === 'actual4');
+      if (col) updatesToMake.push({ col, val: updatedFields.actual4 });
+    }
+    if ('status4' in updatedFields) {
+      const col = findColIdx(h => h === 'status4');
+      if (col) updatesToMake.push({ col, val: updatedFields.status4 });
+    }
+    if ('remarks4' in updatedFields) {
+      const col = findColIdx(h => h === 'remarks4' || h === 'remark4');
+      if (col) updatesToMake.push({ col, val: updatedFields.remarks4 });
+    }
+    if ('actual5' in updatedFields) {
+      const col = findColIdx(h => h === 'actual5');
+      if (col) updatesToMake.push({ col, val: updatedFields.actual5 });
+    }
+    if ('status5' in updatedFields) {
+      const col = findColIdx(h => h === 'status5');
+      if (col) updatesToMake.push({ col, val: updatedFields.status5 });
+    }
+    if ('remarks5' in updatedFields) {
+      const col = findColIdx(h => h === 'remarks5' || h === 'remark5');
+      if (col) updatesToMake.push({ col, val: updatedFields.remarks5 });
     }
 
-    if (lastMatchIdx < 0) return { success: true };
+    if (updatesToMake.length === 0) return { success: true };
 
-    // Keep null as null — Code.gs treats null as "don't touch this cell" (see Code.gs line 130).
-    // Do NOT convert null to '' because '' is treated as a real value and overwrites formulas like Planned 5.
-    const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? null : v);
-    const res = await get().saveRow('SERVICE', 'update', rowIndex, rowDataArray);
+    for (const u of updatesToMake) {
+      await get().saveCell('SERVICE', rowIndex, u.col, u.val);
+    }
+
     // Background refetch — UI already updated optimistically above
-    if (res && res.success) {
-      get().fetchData();
-    }
-    return res;
+    get().fetchData();
+
+    return { success: true };
   },
 
   addUtility: async (utility) => {

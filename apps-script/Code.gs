@@ -122,12 +122,14 @@ function doPost(e) {
             // Auto-copy formulas from row above for:
             // 1. Any cell where the incoming data was null (Planned/Delay/formula columns)
             // 2. Any blank/unprovided cells that have a formula in the row above
+            // 3. Any formula columns beyond cleanRowData.length (e.g. Planned 1, Delay 1)
             if (newRowIdx > 2) {
-                var prevFormulas = sheet.getRange(newRowIdx - 1, 1, 1, cleanRowData.length).getFormulas()[0];
+                var totalSheetCols = Math.max(cleanRowData.length, sheet.getLastColumn());
+                var prevFormulas = sheet.getRange(newRowIdx - 1, 1, 1, totalSheetCols).getFormulas()[0];
                 for (var f = 0; f < prevFormulas.length; f++) {
                     if (prevFormulas[f] && prevFormulas[f] !== '') {
-                        // Copy formula if cell was null/empty in incoming data
-                        if (nullIndices[f] || cleanRowData[f] === '' || cleanRowData[f] === undefined) {
+                        // Copy formula if cell was null/empty in incoming data or beyond cleanRowData
+                        if (f >= cleanRowData.length || nullIndices[f] || cleanRowData[f] === '' || cleanRowData[f] === undefined) {
                             sheet.getRange(newRowIdx, f + 1).setFormulaR1C1(sheet.getRange(newRowIdx - 1, f + 1).getFormulaR1C1());
                         }
                     }
