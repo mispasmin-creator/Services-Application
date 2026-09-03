@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Wrench, CheckCircle2, IndianRupee, FileText,
   Clock, TrendingUp, Activity, Receipt,
@@ -10,6 +10,7 @@ import {
   AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar
 } from 'recharts';
 import useDataStore from '../store/useDataStore';
+import useAuthStore from '../store/useAuthStore';
 import { cn, formatCurrency } from '../lib/utils';
 
 /* ── Palette ── */
@@ -63,7 +64,19 @@ const ProgressRow = ({ label, value, max, color }) => {
 };
 
 const Dashboard = () => {
-  const { services, utilities, offers, loading } = useDataStore();
+  const { services, utilities, offers, loading, firms } = useDataStore();
+  const { user: currentUser } = useAuthStore();
+  const [firmFilter, setFirmFilter] = useState('');
+
+  const masterFirms = firms && firms.length > 0 ? firms : ['Pmmpl', 'Rkl', 'Purab'];
+  const getAllowedFirms = () => {
+    if (!currentUser) return [];
+    if (currentUser.role?.toLowerCase() === 'admin') return masterFirms;
+    const userFirms = currentUser.firmName ? currentUser.firmName.split(',').map(f => f.trim()) : [];
+    if (userFirms.map(f => f.toLowerCase()).includes('all') || userFirms.map(f => f.toLowerCase()).includes('all firms')) return masterFirms;
+    return masterFirms.filter(firm => userFirms.some(uf => uf.toLowerCase() === firm.toLowerCase()));
+  };
+  const allowedFirms = getAllowedFirms();
 
   if (loading) {
     return (
@@ -78,27 +91,35 @@ const Dashboard = () => {
     );
   }
 
-  /* ── Metrics ── */
-  const totalServices    = services.length;
-  const totalOffers      = offers.length;
-  const completedSrv     = services.filter(s => s.status === 'Completed').length;
-  const paymentPendingSrv= services.filter(s => !s.paymentProof).length;
-  const billPendingSrv   = services.filter(s => !s.billCopy).length;
-  const tallyPendingSrv  = services.filter(s => s.billCopy && s.status !== 'Completed').length;
+  /* ── Filtered by firm if selected ── */
+  const displayServices = firmFilter 
+    ? services.filter(s => (s.firmName || '').toLowerCase() === firmFilter.toLowerCase())
+    : services;
+  const displayOffers = firmFilter
+    ? offers.filter(o => (o.firmName || '').toLowerCase() === firmFilter.toLowerCase())
+    : offers;
 
-  const totalAmount      = services.reduce((s, r) => s + (r.amount || 0), 0);
-  const totalTDS         = services.reduce((s, r) => s + (r.tdsAmount || 0), 0);
+  /* ── Metrics ── */
+  const totalServices    = displayServices.length;
+  const totalOffers      = displayOffers.length;
+  const completedSrv     = displayServices.filter(s => s.status === 'Completed').length;
+  const paymentPendingSrv= displayServices.filter(s => !s.paymentProof).length;
+  const billPendingSrv   = displayServices.filter(s => !s.billCopy).length;
+  const tallyPendingSrv  = displayServices.filter(s => s.billCopy && s.status !== 'Completed').length;
+
+  const totalAmount      = displayServices.reduce((s, r) => s + (r.amount || 0), 0);
+  const totalTDS         = displayServices.reduce((s, r) => s + (r.tdsAmount || 0), 0);
   const netPayable       = totalAmount - totalTDS;
 
   const completionRate   = totalServices > 0 ? Math.round((completedSrv / totalServices) * 100) : 0;
 
   /* ── Status distribution for pie ── */
   const statusGroups = [
-    { name: 'Service Created', value: services.filter(s => s.status === 'Service Created').length },
-    { name: 'Work Started',    value: services.filter(s => s.status === 'Work Started').length },
-    { name: 'Bill Received',   value: services.filter(s => s.status === 'Bill Received').length },
-    { name: 'Payment Pending', value: services.filter(s => s.status === 'Payment Pending').length },
-    { name: 'Tally Pending',   value: services.filter(s => s.status === 'Tally Pending').length },
+    { name: 'Service Created', value: displayServices.filter(s => s.status === 'Service Created').length },
+    { name: 'Work Started',    value: displayServices.filter(s => s.status === 'Work Started').length },
+    { name: 'Bill Received',   value: displayServices.filter(s => s.status === 'Bill Received').length },
+    { name: 'Payment Pending', value: displayServices.filter(s => s.status === 'Payment Pending').length },
+    { name: 'Tally Pending',   value: displayServices.filter(s => s.status === 'Tally Pending').length },
     { name: 'Completed',       value: completedSrv },
   ].filter(d => d.value > 0);
 
@@ -110,7 +131,7 @@ const Dashboard = () => {
     const k = monthNames[d.getMonth()];
     monthMap[k] = { name: k, amount: 0, count: 0, net: 0 };
   }
-  services.forEach(s => {
+  displayServices.forEach(s => {
     if (!s.timestamp) return;
     const d = new Date(s.timestamp.split(' ')[0]);
     if (isNaN(d)) return;
@@ -125,7 +146,7 @@ const Dashboard = () => {
 
   /* ── Vendor-wise ── */
   const vendorMap = {};
-  services.forEach(s => {
+  displayServices.forEach(s => {
     if (!s.vendor) return;
     vendorMap[s.vendor] = (vendorMap[s.vendor] || 0) + (s.amount || 0);
   });
@@ -135,7 +156,7 @@ const Dashboard = () => {
     .map(([name, amount]) => ({ name, amount }));
 
   /* ── Recent services ── */
-  const recentServices = [...services]
+  const recentServices = [...displayServices]
     .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
     .slice(0, 6);
 
@@ -163,6 +184,16 @@ const Dashboard = () => {
           <p className="text-sm text-gray-500 mt-0.5"></p>
         </div>
         <div className="flex items-center gap-3">
+          <select
+            value={firmFilter}
+            onChange={(e) => setFirmFilter(e.target.value)}
+            className="px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all shadow-xs cursor-pointer"
+          >
+            <option value="">All Firms</option>
+            {allowedFirms.map((firm, i) => (
+              <option key={`firm-${i}`} value={firm}>{firm}</option>
+            ))}
+          </select>
           <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-blue-100 bg-blue-50">
             <div className="w-2 h-2 rounded-full animate-pulse bg-emerald-500" />
             <span className="text-xs font-bold text-blue-700">Live Sync</span>

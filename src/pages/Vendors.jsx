@@ -3,8 +3,13 @@ import { Plus, Search, Mail, Phone, Globe, MoreHorizontal } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
 import { Badge } from '../components/ui';
 
+import useAuthStore from '../store/useAuthStore';
+import { isViewOnly } from '../lib/permissions';
+
 const Vendors = () => {
+  const { user } = useAuthStore();
   const { vendors } = useDataStore();
+  const viewOnly = isViewOnly(user);
 
   return (
     <div className="space-y-6">
@@ -13,10 +18,12 @@ const Vendors = () => {
           <h1 className="text-2xl font-bold text-gray-900">Vendor Management</h1>
           <p className="text-gray-500">View and manage your service providers.</p>
         </div>
-        <button className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-xl transition-all shadow-lg shadow-gray-900/20 active:scale-95 font-medium">
-          <Plus size={18} />
-          <span>Add New Vendor</span>
-        </button>
+        {!viewOnly && (
+          <button className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-xl transition-all shadow-lg shadow-gray-900/20 active:scale-95 font-medium">
+            <Plus size={18} />
+            <span>Add New Vendor</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

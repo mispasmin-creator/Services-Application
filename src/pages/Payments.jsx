@@ -7,13 +7,26 @@ import {
 import useDataStore from '../store/useDataStore';
 import { cn, formatCurrency, uploadFileToDrive, nowDateTime, getDriveViewUrl, formatDateForSubmit } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
-import { getAllowedTabs } from '../lib/permissions';
+import { getAllowedTabs, isViewOnly } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
 
 const Payments = () => {
   const { user: currentUser } = useAuthStore();
+  const viewOnly = isViewOnly(currentUser);
   const { services, utilities, loading, updateService, updateUtility, fetchData } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [firmFilter, setFirmFilter] = useState('');
+
+  const { firms } = useDataStore();
+  const masterFirms = firms && firms.length > 0 ? firms : ['Pmmpl', 'Rkl', 'Purab'];
+  const getAllowedFirms = () => {
+    if (!currentUser) return [];
+    if (currentUser.role?.toLowerCase() === 'admin') return masterFirms;
+    const userFirms = currentUser.firmName ? currentUser.firmName.split(',').map(f => f.trim()) : [];
+    if (userFirms.map(f => f.toLowerCase()).includes('all') || userFirms.map(f => f.toLowerCase()).includes('all firms')) return masterFirms;
+    return masterFirms.filter(firm => userFirms.some(uf => uf.toLowerCase() === firm.toLowerCase()));
+  };
+  const allowedFirms = getAllowedFirms();
   const tableScrollRef = useRef(null);
   useStickyTableHead(tableScrollRef);
   const [filterType, setFilterType] = useState('All');
@@ -76,6 +89,10 @@ const Payments = () => {
 
   if (filterType !== 'All') {
     allPayments = allPayments.filter(p => p.type === filterType);
+  }
+
+  if (firmFilter) {
+    allPayments = allPayments.filter(p => (p.firmName || '').toLowerCase() === firmFilter.toLowerCase());
   }
 
   if (searchTerm) {
@@ -217,6 +234,16 @@ const Payments = () => {
             className="w-full pl-10 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
           />
         </div>
+        <select
+          value={firmFilter}
+          onChange={(e) => setFirmFilter(e.target.value)}
+          className="px-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all min-w-[140px] cursor-pointer"
+        >
+          <option value="">All Firms</option>
+          {allowedFirms.map((firm, i) => (
+            <option key={`firm-${i}`} value={firm}>{firm}</option>
+          ))}
+        </select>
         <div className="flex items-center gap-2">
           {['All', 'Service', 'Utility'].map(type => (
             <button
@@ -255,6 +282,9 @@ const Payments = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                    {activeTab === 'history' ? 'Timestamp (Actual)' : 'Timestamp (Planned)'}
+                  </th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Reference</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Pay To</th>
@@ -266,8 +296,24 @@ const Payments = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {allPayments.map((item, index) => (
+                {allPayments.map((item, index) => {
+                  const displayDate = activeTab === 'history' 
+                    ? (item.actual2 || item.actual1 || item.timestamp) 
+                    : (item.planned2 || item.planned1 || item.dueDate || item.timestamp);
+                  return (
                   <tr key={`pay-${item.type}-${item.sheetRowIndex}-${index}`} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
+                      {displayDate ? (
+                        <span className={cn(
+                          "font-semibold px-2.5 py-1 rounded-full border",
+                          activeTab === 'history'
+                            ? "text-emerald-700 bg-emerald-50 border-emerald-100"
+                            : "text-indigo-700 bg-indigo-50 border-indigo-100"
+                        )}>
+                          {displayDate}
+                        </span>
+                      ) : <span className="text-gray-400">—</span>}
+                    </td>
                     <td className="px-3 py-3">
                       <span className={cn(
                         "px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1 w-fit",
@@ -313,7 +359,8 @@ const Payments = () => {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {allPayments.length === 0 && (
                   <tr>
                     <td colSpan={8} className="px-6 py-10 text-center text-gray-400 text-sm">
@@ -440,23 +487,25 @@ const Payments = () => {
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow-lg"
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="animate-spin" size={16} />
-                      <span>Processing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard size={16} />
-                      <span>Confirm Payment</span>
-                    </>
-                  )}
-                </button>
+                {!viewOnly && (
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow-lg"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="animate-spin" size={16} />
+                        <span>Processing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard size={16} />
+                        <span>Confirm Payment</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </form>
           </div>

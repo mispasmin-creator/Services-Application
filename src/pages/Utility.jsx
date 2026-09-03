@@ -9,11 +9,12 @@ import {
 import useDataStore from '../store/useDataStore';
 import { cn, formatCurrency, uploadFileToDrive, getDriveViewUrl, formatDateForSubmit } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
-import { getAllowedTabs } from '../lib/permissions';
+import { getAllowedTabs, isViewOnly } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
 
 const Utility = () => {
   const { user: currentUser } = useAuthStore();
+  const viewOnly = isViewOnly(currentUser);
   const { utilities, loading, error, addUtility, updateUtility, departments, groupHeads, firms, fmsNames, fetchData } = useDataStore();
   const tableScrollRef = useRef(null);
   useStickyTableHead(tableScrollRef);
@@ -39,6 +40,7 @@ const Utility = () => {
   
   // Datatable Search, Sort, Filter, Selection & Pagination
   const [searchTerm, setSearchTerm] = useState('');
+  const [firmFilter, setFirmFilter] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [groupHeadFilter, setGroupHeadFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -128,7 +130,7 @@ const Utility = () => {
   useEffect(() => {
     setCurrentPage(1);
     setSelectedRows([]);
-  }, [activeTab, searchTerm, deptFilter, groupHeadFilter, statusFilter, startDate, endDate]);
+  }, [activeTab, searchTerm, firmFilter, deptFilter, groupHeadFilter, statusFilter, startDate, endDate]);
 
   // Load master data on component mount
   useEffect(() => {
@@ -583,6 +585,7 @@ const Utility = () => {
     }
 
     // Column Filters
+    if (firmFilter && (u.firmName || '').toLowerCase() !== firmFilter.toLowerCase()) return false;
     if (deptFilter && u.department !== deptFilter) return false;
     if (groupHeadFilter && u.groupHead !== groupHeadFilter) return false;
     if (statusFilter && u.status !== statusFilter) return false;
@@ -863,13 +866,15 @@ const Utility = () => {
           <h1 className="text-xl font-extrabold tracking-tight text-gray-900">Utility Expenses Workflow</h1>
           <p className="text-gray-500 mt-1 text-sm font-medium"></p>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-2xl transition-all shadow-lg shadow-gray-900/20 active:scale-95 font-semibold shrink-0 cursor-pointer"
-        >
-          <Plus size={18} />
-          <span>Create Utility Entry</span>
-        </button>
+        {!viewOnly && (
+          <button
+            onClick={openCreateModal}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-2xl transition-all shadow-lg shadow-gray-900/20 active:scale-95 font-semibold shrink-0 cursor-pointer"
+          >
+            <Plus size={18} />
+            <span>Create Utility Entry</span>
+          </button>
+        )}
       </div>
 
       {error && (
@@ -987,6 +992,18 @@ const Utility = () => {
               <span>FILTERS:</span>
             </div>
             
+            {/* Firm Name Dropdown */}
+            <select
+              value={firmFilter}
+              onChange={(e) => setFirmFilter(e.target.value)}
+              className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:ring-1 focus:ring-gray-900/20"
+            >
+              <option value="">All Firms</option>
+              {allowedFirms.map((firm, i) => (
+                <option key={`firm-${i}`} value={firm}>{firm}</option>
+              ))}
+            </select>
+
             {/* Department Dropdown */}
             <select
               value={deptFilter}
@@ -1047,9 +1064,10 @@ const Utility = () => {
             </div>
 
             {/* Clear Filters Button */}
-            {(deptFilter || groupHeadFilter || statusFilter || startDate || endDate) && (
+            {(firmFilter || deptFilter || groupHeadFilter || statusFilter || startDate || endDate) && (
               <button
                 onClick={() => {
+                  setFirmFilter('');
                   setDeptFilter('');
                   setGroupHeadFilter('');
                   setStatusFilter('');
@@ -1063,7 +1081,7 @@ const Utility = () => {
             )}
 
             {/* Bulk actions triggers (only when rows selected) */}
-            {selectedRows.length > 0 && (
+            {selectedRows.length > 0 && !viewOnly && (
               <div className="ml-auto flex items-center gap-2 bg-gray-100 border border-gray-200 rounded-xl px-3 py-1 animate-pulse">
                 <span className="text-[11px] font-bold text-gray-700">{selectedRows.length} selected</span>
                 
@@ -1145,9 +1163,9 @@ const Utility = () => {
                     </th>
                   )}
 
-                  {activeTab === 'create' && (
-                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Timestamp</th>
-                  )}
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                    {activeTab === 'completed' ? 'Timestamp (Actual)' : 'Timestamp (Planned)'}
+                  </th>
                   <th onClick={() => handleSort('id')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-1"><span>Utility No.</span>{sortColumn === 'id' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
@@ -1226,9 +1244,27 @@ const Utility = () => {
                         </td>
                       )}
 
-                      {activeTab === 'create' && (
-                        <td className="px-3 py-3 text-gray-500 font-medium">{utility.timestamp || '—'}</td>
-                      )}
+                      <td className="px-3 py-3 text-xs whitespace-nowrap">
+                        {(() => {
+                          const displayDate = activeTab === 'completed'
+                            ? (utility.actual2 || utility.actual1 || utility.timestamp)
+                            : activeTab === 'approval'
+                            ? (utility.planned1 || utility.dueDate || utility.timestamp)
+                            : activeTab === 'payment'
+                            ? (utility.planned2 || utility.planned1 || utility.dueDate || utility.timestamp)
+                            : (utility.dueDate || utility.billDate || utility.timestamp);
+                          return displayDate ? (
+                            <span className={cn(
+                              "font-semibold px-2.5 py-1 rounded-full border",
+                              activeTab === 'completed'
+                                ? "text-emerald-700 bg-emerald-50 border-emerald-100"
+                                : "text-indigo-700 bg-indigo-50 border-indigo-100"
+                            )}>
+                              {displayDate}
+                            </span>
+                          ) : <span className="text-gray-400">—</span>;
+                        })()}
+                      </td>
                       <td className="px-3 py-3 font-bold text-gray-950">
                         <div className="flex items-center gap-1.5"><Zap size={14} className="text-gray-700" /><span>{utility.id}</span></div>
                       </td>
@@ -1268,14 +1304,18 @@ const Utility = () => {
                       {/* Make Payment button — Utility Entries tab only */}
                       {activeTab === 'create' && (
                         <td className="px-3 py-3 text-center">
-                          <button
-                            onClick={() => handleMakePayment(utility)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold transition-all border border-emerald-200 cursor-pointer"
-                            title="Open prefilled payment form for this entry"
-                          >
-                            <ExternalLink size={14} />
-                            <span>Make Payment</span>
-                          </button>
+                          {!viewOnly ? (
+                            <button
+                              onClick={() => handleMakePayment(utility)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold transition-all border border-emerald-200 cursor-pointer"
+                              title="Open prefilled payment form for this entry"
+                            >
+                              <ExternalLink size={14} />
+                              <span>Make Payment</span>
+                            </button>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
                         </td>
                       )}
 
@@ -1284,10 +1324,10 @@ const Utility = () => {
                         <td className="px-3 py-3 text-right">
                           <button
                             onClick={() => openApprovalModal(utility)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl text-xs font-bold transition-all border border-amber-200 cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl text-xs font-bold transition-all border border-amber-200 cursor-pointer ml-auto"
                           >
                             <Eye size={14} />
-                            <span>View & Approve</span>
+                            <span>{viewOnly ? 'View' : 'View & Approve'}</span>
                           </button>
                         </td>
                       )}
@@ -1297,7 +1337,7 @@ const Utility = () => {
                         <td className="px-3 py-3 text-right">
                           <div className="flex justify-end items-center gap-2">
                             {/* Step 3 Payment Action (only in payment tab) */}
-                            {activeTab === 'payment' && utility.actual1 && !utility.actual2 && (
+                            {activeTab === 'payment' && utility.actual1 && !utility.actual2 && !viewOnly && (
                               <button
                                 onClick={() => openPaymentModal(utility)}
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-all border border-indigo-100 cursor-pointer"
@@ -1683,20 +1723,22 @@ const Utility = () => {
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSaving || isUploading}
-                  className="flex items-center gap-2 px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-bold transition-all shadow-lg shadow-gray-900/10 cursor-pointer"
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="animate-spin" size={16} />
-                      <span>Creating Utility Entry...</span>
-                    </>
-                  ) : (
-                    <span>Create & Submit</span>
-                  )}
-                </button>
+                {!viewOnly && (
+                  <button
+                    type="submit"
+                    disabled={isSaving || isUploading}
+                    className="flex items-center gap-2 px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-bold transition-all shadow-lg shadow-gray-900/10 cursor-pointer"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="animate-spin" size={16} />
+                        <span>Creating Utility Entry...</span>
+                      </>
+                    ) : (
+                      <span>Create & Submit</span>
+                    )}
+                  </button>
+                )}
               </div>
             </form>
           </div>
@@ -1878,23 +1920,25 @@ const Utility = () => {
                     >
                       Cancel
                     </button>
-                    <button
-                      type="submit"
-                      disabled={isSaving || !approvalFields.approvalStatus}
-                      className={cn(
-                        "flex items-center gap-1.5 px-6 py-2.5 font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer disabled:opacity-50",
-                        approvalFields.approvalStatus === 'Yes'
-                          ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                          : approvalFields.approvalStatus === 'No'
-                          ? "bg-rose-600 hover:bg-rose-700 text-white"
-                          : "bg-gray-900 hover:bg-gray-800 text-white"
-                      )}
-                    >
-                      {isSaving ? <Loader2 className="animate-spin" size={13} /> : <ShieldCheck size={14} />}
-                      <span>
-                        {approvalFields.approvalStatus === 'Yes' ? 'Submit Approval' : approvalFields.approvalStatus === 'No' ? 'Submit Rejection' : 'Submit'}
-                      </span>
-                    </button>
+                    {!viewOnly && (
+                      <button
+                        type="submit"
+                        disabled={isSaving || !approvalFields.approvalStatus}
+                        className={cn(
+                          "flex items-center gap-1.5 px-6 py-2.5 font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer disabled:opacity-50",
+                          approvalFields.approvalStatus === 'Yes'
+                            ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                            : approvalFields.approvalStatus === 'No'
+                            ? "bg-rose-600 hover:bg-rose-700 text-white"
+                            : "bg-gray-900 hover:bg-gray-800 text-white"
+                        )}
+                      >
+                        {isSaving ? <Loader2 className="animate-spin" size={13} /> : <ShieldCheck size={14} />}
+                        <span>
+                          {approvalFields.approvalStatus === 'Yes' ? 'Submit Approval' : approvalFields.approvalStatus === 'No' ? 'Submit Rejection' : 'Submit'}
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </form>
               ) : (
@@ -2089,13 +2133,15 @@ const Utility = () => {
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-lg shadow-indigo-600/10 cursor-pointer"
-                >
-                  {isSaving ? 'Processing...' : 'Mark Done'}
-                </button>
+                {!viewOnly && (
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-lg shadow-indigo-600/10 cursor-pointer"
+                  >
+                    {isSaving ? 'Processing...' : 'Mark Done'}
+                  </button>
+                )}
               </div>
             </form>
           </div>

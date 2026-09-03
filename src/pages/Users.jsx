@@ -10,7 +10,7 @@ import { Badge } from '../components/ui';
 import useAuthStore from '../store/useAuthStore';
 import useDataStore from '../store/useDataStore';
 import { cn } from '../lib/utils';
-import { PAGES, PAGE_TABS } from '../lib/permissions';
+import { PAGES, PAGE_TABS, isViewOnly } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
 
 const TAB_PAGE_KEYS = Object.keys(PAGE_TABS);
@@ -331,8 +331,8 @@ const Users = () => {
                     <span className="text-xs text-gray-500 truncate block" title={user.pages}>{user.pages || 'All'}</span>
                   </td>
                   <td className="px-3 py-3">
-                    <Badge variant={user.role.toLowerCase() === 'admin' ? 'info' : 'default'} className="font-bold">
-                      {user.role.toLowerCase() === 'admin' ? 'Full Admin' : 'Verified User'}
+                    <Badge variant={user.role.toLowerCase() === 'admin' ? 'info' : isViewOnly(user) ? 'warning' : 'default'} className="font-bold">
+                      {user.role.toLowerCase() === 'admin' ? 'Full Admin' : isViewOnly(user) ? 'View Only' : 'Verified User'}
                     </Badge>
                   </td>
                   <td className="px-3 py-3 text-right">
@@ -458,6 +458,7 @@ const Users = () => {
                     className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-gray-900 focus:ring-4 focus:ring-gray-900/10 transition-all disabled:opacity-60 font-medium text-gray-900 appearance-none"
                   >
                     <option value="User">User (Standard Operations)</option>
+                    <option value="View Only">View Only (Read-Only Access)</option>
                     <option value="Admin">Admin (Global Root Privileges)</option>
                   </select>
                 </div>

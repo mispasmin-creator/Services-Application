@@ -18,7 +18,7 @@ import {
 import { cn } from '../../lib/utils';
 import useAuthStore from '../../store/useAuthStore';
 import useDataStore from '../../store/useDataStore';
-import { hasPageAccess } from '../../lib/permissions';
+import { hasPageAccess, isViewOnly } from '../../lib/permissions';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -285,7 +285,12 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
               <p className="truncate text-[14px] font-bold leading-tight text-[#3a4820]">
                 {user?.name || 'Guest'}
               </p>
-              <span className="mt-1 inline-block rounded-full bg-[#e2e8cf] px-2 py-[1px] text-[10px] font-black uppercase tracking-wider text-[#5c7031]">
+              <span className={cn(
+                "mt-1 inline-block rounded-full px-2 py-[1px] text-[10px] font-black uppercase tracking-wider",
+                isViewOnly(user)
+                  ? "bg-amber-100 text-amber-800 border border-amber-300"
+                  : "bg-[#e2e8cf] text-[#5c7031]"
+              )}>
                 {user?.role || 'N/A'}
               </span>
             </div>

@@ -47,7 +47,14 @@ export const PAGE_TABS = {
   ],
 };
 
-const isAdmin = (user) => user?.role?.toLowerCase() === 'admin';
+export const isAdmin = (user) => user?.role?.toLowerCase() === 'admin';
+
+export const isViewOnly = (user) => {
+  if (!user || !user.role) return false;
+  const role = String(user.role).trim().toLowerCase();
+  return role === 'view only' || role === 'viewonly' || role === 'viewer' || role === 'view_only';
+};
+
 
 // Admins always have full access. A blank/missing/"All" Pages value also means full access,
 // so existing user rows in the sheet keep working once the Pages column is introduced.

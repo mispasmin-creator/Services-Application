@@ -1,10 +1,12 @@
 import React from 'react';
-import { Search, Bell, Moon, Sun, Plus, ChevronDown } from 'lucide-react';
+import { Search, Bell, Moon, Sun, Plus, Eye } from 'lucide-react';
 import useAuthStore from '../../store/useAuthStore';
+import { isViewOnly } from '../../lib/permissions';
 
 const Header = () => {
   const { user } = useAuthStore();
   const [isDark, setIsDark] = React.useState(false);
+  const viewOnly = isViewOnly(user);
 
   return (
     <header className="h-16 border-b border-slate-200 bg-white sticky top-0 z-40 px-8 flex items-center justify-between">
@@ -20,6 +22,13 @@ const Header = () => {
       </div>
 
       <div className="flex items-center gap-6">
+        {viewOnly && (
+          <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs font-bold shadow-xs">
+            <Eye size={14} />
+            <span>View Only Mode</span>
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
           <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600 relative">
             <Bell size={20} />
@@ -33,10 +42,12 @@ const Header = () => {
           </button>
         </div>
 
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-95 font-medium">
-          <Plus size={18} />
-          <span>Quick Add</span>
-        </button>
+        {!viewOnly && (
+          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-95 font-medium">
+            <Plus size={18} />
+            <span>Quick Add</span>
+          </button>
+        )}
       </div>
     </header>
   );

@@ -8,11 +8,12 @@ import {
 import useDataStore from '../store/useDataStore';
 import { cn, formatCurrency, nowDateTime, getDriveViewUrl, formatDateForSubmit } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
-import { getAllowedTabs } from '../lib/permissions';
+import { getAllowedTabs, isViewOnly } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
 
 const Tally = () => {
   const { user: currentUser } = useAuthStore();
+  const viewOnly = isViewOnly(currentUser);
   const { services, loading, updateService, fetchData } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [firmFilter, setFirmFilter] = useState('All');
@@ -337,6 +338,9 @@ const Tally = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                    {activeTab === 'completed' ? 'Timestamp (Actual)' : 'Timestamp (Planned)'}
+                  </th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Service No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm Name</th>
@@ -349,22 +353,38 @@ const Tally = () => {
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Copy</th>
-                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Planned Date</th>
                   {activeTab === 'rectify' && (
                     <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Rectification Reason</th>
                   )}
                   {activeTab === 'completed' && (
-                    <>
-                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Voucher No.</th>
-                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Tally Date</th>
-                    </>
+                    <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Voucher No.</th>
                   )}
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {activeTabItems.map((item, index) => (
+                {activeTabItems.map((item, index) => {
+                  const displayDate = activeTab === 'completed'
+                    ? (item.actual5 || item.actual4 || item.actual3 || item.actual2 || item.actual1 || item.timestamp)
+                    : (activeTab === 'audit' ? (item.planned3 || item.planned1 || item.timestamp) :
+                       activeTab === 'rectify' ? (item.planned4 || item.planned3 || item.timestamp) :
+                       (item.planned5 || item.planned3 || item.timestamp));
+                  return (
                   <tr key={`tally-stage-${item.type}-${item.sheetRowIndex}-${index}`} className="hover:bg-gray-50/70 transition-colors">
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {displayDate ? (
+                        <span className={cn(
+                          "text-xs font-semibold px-2.5 py-1 rounded-full border",
+                          activeTab === 'completed'
+                            ? "text-emerald-700 bg-emerald-50 border-emerald-100"
+                            : "text-indigo-700 bg-indigo-50 border-indigo-100"
+                        )}>
+                          {displayDate}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2.5 text-sm font-semibold text-gray-600">{item.offerNo || '—'}</td>
                     <td className="px-3 py-2.5 text-sm font-bold text-gray-900">{item.id}</td>
                     <td className="px-3 py-2.5 text-sm text-gray-600 font-medium">{item.firmName || '—'}</td>
@@ -398,22 +418,6 @@ const Tally = () => {
                       ) : <span className="text-xs text-gray-400">—</span>}
                     </td>
 
-                    {/* Planned Date — stage-wise */}
-                    <td className="px-3 py-2.5">
-                      {(() => {
-                        const planned =
-                          activeTab === 'audit'     ? item.planned3 :
-                          activeTab === 'rectify'   ? item.planned4 :
-                          activeTab === 'tally'     ? item.planned5 :
-                          activeTab === 'completed' ? item.planned5 : '';
-                        return planned ? (
-                          <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full">
-                            {planned}
-                          </span>
-                        ) : <span className="text-xs text-gray-400">—</span>;
-                      })()}
-                    </td>
-
                     {activeTab === 'rectify' && (
                       <td className="px-3 py-2.5 text-xs font-semibold text-rose-600 max-w-xs" title={item.auditRemarks}>
                         <div className="flex items-center gap-1">
@@ -423,14 +427,9 @@ const Tally = () => {
                       </td>
                     )}
                     {activeTab === 'completed' && (
-                      <>
-                        <td className="px-3 py-2.5 text-sm font-bold text-gray-700">
-                          {item.tallyVoucher || <span className="text-gray-300 italic text-xs">N/A</span>}
-                        </td>
-                        <td className="px-3 py-2.5 text-sm text-gray-500 font-medium">
-                          {item.actual5 || '—'}
-                        </td>
-                      </>
+                      <td className="px-3 py-2.5 text-sm font-bold text-gray-700">
+                        {item.tallyVoucher || <span className="text-gray-300 italic text-xs">N/A</span>}
+                      </td>
                     )}
 
                     <td className="px-3 py-2.5 text-right">
@@ -459,7 +458,8 @@ const Tally = () => {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
 
                 {activeTabItems.length === 0 && (
                   <tr>
@@ -605,27 +605,29 @@ const Tally = () => {
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-gray-900/20 focus:outline-none"
                     />
                   </div>
-                  <div className="pt-2 flex items-center justify-between gap-3">
-                    <button
-                      type="button"
-                      disabled={isSaving}
-                      onClick={() => setShowRectificationInput(true)}
-                      className="flex-1 flex items-center justify-center gap-1 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-sm font-semibold transition-all"
-                    >
-                      <AlertTriangle size={15} />
-                      <span>Reject (Not Done)</span>
-                    </button>
-                    
-                    <button
-                      type="button"
-                      disabled={isSaving}
-                      onClick={() => handleAuditSubmit('Audited', auditRemarks)}
-                      className="flex-1 flex items-center justify-center gap-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-emerald-600/10"
-                    >
-                      <ShieldCheck size={15} />
-                      <span>Approve (Done)</span>
-                    </button>
-                  </div>
+                  {!viewOnly && (
+                    <div className="pt-2 flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => setShowRectificationInput(true)}
+                        className="flex-1 flex items-center justify-center gap-1 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-sm font-semibold transition-all"
+                      >
+                        <AlertTriangle size={15} />
+                        <span>Reject (Not Done)</span>
+                      </button>
+                      
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => handleAuditSubmit('Audited', auditRemarks)}
+                        className="flex-1 flex items-center justify-center gap-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-emerald-600/10"
+                      >
+                        <ShieldCheck size={15} />
+                        <span>Approve (Done)</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -701,23 +703,25 @@ const Tally = () => {
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-rose-600/10"
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="animate-spin" size={16} />
-                      <span>Submitting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckSquare size={16} />
-                      <span>Confirm Done (Send to Tally)</span>
-                    </>
-                  )}
-                </button>
+                {!viewOnly && (
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-rose-600/10"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="animate-spin" size={16} />
+                        <span>Submitting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckSquare size={16} />
+                        <span>Confirm Done (Send to Tally)</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </form>
           </div>
@@ -831,23 +835,25 @@ const Tally = () => {
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/10"
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="animate-spin" size={16} />
-                      <span>Recording...</span>
-                    </>
-                  ) : (
-                    <>
-                      <BookOpen size={16} />
-                      <span>Mark as Completed</span>
-                    </>
-                  )}
-                </button>
+                {!viewOnly && (
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/10"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="animate-spin" size={16} />
+                        <span>Recording...</span>
+                      </>
+                    ) : (
+                      <>
+                        <BookOpen size={16} />
+                        <span>Mark as Completed</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </form>
           </div>

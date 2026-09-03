@@ -35,12 +35,23 @@ const daysSince = (dateStr) => {
 
 const Reports = () => {
   const { user: currentUser } = useAuthStore();
-  const { offers, services, utilities, loading, fetchData } = useDataStore();
+  const { offers, services, utilities, loading, fetchData, firms } = useDataStore();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
+  const [firmFilter, setFirmFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const tableScrollRef = useRef(null);
   useStickyTableHead(tableScrollRef);
+
+  const masterFirms = firms && firms.length > 0 ? firms : ['Pmmpl', 'Rkl', 'Purab'];
+  const getAllowedFirms = () => {
+    if (!currentUser) return [];
+    if (currentUser.role?.toLowerCase() === 'admin') return masterFirms;
+    const userFirms = currentUser.firmName ? currentUser.firmName.split(',').map(f => f.trim()) : [];
+    if (userFirms.map(f => f.toLowerCase()).includes('all') || userFirms.map(f => f.toLowerCase()).includes('all firms')) return masterFirms;
+    return masterFirms.filter(firm => userFirms.some(uf => uf.toLowerCase() === firm.toLowerCase()));
+  };
+  const allowedFirms = getAllowedFirms();
 
   const tabsConfig = [
     { id: 'dashboard', label: 'Dashboard' },
@@ -73,6 +84,9 @@ const Reports = () => {
 
   if (typeFilter !== 'All') {
     pendingItems = pendingItems.filter(i => i.type === typeFilter);
+  }
+  if (firmFilter) {
+    pendingItems = pendingItems.filter(i => (i.firmName || '').toLowerCase() === firmFilter.toLowerCase());
   }
   if (searchTerm) {
     const q = searchTerm.toLowerCase();
@@ -267,6 +281,16 @@ const Reports = () => {
                 className="w-full pl-10 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
               />
             </div>
+            <select
+              value={firmFilter}
+              onChange={(e) => setFirmFilter(e.target.value)}
+              className="px-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all min-w-[140px] cursor-pointer"
+            >
+              <option value="">All Firms</option>
+              {allowedFirms.map((firm, i) => (
+                <option key={`firm-${i}`} value={firm}>{firm}</option>
+              ))}
+            </select>
             <div className="flex items-center gap-2">
               {['All', 'Offer', 'Service', 'Utility'].map(type => (
                 <button

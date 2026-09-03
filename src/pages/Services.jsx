@@ -3,13 +3,26 @@ import { Search, Loader2, CreditCard, FileText, CheckCircle2, X, RefreshCw } fro
 import useDataStore from '../store/useDataStore';
 import { cn, formatCurrency, nowDateTime, getDriveViewUrl } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
-import { getAllowedTabs } from '../lib/permissions';
+import { getAllowedTabs, isViewOnly } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
 
 const Services = () => {
   const { user: currentUser } = useAuthStore();
+  const viewOnly = isViewOnly(currentUser);
   const { services, loading, updateService, fetchData } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [firmFilter, setFirmFilter] = useState('');
+
+  const { firms } = useDataStore();
+  const masterFirms = firms && firms.length > 0 ? firms : ['Pmmpl', 'Rkl', 'Purab'];
+  const getAllowedFirms = () => {
+    if (!currentUser) return [];
+    if (currentUser.role?.toLowerCase() === 'admin') return masterFirms;
+    const userFirms = currentUser.firmName ? currentUser.firmName.split(',').map(f => f.trim()) : [];
+    if (userFirms.map(f => f.toLowerCase()).includes('all') || userFirms.map(f => f.toLowerCase()).includes('all firms')) return masterFirms;
+    return masterFirms.filter(firm => userFirms.some(uf => uf.toLowerCase() === firm.toLowerCase()));
+  };
+  const allowedFirms = getAllowedFirms();
   const [activeTab, setActiveTab] = useState('payment');
   const [isSaving, setIsSaving] = useState(false);
   const tableScrollRef = useRef(null);
@@ -62,6 +75,8 @@ const Services = () => {
   const filteredServices = services.filter(s => {
     if (activeTab === 'payment' && isPaid(s)) return false;
     if (activeTab === 'history' && !isPaid(s)) return false;
+
+    if (firmFilter && (s.firmName || '').toLowerCase() !== firmFilter.toLowerCase()) return false;
 
     const term = searchTerm.toLowerCase();
     return (
@@ -145,6 +160,16 @@ const Services = () => {
             className="w-full pl-10 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all"
           />
         </div>
+        <select
+          value={firmFilter}
+          onChange={(e) => setFirmFilter(e.target.value)}
+          className="px-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all min-w-[140px] cursor-pointer"
+        >
+          <option value="">All Firms</option>
+          {allowedFirms.map((firm, i) => (
+            <option key={`firm-${i}`} value={firm}>{firm}</option>
+          ))}
+        </select>
         <button
           onClick={() => fetchData()}
           className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
@@ -169,10 +194,13 @@ const Services = () => {
                 <tr className="bg-gray-50 border-b border-gray-200">
                   {activeTab === 'payment' && (
                     <>
-                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Done</th>
+                      {!viewOnly && <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Done</th>}
                       <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
                     </>
                   )}
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                    {activeTab === 'history' ? 'Timestamp (Actual)' : 'Timestamp (Planned)'}
+                  </th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Service No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm Name</th>
@@ -185,56 +213,60 @@ const Services = () => {
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Planned Date</th>
 
                   {activeTab === 'history' && (
                     <>
                       <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill No.</th>
                       <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Copy</th>
-                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Payment Date</th>
                     </>
                   )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredServices.map((service) => (
+                {filteredServices.map((service) => {
+                  const displayDate = activeTab === 'history' ? (service.actual2 || service.actual1 || service.timestamp) : (service.planned2 || service.planned1 || service.timestamp);
+                  return (
                   <tr key={service.sheetRowIndex} className="hover:bg-gray-50 transition-colors">
                     {/* Checkbox + Action — first columns on Make Payment tab */}
                     {activeTab === 'payment' && (
                       <>
-                        <td className="px-3 py-2.5">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={confirmService?.sheetRowIndex === service.sheetRowIndex}
-                              onChange={() =>
-                                confirmService?.sheetRowIndex === service.sheetRowIndex
-                                  ? setConfirmService(null)
-                                  : openConfirm(service)
-                              }
-                              disabled={isSaving}
-                              title="Mark payment as done"
-                              className="w-4 h-4 rounded cursor-pointer"
-                              style={{ accentColor: '#1e3a5f' }}
-                            />
-                            {confirmService?.sheetRowIndex === service.sheetRowIndex && (
-                              <button
-                                onClick={handleConfirmPayment}
+                        {!viewOnly && (
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={confirmService?.sheetRowIndex === service.sheetRowIndex}
+                                onChange={() =>
+                                  confirmService?.sheetRowIndex === service.sheetRowIndex
+                                    ? setConfirmService(null)
+                                    : openConfirm(service)
+                                }
                                 disabled={isSaving}
-                                className="flex items-center gap-1 px-2.5 py-1 bg-gray-900 hover:bg-gray-800 text-white rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
-                              >
-                                {isSaving
-                                  ? <Loader2 className="animate-spin" size={12} />
-                                  : <CheckCircle2 size={12} />}
-                                <span>Submit</span>
-                              </button>
-                            )}
-                          </div>
-                        </td>
+                                title="Mark payment as done"
+                                className="w-4 h-4 rounded-md border-gray-300 text-gray-900 focus:ring-gray-900/20 cursor-pointer"
+                                style={{ accentColor: '#1e3a5f' }}
+                              />
+                              {confirmService?.sheetRowIndex === service.sheetRowIndex && (
+                                <button
+                                  onClick={handleConfirmPayment}
+                                  disabled={isSaving}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                                >
+                                  {isSaving ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                                  <span>Confirm</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        )}
                         <td className="px-3 py-2.5">
                           {service.paymentForm ? (
-                            <a href={getDriveViewUrl(service.paymentForm)} target="_blank" rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg text-xs font-bold text-indigo-700 transition-all whitespace-nowrap shrink-0">
+                            <a
+                              href={service.paymentForm}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white rounded-lg text-xs font-bold transition-all shadow-xs"
+                            >
                               <CreditCard size={13} className="shrink-0" /><span>Payment Form</span>
                             </a>
                           ) : (
@@ -244,6 +276,20 @@ const Services = () => {
                       </>
                     )}
 
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {displayDate ? (
+                        <span className={cn(
+                          "text-xs font-semibold px-2.5 py-1 rounded-full border",
+                          activeTab === 'history'
+                            ? "text-emerald-700 bg-emerald-50 border-emerald-100"
+                            : "text-indigo-700 bg-indigo-50 border-indigo-100"
+                        )}>
+                          {displayDate}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2.5 text-sm font-semibold text-gray-600">{service.offerNo}</td>
                     <td className="px-3 py-2.5 text-sm font-bold text-gray-900">{service.id}</td>
                     <td className="px-3 py-2.5 text-sm text-gray-600 font-medium">{service.firmName}</td>
@@ -260,17 +306,6 @@ const Services = () => {
                         {service.status}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5">
-                      {service.planned1 ? (
-                        <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full">
-                          {service.planned1}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
-
-
 
                     {activeTab === 'history' && (
                       <>
@@ -283,11 +318,11 @@ const Services = () => {
                             </a>
                           ) : <span className="text-xs text-gray-400">—</span>}
                         </td>
-                        <td className="px-3 py-2.5 text-sm text-gray-600">{service.actual2 || '—'}</td>
                       </>
                     )}
                   </tr>
-                ))}
+                  );
+                })}
                 {filteredServices.length === 0 && (
                   <tr>
                     <td colSpan={14} className="px-6 py-10 text-center text-gray-400 text-sm">
