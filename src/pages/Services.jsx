@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Loader2, CreditCard, FileText, CheckCircle2, X, RefreshCw } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, nowDateTime, getDriveViewUrl } from '../lib/utils';
+import { cn, formatCurrency, nowDateTime, getDriveViewUrl, formatDate } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs, isViewOnly } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
@@ -277,14 +277,14 @@ const Services = () => {
                     )}
 
                     <td className="px-3 py-2.5 whitespace-nowrap">
-                      {displayDate ? (
+                      {formatDate(displayDate) ? (
                         <span className={cn(
                           "text-xs font-semibold px-2.5 py-1 rounded-full border",
                           activeTab === 'history'
                             ? "text-emerald-700 bg-emerald-50 border-emerald-100"
                             : "text-indigo-700 bg-indigo-50 border-indigo-100"
                         )}>
-                          {displayDate}
+                          {formatDate(displayDate)}
                         </span>
                       ) : (
                         <span className="text-xs text-gray-400">—</span>

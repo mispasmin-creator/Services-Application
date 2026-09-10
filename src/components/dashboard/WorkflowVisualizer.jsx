@@ -5,7 +5,7 @@ import {
   Database, CheckCircle2, Zap, ArrowRight, 
   ExternalLink, Loader2, AlertCircle, PlayCircle
 } from 'lucide-react';
-import { cn, formatCurrency } from '../../lib/utils';
+import { cn, formatCurrency, formatDate } from '../../lib/utils';
 
 const WorkflowVisualizer = ({ offers = [], services = [], utilities = [], loading = false }) => {
   const navigate = useNavigate();
@@ -275,7 +275,7 @@ const WorkflowVisualizer = ({ offers = [], services = [], utilities = [], loadin
                   {stageItems.map((item, index) => {
                     const vendorName = item.vendor || item.payTo || 'N/A';
                     const desc = item.description || item.remarks || '—';
-                    const dateVal = item.date || item.billDate || item.timestamp?.split(' ')[0] || '—';
+                    const dateVal = formatDate(item.date || item.billDate || item.timestamp) || '—';
                     
                     return (
                       <tr key={index} className="hover:bg-gray-50/50 text-xs transition-colors">

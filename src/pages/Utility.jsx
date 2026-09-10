@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, CheckSquare, RefreshCw, Filter, Trash2
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, uploadFileToDrive, getDriveViewUrl, formatDateForSubmit } from '../lib/utils';
+import { cn, formatCurrency, uploadFileToDrive, getDriveViewUrl, formatDateForSubmit, formatDate } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs, isViewOnly } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
@@ -721,7 +721,7 @@ const Utility = () => {
         </head>
         <body>
           <h1>Utility Expenses Audit Report</h1>
-          <div class="subtitle">Generated on ${new Date().toLocaleString()} | Filtered Count: ${filteredUtilities.length} Records</div>
+          <div class="subtitle">Generated on ${formatDate(new Date())} | Filtered Count: ${filteredUtilities.length} Records</div>
           <table>
             <thead>
               <tr>
@@ -744,8 +744,8 @@ const Utility = () => {
                   <td>${item.personName}</td>
                   <td>${item.department} / ${item.groupHead}</td>
                   <td>${item.payTo}</td>
-                  <td>${item.billDate ? item.billDate.split('T')[0] : '—'}</td>
-                  <td>${item.dueDate ? item.dueDate.split('T')[0] : '—'}</td>
+                  <td>${formatDate(item.billDate) || '—'}</td>
+                  <td>${formatDate(item.dueDate) || '—'}</td>
                   <td>₹${item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                   <td>₹${item.tdsAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                   <td>₹${item.amountPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
@@ -1246,13 +1246,14 @@ const Utility = () => {
 
                       <td className="px-3 py-3 text-xs whitespace-nowrap">
                         {(() => {
-                          const displayDate = activeTab === 'completed'
+                          const rawDate = activeTab === 'completed'
                             ? (utility.actual2 || utility.actual1 || utility.timestamp)
                             : activeTab === 'approval'
                             ? (utility.planned1 || utility.dueDate || utility.timestamp)
                             : activeTab === 'payment'
                             ? (utility.planned2 || utility.planned1 || utility.dueDate || utility.timestamp)
                             : (utility.dueDate || utility.billDate || utility.timestamp);
+                          const displayDate = formatDate(rawDate);
                           return displayDate ? (
                             <span className={cn(
                               "font-semibold px-2.5 py-1 rounded-full border",
@@ -1284,8 +1285,8 @@ const Utility = () => {
                           </a>
                         ) : (<span className="text-gray-400 italic text-xs">No File</span>)}
                       </td>
-                      <td className="px-3 py-3 text-gray-500 font-medium">{utility.billDate ? utility.billDate.split('T')[0] : '—'}</td>
-                      <td className="px-3 py-3 text-gray-500 font-medium">{utility.dueDate ? utility.dueDate.split('T')[0] : '—'}</td>
+                      <td className="px-3 py-3 text-gray-500 font-medium">{formatDate(utility.billDate) || '—'}</td>
+                      <td className="px-3 py-3 text-gray-500 font-medium">{formatDate(utility.dueDate) || '—'}</td>
                       <td className="px-3 py-3 text-gray-500 max-w-[180px] truncate" title={utility.remarks}>{utility.remarks || '—'}</td>
                       <td className="px-3 py-3 text-right font-bold text-rose-600">{utility.tdsAmount > 0 ? `-${formatCurrency(utility.tdsAmount)}` : 'No TDS'}</td>
                       <td className="px-3 py-3 text-right font-bold text-emerald-700">{formatCurrency(utility.amountPaid)}</td>
@@ -1814,12 +1815,12 @@ const Utility = () => {
                       {/* Bill Date */}
                       <div>
                         <span className="text-gray-400 font-bold uppercase block mb-0.5">Bill Date</span>
-                        <span className="text-gray-700 font-semibold">{selectedUtility.billDate ? selectedUtility.billDate.split('T')[0] : '—'}</span>
+                        <span className="text-gray-700 font-semibold">{formatDate(selectedUtility.billDate) || '—'}</span>
                       </div>
                       {/* Due Date */}
                       <div>
                         <span className="text-gray-400 font-bold uppercase block mb-0.5">Due Date</span>
-                        <span className="text-gray-700 font-semibold">{selectedUtility.dueDate ? selectedUtility.dueDate.split('T')[0] : '—'}</span>
+                        <span className="text-gray-700 font-semibold">{formatDate(selectedUtility.dueDate) || '—'}</span>
                       </div>
                     </div>
 
@@ -1960,7 +1961,7 @@ const Utility = () => {
                     <div className="border-t border-gray-200/50 pt-2">
                       <span className="text-gray-400 font-bold block uppercase tracking-wide">Bill date / Due Date</span>
                       <span className="text-gray-700 font-semibold block mt-0.5">
-                        {selectedUtility.billDate ? selectedUtility.billDate.split('T')[0] : '—'} / {selectedUtility.dueDate ? selectedUtility.dueDate.split('T')[0] : '—'}
+                        {formatDate(selectedUtility.billDate) || '—'} / {formatDate(selectedUtility.dueDate) || '—'}
                       </span>
                     </div>
                     <div className="border-t border-gray-200/50 pt-2">
@@ -2025,7 +2026,7 @@ const Utility = () => {
                         </div>
                         <div className="flex justify-between">
                           <span>Payment Date:</span>
-                          <span>{selectedUtility.paymentDate || '—'}</span>
+                          <span>{formatDate(selectedUtility.paymentDate) || '—'}</span>
                         </div>
                       </div>
                       {selectedUtility.paymentAttachment && (

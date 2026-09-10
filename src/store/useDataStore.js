@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import useAuthStore from './useAuthStore';
-import { nowDateTime } from '../lib/utils';
+import { nowDateTime, formatDate } from '../lib/utils';
 
 const apiUrl = import.meta.env.VITE_APPSCRIPT_URL || 'https://script.google.com/macros/s/AKfycbxH_TMsqQkK3XpPUR4-999K7Q0R-P0WNd0rc1vL9b_KYMFB2xMN6VDP6vXqaNw4Kk3b/exec';
 
@@ -25,25 +25,8 @@ const findHeaderRow = (data, knownCol) => {
   return { headerIdx: -1, headers: [] };
 };
 
-// Format a value from getValues() — Date objects come as native Date, strings stay as-is
-// Converts to M/D/YYYY HH:mm:ss  (matches nowDateTime format)
-const formatSheetDate = (val) => {
-  if (!val) return '';
-  let dt = val;
-  if (typeof val === 'string' && val.includes('T') && !isNaN(Date.parse(val))) {
-    dt = new Date(val);
-  }
-  if (dt instanceof Date && !isNaN(dt.getTime())) {
-    const M  = dt.getMonth() + 1;
-    const d  = dt.getDate();
-    const yyyy = dt.getFullYear();
-    const HH = String(dt.getHours()).padStart(2, '0');
-    const mm = String(dt.getMinutes()).padStart(2, '0');
-    const ss = String(dt.getSeconds()).padStart(2, '0');
-    return `${M}/${d}/${yyyy} ${HH}:${mm}:${ss}`;
-  }
-  return String(val);
-};
+// Format a value to MM/dd/yyyy HH:mm:ss
+const formatSheetDate = (val) => formatDate(val);
 
 // Robust fetch with retry and exponential backoff to handle Google Apps Script connection drops/throttling
 const fetchJsonWithRetry = async (url, options = {}, retries = 3, delay = 150) => {
@@ -155,7 +138,7 @@ const useDataStore = create((set, get) => ({
             .filter(row => row && row.some(cell => String(cell || '').trim() !== ''))
             .map((row, idx) => ({
               sheetRowIndex: headerIdx + 2 + idx,
-              timestamp: row[0] || '',
+              timestamp: formatDate(row[0]),
               id: row[1] || `OFF-${idx + 1}`,
               firmName: row[2] || '',
               vendor: row[3] || '',
@@ -167,7 +150,7 @@ const useDataStore = create((set, get) => ({
               amountPaid: parseFloat(row[9]) || 0,
               outstanding: parseFloat(row[10]) || 0,
               status: row[11] || 'Pending',
-              date: row[0] ? String(row[0]).split(' ')[0] : ''
+              date: formatDate(row[0])
             }));
         }
       }
@@ -197,7 +180,7 @@ const useDataStore = create((set, get) => ({
           };
           const s = {
             sheetRowIndex: headerIdx + 2 + idx,
-            timestamp: row[0] || '',
+            timestamp: formatDate(row[0]),
             offerNo: row[1] || '',
             id: row[2] || `SRV-${idx + 1}`,
             firmName: row[3] || '',
@@ -233,7 +216,7 @@ const useDataStore = create((set, get) => ({
             status5: getVal(['Status 5', 'Status5'], 32),
             remarks5: getVal(['Remarks 5', 'Remarks5'], 33),
             paymentForm: getVal(['Payment Form', 'Payment Form Link', 'Payment Link', 'Form Link'], 34),
-            date: row[0] ? String(row[0]).split(' ')[0] : ''
+            date: formatDate(row[0])
           };
           s.status = getServiceStatus(s);
           return s;
@@ -294,7 +277,7 @@ const useDataStore = create((set, get) => ({
               
               return {
                 sheetRowIndex: headerIdx + 2 + idx,
-                timestamp: getVal('Timestamp'),
+                timestamp: formatDate(getVal('Timestamp')),
                 id: getVal('Utility No.') || `UT-${idx + 1}`,
                 firmName: getVal('Firm Name'),
                 personName: getVal('Person Name'),
@@ -304,20 +287,20 @@ const useDataStore = create((set, get) => ({
                 payTo: getVal('Pay To'),
                 amount: amountVal,
                 billImage: getVal('Bill Image'),
-                billDate: getVal('Bill Date'),
-                dueDate: getVal('Due Date'),
+                billDate: formatDate(getVal('Bill Date')),
+                dueDate: formatDate(getVal('Due Date')),
                 remarks: getVal('Remarks'),       // col M — entry remark
                 remark1: getVal('Remark 1'),        // col U — approval remark
                 tdsAmount: tdsVal,
                 amountPaid: parseFloat(getVal('Amount To Be Paid', amountVal - tdsVal)) || (amountVal - tdsVal),
                 outstanding: parseFloat(getVal('Outstanding Amount', amountVal - tdsVal)) || (amountVal - tdsVal),
                 status: statusVal,
-                actual: getVal('Actual'),          // NEW: submission date from Utility Entries tab
+                actual: formatDate(getVal('Actual')),          // NEW: submission date from Utility Entries tab
                 planned1: formatSheetDate(getVal('Planned 1')),
-                actual1: getVal('Actual 1'),
+                actual1: formatDate(getVal('Actual 1')),
                 delay1: getVal('Delay 1'),
-                planned2: getVal('Planned 2'),
-                actual2: getVal('Actual 2'),
+                planned2: formatDate(getVal('Planned 2')),
+                actual2: formatDate(getVal('Actual 2')),
                 delay2: getVal('Delay 2') || getVal('Dalay 2'),
                 paymentFormLink: getVal('Payment Form Link'),
                 
@@ -330,11 +313,11 @@ const useDataStore = create((set, get) => ({
                 paymentNo: getVal('Payment Number'),
                 paymentMode: getVal('Payment Mode'),
                 transactionRef: getVal('Transaction Reference'),
-                paymentDate: getVal('Payment Date'),
+                paymentDate: formatDate(getVal('Payment Date')),
                 paymentAttachment: getVal('Payment Attachment'),
                 paymentRemarks: getVal('Payment Remarks'),
                 
-                date: getVal('Bill Date') || (getVal('Timestamp') ? String(getVal('Timestamp')).split(' ')[0] : '')
+                date: formatDate(getVal('Bill Date') || getVal('Timestamp'))
               };
             });
         }
@@ -521,10 +504,11 @@ const useDataStore = create((set, get) => ({
       'Is There An Offer': offer.isOffer || 'Yes',
       'Offer Copy': offer.offerCopy || '',
     };
-    // Submit Timestamp (Column A) + 7 input columns — leave Offer No, Amount To Be Paid, Outstanding Amount, Status to Google Sheet formulas
+    // Submit Timestamp (Column A) + Offer No (Column B) + 7 input columns — leave Amount To Be Paid, Outstanding Amount, Status to Google Sheet formulas
     const fullArray = headers.map(header => {
       const norm = String(header || '').trim().toLowerCase().replace(/\s+/g, '');
       if (norm === 'timestamp') return offer.timestamp || nowDateTime();
+      if (norm === 'offerno.' || norm === 'offerno') return offer.id || '';
       if (norm === 'firmname') return offer.firmName;
       if (norm === 'vendorname' || norm === 'vendor') return offer.vendor;
       if (norm === 'workdescription' || norm === 'description') return offer.description;
@@ -545,7 +529,7 @@ const useDataStore = create((set, get) => ({
     const newOfferObj = {
       sheetRowIndex: (get().offers.length > 0 ? Math.max(...get().offers.map(o => o.sheetRowIndex || 0)) + 1 : 2),
       timestamp: nowTs,
-      id: '',              // Sheet formula generates Offer No. — will be updated after fetchData
+      id: offer.id || '',
       firmName: offer.firmName,
       vendor: offer.vendor,
       description: offer.description,
@@ -556,7 +540,7 @@ const useDataStore = create((set, get) => ({
       amountPaid: 0,
       outstanding: offer.amount,
       status: 'Pending',
-      date: nowTs.split(' ')[0]
+      date: nowTs
     };
     const updatedOffers = [newOfferObj, ...get().offers];
     set({ offers: updatedOffers });

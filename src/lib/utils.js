@@ -5,12 +5,60 @@ export function cn(...inputs) {
   return twMerge(clsx(inputs))
 }
 
-export function formatDate(date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(date))
+export function formatDate(val) {
+  if (!val) return '';
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === '—' || trimmed === '-' || trimmed === '#REF!' || trimmed === '#N/A' || trimmed === 'null' || trimmed === 'undefined') return '';
+
+    // If already in MM/DD/YYYY HH:mm:ss or M/D/YYYY HH:mm:ss
+    const slashParts = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+    if (slashParts) {
+      const MM = slashParts[1].padStart(2, '0');
+      const dd = slashParts[2].padStart(2, '0');
+      const yyyy = slashParts[3];
+      const HH = (slashParts[4] || '00').padStart(2, '0');
+      const mm = (slashParts[5] || '00').padStart(2, '0');
+      const ss = (slashParts[6] || '00').padStart(2, '0');
+      return `${MM}/${dd}/${yyyy} ${HH}:${mm}:${ss}`;
+    }
+
+    // If pure date string like YYYY-MM-DD
+    const ymdParts = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (ymdParts) {
+      const yyyy = ymdParts[1];
+      const MM = ymdParts[2];
+      const dd = ymdParts[3];
+      return `${MM}/${dd}/${yyyy} 00:00:00`;
+    }
+
+    // Try parsing as Date (e.g. ISO strings like 2026-06-30T09:49:10.634Z)
+    const parsedTime = Date.parse(trimmed);
+    if (!isNaN(parsedTime)) {
+      const dt = new Date(parsedTime);
+      const MM = String(dt.getMonth() + 1).padStart(2, '0');
+      const dd = String(dt.getDate()).padStart(2, '0');
+      const yyyy = dt.getFullYear();
+      const HH = String(dt.getHours()).padStart(2, '0');
+      const mm = String(dt.getMinutes()).padStart(2, '0');
+      const ss = String(dt.getSeconds()).padStart(2, '0');
+      return `${MM}/${dd}/${yyyy} ${HH}:${mm}:${ss}`;
+    }
+
+    return trimmed;
+  }
+
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    const MM = String(val.getMonth() + 1).padStart(2, '0');
+    const dd = String(val.getDate()).padStart(2, '0');
+    const yyyy = val.getFullYear();
+    const HH = String(val.getHours()).padStart(2, '0');
+    const mm = String(val.getMinutes()).padStart(2, '0');
+    const ss = String(val.getSeconds()).padStart(2, '0');
+    return `${MM}/${dd}/${yyyy} ${HH}:${mm}:${ss}`;
+  }
+
+  return String(val);
 }
 
 export function formatCurrency(amount) {
@@ -20,16 +68,16 @@ export function formatCurrency(amount) {
   }).format(amount)
 }
 
-/* Returns current datetime as M/d/yyyy HH:mm:ss (24-hour, no leading zero on month/day) */
+/* Returns current datetime as MM/dd/yyyy HH:mm:ss (24-hour) */
 export function nowDateTime() {
   const now = new Date();
-  const M  = now.getMonth() + 1;
-  const d  = now.getDate();
+  const MM = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
   const yyyy = now.getFullYear();
   const HH = String(now.getHours()).padStart(2, '0');
   const mm = String(now.getMinutes()).padStart(2, '0');
   const ss = String(now.getSeconds()).padStart(2, '0');
-  return `${M}/${d}/${yyyy} ${HH}:${mm}:${ss}`;
+  return `${MM}/${dd}/${yyyy} ${HH}:${mm}:${ss}`;
 }
 
 /* Converts a <input type="date"> value ('yyyy-MM-dd') into M/d/yyyy so every

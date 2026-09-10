@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
 import useAuthStore from '../store/useAuthStore';
-import { cn, formatCurrency } from '../lib/utils';
+import { cn, formatCurrency, formatDate } from '../lib/utils';
 import { getAllowedTabs } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
 
@@ -27,8 +27,13 @@ const TYPE_ICON = { Offer: FileSignature, Service: Wrench, Utility: Zap };
 
 const daysSince = (dateStr) => {
   if (!dateStr) return null;
-  const d = new Date(String(dateStr).split(' ')[0]);
-  if (isNaN(d.getTime())) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) {
+    const fallback = new Date(String(dateStr).split(' ')[0]);
+    if (isNaN(fallback.getTime())) return null;
+    const diff = Math.floor((Date.now() - fallback.getTime()) / (1000 * 60 * 60 * 24));
+    return diff >= 0 ? diff : 0;
+  }
   const diff = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
   return diff >= 0 ? diff : 0;
 };
@@ -152,7 +157,7 @@ const Reports = () => {
         </head>
         <body>
           <h1>Pending Work Report</h1>
-          <div class="subtitle">Generated on ${new Date().toLocaleString()} | ${pendingItems.length} pending items</div>
+          <div class="subtitle">Generated on ${formatDate(new Date())} | ${pendingItems.length} pending items</div>
           <table>
             <thead>
               <tr><th>Type</th><th>Reference</th><th>Firm</th><th>Stage</th><th>Pending With</th><th>Amount</th><th>Days Pending</th></tr>

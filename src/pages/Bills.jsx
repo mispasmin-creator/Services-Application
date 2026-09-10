@@ -4,7 +4,7 @@ import {
   Upload, Paperclip, ExternalLink, RefreshCw
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, uploadFileToDrive, getDriveViewUrl, nowDateTime } from '../lib/utils';
+import { cn, formatCurrency, uploadFileToDrive, getDriveViewUrl, nowDateTime, formatDate } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs, isViewOnly } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
@@ -67,6 +67,15 @@ const Bills = () => {
 
   const handleSaveBill = async (e) => {
     e.preventDefault();
+    if (isUploading) {
+      alert('Please wait for the bill copy to finish uploading.');
+      return;
+    }
+    if (!billForm.billCopy || !billForm.billCopy.trim()) {
+      setUploadError('Bill copy upload karna mandatory hai.');
+      alert('Please upload the bill copy. Bill copy upload karna mandatory hai.');
+      return;
+    }
     setIsSaving(true);
     try {
       await updateService(selectedForUpload.sheetRowIndex, {
@@ -82,16 +91,10 @@ const Bills = () => {
     }
   };
 
-  // Helper to check if bill process is done — must actually have a Bill No.
-  // or Bill Copy on file. (Previously this also fell back to checking the
-  // service's overall pipeline status, e.g. 'Payment Pending'/'Completed',
-  // but that status can advance without a bill ever being uploaded — e.g.
-  // getServiceStatus() falls through to 'Payment Pending' whenever actual1
-  // is set and planned1 is blank, regardless of billNo/billCopy — which
-  // incorrectly moved un-billed services into the History tab.)
+  // Helper to check if bill process is done — checks if Actual 1 is set
   const isBillDone = (s) => {
     if (!s) return false;
-    return !!(s.billCopy || s.billNo);
+    return !!s.actual1;
   };
 
   // billStatus helper — History = billCopy uploaded or bill processed
@@ -265,14 +268,14 @@ const Bills = () => {
                   return (
                     <tr key={s.sheetRowIndex} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 py-2.5 whitespace-nowrap">
-                        {displayDate ? (
+                        {formatDate(displayDate) ? (
                           <span className={cn(
                             "text-xs font-semibold px-2.5 py-1 rounded-full border",
                             activeTab === 'history'
                               ? "text-emerald-700 bg-emerald-50 border-emerald-100"
                               : "text-indigo-700 bg-indigo-50 border-indigo-100"
                           )}>
-                            {displayDate}
+                            {formatDate(displayDate)}
                           </span>
                         ) : (
                           <span className="text-xs text-gray-400">—</span>
@@ -377,7 +380,9 @@ const Bills = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase">Bill Copy</label>
+                <label className="text-xs font-bold text-gray-700 uppercase">
+                  Bill Copy <span className="text-rose-500">*</span>
+                </label>
                 <input ref={fileInputRef} type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); }} />
                 {uploadedFile ? (
@@ -393,7 +398,7 @@ const Bills = () => {
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50 rounded-xl text-sm text-gray-500 hover:text-indigo-700 transition-all">
                     {isUploading
                       ? <><Loader2 size={15} className="animate-spin" /><span className="font-medium">Uploading...</span></>
-                      : <><Upload size={15} /><span className="font-medium">Click to upload bill copy</span></>}
+                      : <><Upload size={15} /><span className="font-medium">Click to upload bill copy *</span></>}
                   </button>
                 )}
                 {uploadError && <p className="text-xs text-red-500 font-medium">{uploadError}</p>}
@@ -405,8 +410,8 @@ const Bills = () => {
                   Cancel
                 </button>
                 {!viewOnly && (
-                  <button type="submit" disabled={isSaving}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-gray-900/10 cursor-pointer">
+                  <button type="submit" disabled={isSaving || isUploading}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-gray-900/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                     {isSaving ? <><Loader2 className="animate-spin" size={16} /><span>Submitting...</span></> : <><FileText size={15} /><span>Submit Entry</span></>}
                   </button>
                 )}

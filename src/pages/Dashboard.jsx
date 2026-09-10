@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import useDataStore from '../store/useDataStore';
 import useAuthStore from '../store/useAuthStore';
-import { cn, formatCurrency } from '../lib/utils';
+import { cn, formatCurrency, formatDate } from '../lib/utils';
 
 /* ── Palette ── */
 const NAV  = '#1e3a5f';
@@ -171,7 +171,7 @@ const Dashboard = () => {
   /* ── Date greeting ── */
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
-  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const today = formatDate(new Date());
 
   return (
     <div className="space-y-7">
