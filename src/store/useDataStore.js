@@ -78,6 +78,7 @@ const cachedDepartments = loadCache('departments') || [];
 const cachedGroupHeads = loadCache('groupHeads') || [];
 const cachedFirms = loadCache('firms') || [];
 const cachedFmsNames = loadCache('fmsNames') || [];
+const cachedServiceLocations = loadCache('serviceLocations') || [];
 
 const useDataStore = create((set, get) => ({
   offers: cachedOffers,
@@ -90,6 +91,7 @@ const useDataStore = create((set, get) => ({
   groupHeads: cachedGroupHeads,
   firms: cachedFirms,
   fmsNames: cachedFmsNames,
+  serviceLocations: cachedServiceLocations,
   loading: false,
   isFetchingInBackground: false,
   error: null,
@@ -327,13 +329,31 @@ const useDataStore = create((set, get) => ({
       let groupHeads = [];
       let firms = [];
       let fmsNames = [];
+      let serviceLocations = [];
       if (masterRes && masterRes.success && masterRes.data && masterRes.data.length > 0) {
+        const headers = masterRes.data[0] || [];
+        const getColIdx = (names, fallbackIdx) => {
+          const nameList = Array.isArray(names) ? names : [names];
+          const idx = headers.findIndex(h => {
+            const clean = String(h || '').trim().toLowerCase();
+            return nameList.some(n => clean === n.toLowerCase());
+          });
+          return idx !== -1 ? idx : fallbackIdx;
+        };
+
+        const deptIdx = getColIdx(['Department', 'Departments'], 0);
+        const ghIdx = getColIdx(['Group Head', 'GroupHead'], 1);
+        const firmIdx = getColIdx(['Firm Name', 'FirmName', 'Firm'], 2);
+        const fmsIdx = getColIdx(['Fms Name', 'FmsName', 'FMS'], 3);
+        const locIdx = getColIdx(['Service Location', 'ServiceLocation', 'Location'], 4);
+
         const rows = masterRes.data.slice(1);
         const validRows = rows.filter(row => Array.isArray(row));
-        departments = [...new Set(validRows.map(row => String(row[0] || '').trim()).filter(val => val !== ''))];
-        groupHeads = [...new Set(validRows.map(row => String(row[1] || '').trim()).filter(val => val !== ''))];
-        firms = [...new Set(validRows.map(row => String(row[2] || '').trim()).filter(val => val !== ''))];
-        fmsNames = [...new Set(validRows.map(row => String(row[3] || '').trim()).filter(val => val !== ''))];
+        departments = [...new Set(validRows.map(row => String(row[deptIdx] || '').trim()).filter(val => val !== ''))];
+        groupHeads = [...new Set(validRows.map(row => String(row[ghIdx] || '').trim()).filter(val => val !== ''))];
+        firms = [...new Set(validRows.map(row => String(row[firmIdx] || '').trim()).filter(val => val !== ''))];
+        fmsNames = [...new Set(validRows.map(row => String(row[fmsIdx] || '').trim()).filter(val => val !== ''))];
+        serviceLocations = [...new Set(validRows.map(row => String(row[locIdx] || '').trim()).filter(val => val !== ''))];
       }
 
       // Compute effective amountPaid, outstanding, and status for each offer based on linked services
@@ -391,6 +411,7 @@ const useDataStore = create((set, get) => ({
         groupHeads,
         firms,
         fmsNames,
+        serviceLocations,
         loading: false,
         isFetchingInBackground: false 
       });
@@ -406,6 +427,7 @@ const useDataStore = create((set, get) => ({
       saveCache('groupHeads', groupHeads);
       saveCache('firms', firms);
       saveCache('fmsNames', fmsNames);
+      saveCache('serviceLocations', serviceLocations);
     } catch (err) {
       set({ error: err.message, loading: false, isFetchingInBackground: false });
     }

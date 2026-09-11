@@ -13,11 +13,17 @@ import useStickyTableHead from '../hooks/useStickyTableHead';
 const Offers = () => {
   const { user: currentUser } = useAuthStore();
   const viewOnly = isViewOnly(currentUser);
-  const { offers, services, loading, addOffer, updateOffer, addService, firms, fetchData } = useDataStore();
+  const { offers, services, loading, addOffer, updateOffer, addService, firms, serviceLocations, fetchData } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [firmFilter, setFirmFilter] = useState('');
   const tableScrollRef = useRef(null);
   useStickyTableHead(tableScrollRef);
+
+  useEffect(() => {
+    if (!serviceLocations || serviceLocations.length === 0) {
+      fetchData();
+    }
+  }, [fetchData, serviceLocations]);
 
   const masterFirms = firms && firms.length > 0 ? firms : ['Pmmpl', 'Rkl', 'Purab'];
 
@@ -586,7 +592,7 @@ const Offers = () => {
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-gray-900/20 focus:border-transparent transition-all"
                   >
                     <option value="">Select location...</option>
-                    {['A11 Home','B3 Home','Dm Tower','Factory Office','Iron Tailor','Kharagpur','Mdo Office','Personal','Purab Factory','Refrasynth Factory','Rourkela Factory','Rourkela Office','Shri Ram Business Park New'].map(loc => (
+                    {[...new Set([...(serviceLocations || []), ...(newOffer.location ? [newOffer.location] : [])])].filter(Boolean).map(loc => (
                       <option key={loc} value={loc}>{loc}</option>
                     ))}
                   </select>
@@ -795,7 +801,7 @@ const Offers = () => {
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm"
                   >
                     <option value="">Select location...</option>
-                    {['A11 Home','B3 Home','Dm Tower','Factory Office','Iron Tailor','Kharagpur','Mdo Office','Personal','Purab Factory','Refrasynth Factory','Rourkela Factory','Rourkela Office','Shri Ram Business Park New'].map(loc => (
+                    {[...new Set([...(serviceLocations || []), ...(convertFields.location ? [convertFields.location] : [])])].filter(Boolean).map(loc => (
                       <option key={loc} value={loc}>{loc}</option>
                     ))}
                   </select>
