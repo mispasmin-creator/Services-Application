@@ -13,7 +13,7 @@ import useStickyTableHead from '../hooks/useStickyTableHead';
 const Offers = () => {
   const { user: currentUser } = useAuthStore();
   const viewOnly = isViewOnly(currentUser);
-  const { offers, services, loading, addOffer, updateOffer, addService, firms, serviceLocations, fetchData } = useDataStore();
+  const { offers, allOffers, services, loading, addOffer, updateOffer, addService, firms, serviceLocations, fetchData, getNextServiceId: getNextServiceIdGlobal } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [firmFilter, setFirmFilter] = useState('');
   const tableScrollRef = useRef(null);
@@ -85,22 +85,29 @@ const Offers = () => {
     }
   };
 
-  // Helper: auto generate next Offer No. from the highest existing OFF-xxx number
-  // (array length was used before, which produces duplicate Offer Nos whenever a
-  // number is skipped/missing from the currently loaded set)
-  const getNextOfferId = () => {
-    const ids = offers
+  // Helper: auto generate next Offer No. for a given firm (Tarika 2: Firm-wise unique sequence)
+  const getNextOfferId = (targetFirm) => {
+    const firmToCheck = targetFirm !== undefined ? targetFirm : newOffer.firmName;
+    const offersPool = (allOffers && allOffers.length > 0) ? allOffers : offers;
+    const ids = offersPool
+      .filter(o => {
+        if (!firmToCheck || firmToCheck.toLowerCase() === 'all') return true;
+        return (o.firmName || '').trim().toLowerCase() === firmToCheck.trim().toLowerCase();
+      })
       .map(o => {
         const match = o.id?.match(/OFF-(\d+)/i);
         return match ? parseInt(match[1], 10) : 0;
       })
-      .filter(id => !isNaN(id));
+      .filter(id => !isNaN(id) && id > 0);
     const maxId = ids.length > 0 ? Math.max(...ids) : 0;
     return `OFF-${String(maxId + 1).padStart(3, '0')}`;
   };
 
-  // Helper: auto generate next Service No. from the highest existing SRV-xxx number
+  // Helper: auto generate next Service No. uniquely across all firms from Google Sheet
   const getNextServiceId = () => {
+    if (typeof getNextServiceIdGlobal === 'function') {
+      return getNextServiceIdGlobal();
+    }
     const ids = services
       .map(s => {
         const match = s.id?.match(/SRV-(\d+)/i);
@@ -136,7 +143,7 @@ const Offers = () => {
       return;
     }
 
-    const autoId = newOffer.id || getNextOfferId();
+    const autoId = newOffer.id || getNextOfferId(newOffer.firmName);
     setIsSaving(true);
     setSaveError('');
     try {
@@ -315,7 +322,7 @@ const Offers = () => {
             onClick={() => {
               const defaultFirm = allowedFirms[0] || 'All';
               setNewOffer({
-                id: getNextOfferId(),
+                id: getNextOfferId(defaultFirm),
                 firmName: defaultFirm,
                 vendor: '',
                 description: '',
@@ -538,7 +545,7 @@ const Offers = () => {
                   <input
                     type="text"
                     disabled
-                    value={newOffer.id || getNextOfferId()}
+                    value={newOffer.id || getNextOfferId(newOffer.firmName)}
                     className="w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 cursor-not-allowed"
                   />
                 </div>
@@ -547,7 +554,14 @@ const Offers = () => {
                   <select
                     disabled={isSaving}
                     value={newOffer.firmName}
-                    onChange={(e) => setNewOffer({ ...newOffer, firmName: e.target.value })}
+                    onChange={(e) => {
+                      const selectedFirm = e.target.value;
+                      setNewOffer({
+                        ...newOffer,
+                        firmName: selectedFirm,
+                        id: getNextOfferId(selectedFirm)
+                      });
+                    }}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-gray-900/20 focus:border-transparent transition-all"
                   >
                     {currentUser?.role?.toLowerCase() === 'admin' && <option value="All">All</option>}

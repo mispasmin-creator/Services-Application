@@ -69,6 +69,7 @@ const saveCache = (key, data) => {
 };
 
 const cachedOffers = loadCache('offers') || [];
+const cachedAllOffers = loadCache('allOffers') || [];
 const cachedServices = loadCache('services') || [];
 const cachedUtilities = loadCache('utilities') || [];
 const cachedOfferHeaders = loadCache('offerHeaders') || [];
@@ -79,9 +80,20 @@ const cachedGroupHeads = loadCache('groupHeads') || [];
 const cachedFirms = loadCache('firms') || [];
 const cachedFmsNames = loadCache('fmsNames') || [];
 const cachedServiceLocations = loadCache('serviceLocations') || [];
+const getInitialMaxSrv = () => {
+  const cachedVal = loadCache('globalMaxServiceId');
+  if (typeof cachedVal === 'number' && cachedVal > 0) return cachedVal;
+  const ids = (cachedServices || []).map(s => {
+    const m = String(s.id || '').match(/SRV-(\d+)/i);
+    return m ? parseInt(m[1], 10) : 0;
+  }).filter(id => id > 0);
+  return ids.length > 0 ? Math.max(...ids) : 0;
+};
+const cachedGlobalMaxServiceId = getInitialMaxSrv();
 
 const useDataStore = create((set, get) => ({
   offers: cachedOffers,
+  allOffers: cachedAllOffers,
   services: cachedServices,
   utilities: cachedUtilities,
   offerHeaders: cachedOfferHeaders,
@@ -92,6 +104,11 @@ const useDataStore = create((set, get) => ({
   firms: cachedFirms,
   fmsNames: cachedFmsNames,
   serviceLocations: cachedServiceLocations,
+  globalMaxServiceId: cachedGlobalMaxServiceId,
+  getNextServiceId: () => {
+    const currentMax = get().globalMaxServiceId || 0;
+    return `SRV-${String(currentMax + 1).padStart(3, '0')}`;
+  },
   loading: false,
   isFetchingInBackground: false,
   error: null,
@@ -356,9 +373,13 @@ const useDataStore = create((set, get) => ({
         serviceLocations = [...new Set(validRows.map(row => String(row[locIdx] || '').trim()).filter(val => val !== ''))];
       }
 
-      // Compute effective amountPaid, outstanding, and status for each offer based on linked services
+      // Compute effective amountPaid, outstanding, and status for each offer based on linked services (matching BOTH offerNo AND firmName)
       offers = offers.map(o => {
-        const servicesForOffer = services.filter(s => s.offerNo && String(s.offerNo).trim().toLowerCase() === String(o.id).trim().toLowerCase());
+        const servicesForOffer = services.filter(s => 
+          s.offerNo && 
+          String(s.offerNo).trim().toLowerCase() === String(o.id).trim().toLowerCase() &&
+          (!s.firmName || !o.firmName || String(s.firmName).trim().toLowerCase() === String(o.firmName).trim().toLowerCase())
+        );
         const sumServices = servicesForOffer.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
         const amountPaid = Math.max(Number(o.amountPaid) || 0, sumServices);
         const outstanding = o.amount > 0 ? Math.max(0, Number(o.amount) - amountPaid) : (Number(o.outstanding) || 0);
@@ -376,6 +397,18 @@ const useDataStore = create((set, get) => ({
           status: status || 'Pending'
         };
       });
+
+      // Keep complete unfiltered list of all offers for firm-wise ID lookups
+      const allOffers = [...offers];
+
+      // Compute global maximum SRV-xxx across ALL services from all firms (before firm filtering)
+      const allSrvIds = services
+        .map(s => {
+          const match = String(s.id || '').match(/SRV-(\d+)/i);
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter(id => !isNaN(id) && id > 0);
+      const globalMaxServiceId = allSrvIds.length > 0 ? Math.max(...allSrvIds) : 0;
 
       // Filter data based on current logged in user's assigned firms (except for admins or 'All' access)
       const currentUser = useAuthStore.getState().user;
@@ -402,6 +435,7 @@ const useDataStore = create((set, get) => ({
 
       set({ 
         offers, 
+        allOffers,
         services, 
         utilities, 
         offerHeaders, 
@@ -412,12 +446,14 @@ const useDataStore = create((set, get) => ({
         firms,
         fmsNames,
         serviceLocations,
+        globalMaxServiceId,
         loading: false,
         isFetchingInBackground: false 
       });
 
       // Save to localStorage cache for 0ms initial load next time
       saveCache('offers', offers);
+      saveCache('allOffers', allOffers);
       saveCache('services', services);
       saveCache('utilities', utilities);
       saveCache('offerHeaders', offerHeaders);
@@ -428,6 +464,7 @@ const useDataStore = create((set, get) => ({
       saveCache('firms', firms);
       saveCache('fmsNames', fmsNames);
       saveCache('serviceLocations', serviceLocations);
+      saveCache('globalMaxServiceId', globalMaxServiceId);
     } catch (err) {
       set({ error: err.message, loading: false, isFetchingInBackground: false });
     }
@@ -565,8 +602,10 @@ const useDataStore = create((set, get) => ({
       date: nowTs
     };
     const updatedOffers = [newOfferObj, ...get().offers];
-    set({ offers: updatedOffers });
+    const updatedAllOffers = [newOfferObj, ...(get().allOffers || [])];
+    set({ offers: updatedOffers, allOffers: updatedAllOffers });
     saveCache('offers', updatedOffers);
+    saveCache('allOffers', updatedAllOffers);
 
     const res = await get().saveRow('OFFER', 'insert', null, rowDataArray);
     // Background refetch — don't block the caller
@@ -664,8 +703,13 @@ const useDataStore = create((set, get) => ({
       paymentProof: ''
     };
     const updatedServices = [newServiceObj, ...get().services];
-    set({ services: updatedServices });
+    const match = String(service.id || '').match(/SRV-(\d+)/i);
+    const newIdNum = match ? parseInt(match[1], 10) : 0;
+    const currentMax = get().globalMaxServiceId || 0;
+    const updatedGlobalMax = Math.max(currentMax, newIdNum);
+    set({ services: updatedServices, globalMaxServiceId: updatedGlobalMax });
     saveCache('services', updatedServices);
+    saveCache('globalMaxServiceId', updatedGlobalMax);
 
     const res = await get().saveRow('SERVICE', 'insert', null, rowDataArray);
     // Background refetch — sync with sheet
