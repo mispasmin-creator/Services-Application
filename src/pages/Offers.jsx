@@ -41,6 +41,7 @@ const Offers = () => {
 
   const allowedFirms = getAllowedFirms();
   const [activeTab, setActiveTab] = useState('active'); // active, history
+  const isSubmittingRef = useRef(false);
 
   // Create Offer Modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -136,6 +137,8 @@ const Offers = () => {
   // Handle Create Offer Submit
   const handleCreateOffer = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current || isSaving) return;
+
     if (!newOffer.vendor?.trim() || !newOffer.description?.trim() || !newOffer.location || !newOffer.amount) {
       const msg = 'Kripya sabhi zaroori fields bharein: Vendor Name, Work Description, Service Location aur Amount.';
       setSaveError(msg);
@@ -143,6 +146,7 @@ const Offers = () => {
       return;
     }
 
+    isSubmittingRef.current = true;
     const autoId = newOffer.id || getNextOfferId(newOffer.firmName);
     setIsSaving(true);
     setSaveError('');
@@ -187,6 +191,7 @@ const Offers = () => {
       alert('Error occurred: ' + err.message);
     } finally {
       setIsSaving(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -227,18 +232,21 @@ const Offers = () => {
   // Handle Convert to Service Submit
   const handleConvertSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current || isSaving) return;
+
     if (!convertFields.serviceNo || !convertFields.checker || !convertFields.vendor || !convertFields.description || !convertFields.location || !convertFields.amount) {
       alert('Please fill in all required fields.');
       return;
     }
 
+    isSubmittingRef.current = true;
     setIsSaving(true);
     try {
       // 1. Create service record
       const serviceRes = await addService({
         offerNo: selectedOfferForConvert.id,
         id: convertFields.serviceNo,
-        firmName: convertFields.firmName,
+        firmName: selectedOfferForConvert.firmName || convertFields.firmName,
         checker: convertFields.checker,
         amount: parseFloat(convertFields.amount),
         tdsAmount: parseFloat(convertFields.tdsAmount) || 0,
@@ -260,6 +268,7 @@ const Offers = () => {
       alert(`Error converting to service: ${err.message}`);
     } finally {
       setIsSaving(false);
+      isSubmittingRef.current = false;
     }
   };
 

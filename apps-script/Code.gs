@@ -116,6 +116,42 @@ function doPost(e) {
                 return v;
             });
 
+            // Duplicate prevention check:
+            // For OFFER: Check if Offer No (col 2) + Firm Name (col 3) already exists in recent rows
+            // For SERVICE: Check if Service No (col 3) already exists in recent rows
+            var lastRow = sheet.getLastRow();
+            if (lastRow >= 2) {
+                if (sheetName === 'OFFER' && cleanRowData.length >= 3) {
+                    var incomingOfferId = String(cleanRowData[1] || '').trim().toLowerCase();
+                    var incomingFirm = String(cleanRowData[2] || '').trim().toLowerCase();
+                    if (incomingOfferId && incomingFirm) {
+                        var startRow = Math.max(2, lastRow - 60);
+                        var count = lastRow - startRow + 1;
+                        var existingOffers = sheet.getRange(startRow, 2, count, 2).getValues();
+                        for (var i = 0; i < existingOffers.length; i++) {
+                            var exId = String(existingOffers[i][0] || '').trim().toLowerCase();
+                            var exFirm = String(existingOffers[i][1] || '').trim().toLowerCase();
+                            if (exId === incomingOfferId && exFirm === incomingFirm) {
+                                return jsonSuccess("Offer already exists, skipped duplicate insert", { duplicatePrevented: true });
+                            }
+                        }
+                    }
+                } else if (sheetName === 'SERVICE' && cleanRowData.length >= 3) {
+                    var incomingSrvId = String(cleanRowData[2] || '').trim().toLowerCase();
+                    if (incomingSrvId) {
+                        var startRow = Math.max(2, lastRow - 60);
+                        var count = lastRow - startRow + 1;
+                        var existingSrvs = sheet.getRange(startRow, 3, count, 1).getValues();
+                        for (var j = 0; j < existingSrvs.length; j++) {
+                            var exSrvId = String(existingSrvs[j][0] || '').trim().toLowerCase();
+                            if (exSrvId === incomingSrvId) {
+                                return jsonSuccess("Service already exists, skipped duplicate insert", { duplicatePrevented: true });
+                            }
+                        }
+                    }
+                }
+            }
+
             sheet.appendRow(cleanRowData);
             var newRowIdx = sheet.getLastRow();
 

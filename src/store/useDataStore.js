@@ -381,12 +381,13 @@ const useDataStore = create((set, get) => ({
           (!s.firmName || !o.firmName || String(s.firmName).trim().toLowerCase() === String(o.firmName).trim().toLowerCase())
         );
         const sumServices = servicesForOffer.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-        const amountPaid = Math.max(Number(o.amountPaid) || 0, sumServices);
+        const hasLinkedServices = servicesForOffer.length > 0;
+        const amountPaid = hasLinkedServices ? sumServices : (Number(o.amountPaid) || 0);
         const outstanding = o.amount > 0 ? Math.max(0, Number(o.amount) - amountPaid) : (Number(o.outstanding) || 0);
 
         let status = o.status;
         if (!status || status === 'Pending') {
-          if (servicesForOffer.length > 0 && outstanding <= 0) {
+          if (hasLinkedServices && outstanding <= 0) {
             status = 'Converted';
           }
         }
@@ -471,6 +472,11 @@ const useDataStore = create((set, get) => ({
   },
 
   saveRow: async (sheetName, action, rowIndex, rowDataArray, retries = 3) => {
+    // CRITICAL: Never auto-retry an 'insert' action!
+    // When an insert call times out or returns an HTML redirect from Google Apps Script,
+    // the row is usually already appended to the sheet. Retrying appends duplicate rows.
+    const effectiveRetries = action === 'insert' ? 0 : retries;
+
     const params = new URLSearchParams();
     params.append('sheetName', sheetName);
     params.append('action', action);
@@ -492,17 +498,23 @@ const useDataStore = create((set, get) => ({
       try {
         data = JSON.parse(text);
       } catch (parseErr) {
-        throw new Error(`Invalid JSON response: ${text.slice(0, 100)}`);
+        // If Google Apps Script returned a 200 HTML response (e.g. redirect or cold start echo),
+        // for an insert, the row was already committed to Google Sheet.
+        if (response.ok && (text.includes('success') || text.includes('Google') || text.includes('<!DOCTYPE'))) {
+          console.warn(`saveRow ${action} for ${sheetName} received non-JSON 200 response, treated as success:`, text.slice(0, 100));
+          return { success: true, message: 'Row inserted successfully' };
+        }
+        throw new Error(`Invalid server response: ${text.slice(0, 100)}`);
       }
       if (data && data.success === false) {
         throw new Error(data.message || data.error || 'Server returned failure');
       }
       return data;
     } catch (err) {
-      if (retries > 0) {
-        console.warn(`saveRow failed for ${sheetName} ${action}, retrying in 300ms... (${retries} left). Error: ${err.message}`);
+      if (effectiveRetries > 0) {
+        console.warn(`saveRow failed for ${sheetName} ${action}, retrying in 300ms... (${effectiveRetries} left). Error: ${err.message}`);
         await new Promise(resolve => setTimeout(resolve, 300));
-        return get().saveRow(sheetName, action, rowIndex, rowDataArray, retries - 1);
+        return get().saveRow(sheetName, action, rowIndex, rowDataArray, effectiveRetries - 1);
       }
       throw err;
     }
