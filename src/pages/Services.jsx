@@ -33,10 +33,34 @@ const Services = () => {
   const [paymentDate, setPaymentDate] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
 
+  // ⚡ Bulk selection for multiple payments
+  const [selectedServices, setSelectedServices] = useState(new Set());
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+
   const openConfirm = (s) => {
     setPaymentDate('');
     setPaymentNote('');
     setConfirmService(s);
+  };
+
+  // ⚡ Toggle individual selection
+  const toggleServiceSelection = (serviceRowIndex) => {
+    const newSelected = new Set(selectedServices);
+    if (newSelected.has(serviceRowIndex)) {
+      newSelected.delete(serviceRowIndex);
+    } else {
+      newSelected.add(serviceRowIndex);
+    }
+    setSelectedServices(newSelected);
+  };
+
+  // ⚡ Select/Deselect all visible payment-pending services
+  const toggleSelectAll = () => {
+    if (selectedServices.size === filteredServices.length) {
+      setSelectedServices(new Set());
+    } else {
+      setSelectedServices(new Set(filteredServices.map(s => s.sheetRowIndex)));
+    }
   };
 
   const handleConfirmPayment = async () => {
@@ -47,6 +71,39 @@ const Services = () => {
         actual2: ts,
       });
       setConfirmService(null);
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ⚡ Bulk confirm payments
+  const handleBulkConfirmPayment = async () => {
+    if (selectedServices.size === 0) {
+      alert('Please select at least one service');
+      return;
+    }
+
+    if (!window.confirm(`Confirm payment for ${selectedServices.size} selected services?`)) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const ts = nowDateTime();
+      const selectedServicesList = filteredServices.filter(s => selectedServices.has(s.sheetRowIndex));
+
+      // Update all selected services in parallel
+      await Promise.all(
+        selectedServicesList.map(s =>
+          updateService(s.sheetRowIndex, { actual2: ts })
+        )
+      );
+
+      setSelectedServices(new Set());
+      setBulkConfirmOpen(false);
+      alert(`✅ ${selectedServices.size} payments confirmed!`);
     } catch (err) {
       alert(`Error: ${err.message}`);
     } finally {
@@ -178,6 +235,29 @@ const Services = () => {
           <RefreshCw size={16} className={cn(loading && "animate-spin")} />
         </button>
       </div>
+
+      {/* ⚡ Bulk Action Button */}
+      {activeTab === 'payment' && selectedServices.size > 0 && !viewOnly && (
+        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-bold text-indigo-900">
+              {selectedServices.size} service{selectedServices.size > 1 ? 's' : ''} selected
+            </p>
+            <p className="text-xs text-indigo-600 mt-0.5">Confirm payments for all selected entries</p>
+          </div>
+          <button
+            onClick={handleBulkConfirmPayment}
+            disabled={isSaving}
+            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition-all shadow-lg shadow-indigo-600/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSaving ? (
+              <><Loader2 size={16} className="animate-spin" /><span>Processing...</span></>
+            ) : (
+              <><CheckCircle2 size={16} /><span>Bulk Confirm</span></>
+            )}
+          </button>
+        </div>
+      )}
       </div>
 
       {/* Table */}
@@ -194,7 +274,20 @@ const Services = () => {
                 <tr className="bg-gray-50 border-b border-gray-200">
                   {activeTab === 'payment' && (
                     <>
-                      {!viewOnly && <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Done</th>}
+                      {!viewOnly && (
+                        <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                          <div className="flex items-center justify-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedServices.size > 0 && selectedServices.size === filteredServices.length}
+                              onChange={toggleSelectAll}
+                              className="w-4 h-4 rounded-md border-gray-300 text-gray-900 focus:ring-gray-900/20 cursor-pointer"
+                              style={{ accentColor: '#1e3a5f' }}
+                              title="Select/Deselect all"
+                            />
+                          </div>
+                        </th>
+                      )}
                       <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
                     </>
                   )}
@@ -232,31 +325,15 @@ const Services = () => {
                       <>
                         {!viewOnly && (
                           <td className="px-3 py-2.5">
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={confirmService?.sheetRowIndex === service.sheetRowIndex}
-                                onChange={() =>
-                                  confirmService?.sheetRowIndex === service.sheetRowIndex
-                                    ? setConfirmService(null)
-                                    : openConfirm(service)
-                                }
-                                disabled={isSaving}
-                                title="Mark payment as done"
-                                className="w-4 h-4 rounded-md border-gray-300 text-gray-900 focus:ring-gray-900/20 cursor-pointer"
-                                style={{ accentColor: '#1e3a5f' }}
-                              />
-                              {confirmService?.sheetRowIndex === service.sheetRowIndex && (
-                                <button
-                                  onClick={handleConfirmPayment}
-                                  disabled={isSaving}
-                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
-                                >
-                                  {isSaving ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                                  <span>Confirm</span>
-                                </button>
-                              )}
-                            </div>
+                            <input
+                              type="checkbox"
+                              checked={selectedServices.has(service.sheetRowIndex)}
+                              onChange={() => toggleServiceSelection(service.sheetRowIndex)}
+                              disabled={isSaving}
+                              title="Select for bulk payment"
+                              className="w-4 h-4 rounded-md border-gray-300 text-gray-900 focus:ring-gray-900/20 cursor-pointer"
+                              style={{ accentColor: '#1e3a5f' }}
+                            />
                           </td>
                         )}
                         <td className="px-3 py-2.5">
