@@ -67,27 +67,31 @@ const findHeaderRow = (data, knownCol) => {
 const formatSheetDate = (val) => formatDate(val);
 
 // ⚡ Robust fetch with retry, timeout, and exponential backoff
-const fetchJsonWithRetry = async (url, options = {}, retries = 2, delay = 50) => {
+const fetchJsonWithRetry = async (url, options = {}, retries = 1, delay = 50) => {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000); // 8 second timeout per attempt
+    const timeout = setTimeout(() => controller.abort(), 20000); // 20 second timeout (Apps Script can be slow on cold start)
+
+    const sheetName = new URL(url).searchParams.get('sheet') || 'unknown';
+    console.log(`[Fetch] Fetching ${sheetName} sheet...`);
 
     const res = await fetch(url, { ...options, signal: controller.signal });
     clearTimeout(timeout);
 
     if (!res.ok) {
-      throw new Error(`HTTP error! Status: ${res.status}`);
+      throw new Error(`HTTP ${res.status}`);
     }
     const data = await res.json();
     if (data && data.success === false) {
-      throw new Error(data.message || 'API returned success: false');
+      throw new Error(data.message || data.error || 'API failed');
     }
+    console.log(`[Fetch] ✅ ${sheetName}: ${data.data?.length || 0} rows`);
     return data;
   } catch (err) {
+    console.error(`[Fetch] ❌ ${url.split('?')[1] || 'unknown'}: ${err.message}`);
     if (retries > 0 && err.name !== 'AbortError') {
-      const backoffDelay = Math.min(delay * Math.pow(2, 2 - retries), 500); // Cap at 500ms
-      console.warn(`Fetch failed for ${url}, retrying in ${backoffDelay}ms... (${retries} retries left). Error: ${err.message}`);
-      await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      console.log(`[Fetch] Retrying (${retries} left)...`);
+      await new Promise(resolve => setTimeout(resolve, 200));
       return fetchJsonWithRetry(url, options, retries - 1, delay);
     }
     throw err;
@@ -522,7 +526,17 @@ const useDataStore = create((set, get) => ({
       saveCache('serviceLocations', serviceLocations);
       saveCache('globalMaxServiceId', globalMaxServiceId);
     } catch (err) {
-      set({ error: err.message, loading: false, isFetchingInBackground: false });
+      const errorMsg = err.message || 'Failed to load data from Google Sheets';
+      console.error('[FetchData Error]', err);
+
+      // Use cached data as fallback
+      const hasCachedData = get().offers.length > 0 || get().services.length > 0;
+
+      set({
+        error: hasCachedData ? `${errorMsg} (showing cached data)` : errorMsg,
+        loading: false,
+        isFetchingInBackground: false
+      });
     }
   },
 
