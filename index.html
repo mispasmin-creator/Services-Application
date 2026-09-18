@@ -6,10 +6,30 @@
     <link rel="shortcut icon" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#61dafb" />
+
+    <!-- ⚡ Performance & Caching Headers -->
+    <meta http-equiv="Cache-Control" content="max-age=3600" />
+    <meta name="description" content="Service Field Management System" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- ⚡ Preconnect to API -->
+    <link rel="preconnect" href="https://script.google.com" />
+    <link rel="dns-prefetch" href="https://script.googleusercontent.com" />
+
     <title>Service FMS</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+
+    <!-- ⚡ Register Service Worker for offline support -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(() => {
+          // Service worker registration failed, app still works online
+        });
+      }
+    </script>
   </body>
 </html>

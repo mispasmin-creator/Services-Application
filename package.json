@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "build": "vite build",
+    "build": "vite build --minify terser --emptyOutDir",
+    "build:analyze": "vite build --minify terser --sourcemap",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "type-check": "echo 'App ready'"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",
@@ -33,6 +35,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "terser": "^5.51.2",
     "vite": "^8.0.12"
   }
 }

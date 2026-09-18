@@ -4,6 +4,44 @@ import { nowDateTime, formatDate } from '../lib/utils';
 
 const apiUrl = import.meta.env.VITE_APPSCRIPT_URL || 'https://script.google.com/macros/s/AKfycbxH_TMsqQkK3XpPUR4-999K7Q0R-P0WNd0rc1vL9b_KYMFB2xMN6VDP6vXqaNw4Kk3b/exec';
 
+// ⚡ Request deduplication — prevents duplicate parallel requests
+const requestCache = new Map();
+const requestTimestamps = new Map();
+const CACHE_TTL = 30000; // 30 seconds
+
+const getCacheKey = (url, method) => `${method}:${url}`;
+
+const cachedFetch = async (url, options = {}, cacheTTL = CACHE_TTL) => {
+  const method = options.method || 'GET';
+  const key = getCacheKey(url, method);
+
+  // Return cached result if still fresh
+  const cached = requestCache.get(key);
+  const timestamp = requestTimestamps.get(key);
+  if (cached && timestamp && Date.now() - timestamp < cacheTTL) {
+    return cached;
+  }
+
+  // If request already in flight, wait for it
+  if (requestCache.has(key) && typeof requestCache.get(key).then === 'function') {
+    return requestCache.get(key);
+  }
+
+  // Execute new request
+  const promise = fetch(url, options).then(r => r.json());
+  requestCache.set(key, promise);
+
+  promise.then(data => {
+    requestCache.set(key, data);
+    requestTimestamps.set(key, Date.now());
+  }).catch(() => {
+    requestCache.delete(key);
+    requestTimestamps.delete(key);
+  });
+
+  return promise;
+};
+
 const getServiceStatus = (s) => {
   if (s.status5 === 'Completed' || s.actual5) return 'Completed';
   if (s.status4 === 'Completed' || s.status4 === 'Paid' || s.actual4 || (s.actual2 && !s.planned2)) return 'Tally Pending';
@@ -28,10 +66,15 @@ const findHeaderRow = (data, knownCol) => {
 // Format a value to MM/dd/yyyy HH:mm:ss
 const formatSheetDate = (val) => formatDate(val);
 
-// Robust fetch with retry and exponential backoff to handle Google Apps Script connection drops/throttling
-const fetchJsonWithRetry = async (url, options = {}, retries = 3, delay = 150) => {
+// ⚡ Robust fetch with retry, timeout, and exponential backoff
+const fetchJsonWithRetry = async (url, options = {}, retries = 2, delay = 50) => {
   try {
-    const res = await fetch(url, options);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000); // 8 second timeout per attempt
+
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeout);
+
     if (!res.ok) {
       throw new Error(`HTTP error! Status: ${res.status}`);
     }
@@ -41,10 +84,11 @@ const fetchJsonWithRetry = async (url, options = {}, retries = 3, delay = 150) =
     }
     return data;
   } catch (err) {
-    if (retries > 0) {
-      console.warn(`Fetch failed for ${url}, retrying in ${delay}ms... (${retries} retries left). Error: ${err.message}`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return fetchJsonWithRetry(url, options, retries - 1, delay * 1.5);
+    if (retries > 0 && err.name !== 'AbortError') {
+      const backoffDelay = Math.min(delay * Math.pow(2, 2 - retries), 500); // Cap at 500ms
+      console.warn(`Fetch failed for ${url}, retrying in ${backoffDelay}ms... (${retries} retries left). Error: ${err.message}`);
+      await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      return fetchJsonWithRetry(url, options, retries - 1, delay);
     }
     throw err;
   }
@@ -112,8 +156,18 @@ const useDataStore = create((set, get) => ({
   loading: false,
   isFetchingInBackground: false,
   error: null,
+  lastFetchTime: 0, // ⚡ Track last fetch to skip redundant calls
+  fetchDebounceTimer: null, // ⚡ Debounce timer
 
   fetchData: async () => {
+    const now = Date.now();
+    const timeSinceLastFetch = now - get().lastFetchTime;
+
+    // ⚡ Skip if fetched within last 15 seconds (unless forced)
+    if (timeSinceLastFetch < 15000 && get().isFetchingInBackground) {
+      return;
+    }
+
     if (get().isFetchingInBackground) {
       console.log("fetchData call ignored - fetch already in progress");
       return;
@@ -434,14 +488,14 @@ const useDataStore = create((set, get) => ({
         });
       }
 
-      set({ 
-        offers, 
+      set({
+        offers,
         allOffers,
-        services, 
-        utilities, 
-        offerHeaders, 
-        serviceHeaders, 
-        utilityHeaders, 
+        services,
+        utilities,
+        offerHeaders,
+        serviceHeaders,
+        utilityHeaders,
         departments,
         groupHeads,
         firms,
@@ -449,7 +503,8 @@ const useDataStore = create((set, get) => ({
         serviceLocations,
         globalMaxServiceId,
         loading: false,
-        isFetchingInBackground: false 
+        isFetchingInBackground: false,
+        lastFetchTime: Date.now() // ⚡ Track successful fetch time
       });
 
       // Save to localStorage cache for 0ms initial load next time
@@ -471,7 +526,7 @@ const useDataStore = create((set, get) => ({
     }
   },
 
-  saveRow: async (sheetName, action, rowIndex, rowDataArray, retries = 3) => {
+  saveRow: async (sheetName, action, rowIndex, rowDataArray, retries = 2) => {
     // CRITICAL: Never auto-retry an 'insert' action!
     // When an insert call times out or returns an HTML redirect from Google Apps Script,
     // the row is usually already appended to the sheet. Retrying appends duplicate rows.
@@ -486,13 +541,20 @@ const useDataStore = create((set, get) => ({
     params.append('rowData', JSON.stringify(rowDataArray));
 
     try {
+      // ⚡ Add request timeout (10 seconds max)
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         body: params,
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
+
       const text = await response.text();
       let data;
       try {
@@ -511,16 +573,17 @@ const useDataStore = create((set, get) => ({
       }
       return data;
     } catch (err) {
-      if (effectiveRetries > 0) {
-        console.warn(`saveRow failed for ${sheetName} ${action}, retrying in 300ms... (${effectiveRetries} left). Error: ${err.message}`);
-        await new Promise(resolve => setTimeout(resolve, 300));
+      if (effectiveRetries > 0 && err.name !== 'AbortError') {
+        const delay = Math.min(50 * Math.pow(1.5, 2 - effectiveRetries), 200);
+        console.warn(`saveRow failed for ${sheetName} ${action}, retrying in ${delay}ms... (${effectiveRetries} left). Error: ${err.message}`);
+        await new Promise(resolve => setTimeout(resolve, delay));
         return get().saveRow(sheetName, action, rowIndex, rowDataArray, effectiveRetries - 1);
       }
       throw err;
     }
   },
 
-  saveCell: async (sheetName, rowIndex, columnIndex, value, retries = 3) => {
+  saveCell: async (sheetName, rowIndex, columnIndex, value, retries = 1) => {
     const params = new URLSearchParams();
     params.append('sheetName', sheetName);
     params.append('action', 'updateCell');
@@ -529,13 +592,20 @@ const useDataStore = create((set, get) => ({
     params.append('value', value !== undefined && value !== null ? String(value) : '');
 
     try {
+      // ⚡ Add request timeout (5 seconds max)
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         body: params,
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
+
       const text = await response.text();
       let data;
       try {
@@ -548,9 +618,9 @@ const useDataStore = create((set, get) => ({
       }
       return data;
     } catch (err) {
-      if (retries > 0) {
-        console.warn(`saveCell failed for ${sheetName} row ${rowIndex} col ${columnIndex}, retrying in 300ms... (${retries} left). Error: ${err.message}`);
-        await new Promise(resolve => setTimeout(resolve, 300));
+      if (retries > 0 && err.name !== 'AbortError') {
+        console.warn(`saveCell failed for ${sheetName} row ${rowIndex} col ${columnIndex}, retrying in 50ms... (${retries} left). Error: ${err.message}`);
+        await new Promise(resolve => setTimeout(resolve, 50));
         return get().saveCell(sheetName, rowIndex, columnIndex, value, retries - 1);
       }
       throw err;
@@ -854,9 +924,8 @@ const useDataStore = create((set, get) => ({
 
     if (updatesToMake.length === 0) return { success: true };
 
-    for (const u of updatesToMake) {
-      await get().saveCell('SERVICE', rowIndex, u.col, u.val);
-    }
+    // ⚡ PARALLEL execution: All cells update at once, not one-by-one
+    await Promise.all(updatesToMake.map(u => get().saveCell('SERVICE', rowIndex, u.col, u.val)));
 
     // Background refetch — UI already updated optimistically above
     get().fetchData();
@@ -1069,9 +1138,8 @@ const useDataStore = create((set, get) => ({
 
     if (updatesToMake.length === 0) return { success: true };
 
-    for (const u of updatesToMake) {
-      await get().saveCell('UTILITY', rowIndex, u.col, u.val);
-    }
+    // ⚡ PARALLEL execution: All cells update at once, not one-by-one
+    await Promise.all(updatesToMake.map(u => get().saveCell('UTILITY', rowIndex, u.col, u.val)));
 
     // Background refetch — UI already updated optimistically above
     get().fetchData();

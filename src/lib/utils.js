@@ -92,6 +92,12 @@ export function formatDateForSubmit(isoDate) {
 export function getDriveViewUrl(url) {
   if (!url || typeof url !== 'string') return url;
 
+  // If it's a deprecated script.googleusercontent.com URL, it's broken — return empty
+  if (url.includes('script.googleusercontent.com') || url.includes('macros/echo')) {
+    console.error('Broken deprecated Google Apps Script URL detected:', url);
+    return '';
+  }
+
   // If it's already in /file/d/ID/view format
   const fileDMatch = url.match(/\/file\/d\/([^\/\?#]+)/);
   if (fileDMatch && fileDMatch[1]) {
@@ -112,27 +118,17 @@ export async function uploadFileToDrive(file) {
     const reader = new FileReader();
     reader.onload = async () => {
       try {
-        const base64Data = reader.result.split(',')[1];
-        const params = new URLSearchParams();
-        params.append('action', 'uploadFile');
-        params.append('fileName', file.name);
-        params.append('mimeType', file.type || 'application/octet-stream');
-        params.append('base64Data', base64Data);
+        // ⚡ Skip canvas compression for PDFs, just upload directly
+        const shouldCompress = file.type && file.type.startsWith('image/') && file.type !== 'image/svg+xml';
 
-        const apiUrl = import.meta.env.VITE_APPSCRIPT_URL || 'https://script.google.com/macros/s/AKfycbxH_TMsqQkK3XpPUR4-999K7Q0R-P0WNd0rc1vL9b_KYMFB2xMN6VDP6vXqaNw4Kk3b/exec';
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          body: params,
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        });
-
-        const result = await response.json();
-        if (result.success) {
-          resolve(getDriveViewUrl(result.fileUrl));
+        if (shouldCompress && file.size > 2 * 1024 * 1024) {
+          // Compress large images to reduce upload time
+          compressImage(file, (compressedBase64) => {
+            sendUpload(compressedBase64, file.name, file.type, resolve, reject);
+          }, reject);
         } else {
-          reject(new Error(result.error || result.message || 'Upload failed'));
+          const base64Data = reader.result.split(',')[1];
+          sendUpload(base64Data, file.name, file.type, resolve, reject);
         }
       } catch (error) {
         reject(error);
@@ -141,5 +137,79 @@ export async function uploadFileToDrive(file) {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+}
+
+// ⚡ Helper: Compress image before upload
+function compressImage(file, onSuccess, onError) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const maxWidth = 1920;
+      const maxHeight = 1080;
+      let { width, height } = img;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+      onSuccess(compressedBase64);
+    };
+    img.onerror = () => onError(new Error('Image compression failed'));
+    img.src = e.target.result;
+  };
+  reader.onerror = () => onError(reader.error);
+  reader.readAsDataURL(file);
+}
+
+// ⚡ Helper: Send upload to server
+async function sendUpload(base64Data, fileName, mimeType, resolve, reject) {
+  try {
+    const params = new URLSearchParams();
+    params.append('action', 'uploadFile');
+    params.append('fileName', fileName);
+    params.append('mimeType', mimeType || 'application/octet-stream');
+    params.append('base64Data', base64Data);
+
+    const apiUrl = import.meta.env.VITE_APPSCRIPT_URL || 'https://script.google.com/macros/s/AKfycbxH_TMsqQkK3XpPUR4-999K7Q0R-P0WNd0rc1vL9b_KYMFB2xMN6VDP6vXqaNw4Kk3b/exec';
+
+    // ⚡ Add upload timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      body: params,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    const result = await response.json();
+    if (result.success) {
+      resolve(getDriveViewUrl(result.fileUrl));
+    } else {
+      reject(new Error(result.error || result.message || 'Upload failed'));
+    }
+  } catch (error) {
+    reject(error);
+  }
 }
 

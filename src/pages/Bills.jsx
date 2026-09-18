@@ -34,7 +34,7 @@ const Bills = () => {
   // ── Upload Bill modal ────────────────────────────────────────────
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedForUpload, setSelectedForUpload] = useState(null);
-  const [billForm, setBillForm] = useState({ billNo: '', billCopy: '' });
+  const [billForm, setBillForm] = useState({ billNo: '', billCopy: '', billType: 'independent' });
   const [uploadedFile, setUploadedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -43,7 +43,7 @@ const Bills = () => {
 
   const openUploadModal = (s) => {
     setSelectedForUpload(s);
-    setBillForm({ billNo: s.billNo || '', billCopy: s.billCopy || '' });
+    setBillForm({ billNo: s.billNo || '', billCopy: s.billCopy || '', billType: 'independent' });
     setUploadedFile(s.billCopy ? { name: 'Current Bill Copy', url: s.billCopy } : null);
     setUploadError('');
     setIsUploadModalOpen(true);
@@ -56,10 +56,20 @@ const Bills = () => {
     setUploadError('');
     try {
       const url = await uploadFileToDrive(file);
+
+      // Validate URL — reject broken/deprecated Google URLs
+      if (!url || url.includes('script.googleusercontent.com') || url.includes('macros/echo')) {
+        throw new Error('Upload failed: Invalid file URL. Apps Script needs re-deployment. Contact admin.');
+      }
+      if (!url.includes('drive.google.com')) {
+        throw new Error('Upload failed: Unexpected URL format. Expected Google Drive URL.');
+      }
+
       setUploadedFile({ name: file.name, url });
       setBillForm(prev => ({ ...prev, billCopy: url }));
     } catch (err) {
       setUploadError('Upload error: ' + err.message);
+      console.error('File upload error:', err);
     } finally {
       setIsUploading(false);
     }
@@ -71,17 +81,20 @@ const Bills = () => {
       alert('Please wait for the bill copy to finish uploading.');
       return;
     }
-    if (!billForm.billCopy || !billForm.billCopy.trim()) {
-      setUploadError('Bill copy upload karna mandatory hai.');
-      alert('Please upload the bill copy. Bill copy upload karna mandatory hai.');
+
+    // ⚡ For "Independent" bill type, bill copy is mandatory
+    if (billForm.billType === 'independent' && (!billForm.billCopy || !billForm.billCopy.trim())) {
+      setUploadError('Bill copy upload karna mandatory hai (Independent bills ke liye).');
+      alert('Please upload the bill copy for Independent bills.');
       return;
     }
+
     setIsSaving(true);
     try {
       await updateService(selectedForUpload.sheetRowIndex, {
         actual1: nowDateTime(),
         billNo: billForm.billNo,
-        billCopy: billForm.billCopy,
+        billCopy: billForm.billCopy || '',
       });
       setIsUploadModalOpen(false);
     } catch (err) {
@@ -371,6 +384,21 @@ const Bills = () => {
                 </div>
               </div>
 
+              {/* ⚡ Type of Bill Dropdown */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 uppercase">Type of Bill</label>
+                <select disabled={isSaving}
+                  value={billForm.billType}
+                  onChange={(e) => setBillForm(prev => ({ ...prev, billType: e.target.value }))}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all cursor-pointer">
+                  <option value="independent">Independent</option>
+                  <option value="common">Common</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {billForm.billType === 'independent' ? '📄 Independent bills require bill copy upload' : '🔗 Common bills do not require bill copy'}
+                </p>
+              </div>
+
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-700 uppercase">Bill No.</label>
                 <input disabled={isSaving} type="text" placeholder="e.g. TAX/2026/099"
@@ -379,6 +407,8 @@ const Bills = () => {
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 transition-all" />
               </div>
 
+              {/* ⚡ Show Bill Copy upload only for Independent bills */}
+              {billForm.billType === 'independent' && (
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-700 uppercase">
                   Bill Copy <span className="text-rose-500">*</span>
@@ -403,6 +433,7 @@ const Bills = () => {
                 )}
                 {uploadError && <p className="text-xs text-red-500 font-medium">{uploadError}</p>}
               </div>
+              )}
 
               <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
                 <button type="button" disabled={isSaving} onClick={() => setIsUploadModalOpen(false)}
