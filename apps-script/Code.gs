@@ -382,3 +382,4 @@ function uploadFileToDrive(base64Data, fileName, mimeType, folderId) {
         return null;
     }
 }
+ 
