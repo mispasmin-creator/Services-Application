@@ -59,10 +59,10 @@ const Bills = () => {
 
       // Validate URL — reject broken/deprecated Google URLs
       if (!url || url.includes('script.googleusercontent.com') || url.includes('macros/echo')) {
-        throw new Error('Upload failed: Invalid file URL. Apps Script needs re-deployment. Contact admin.');
+        throw new Error('Upload failed: Invalid file URL.');
       }
-      if (!url.includes('drive.google.com')) {
-        throw new Error('Upload failed: Unexpected URL format. Expected Google Drive URL.');
+      if (!url.includes('supabase.co') && !url.includes('drive.google.com')) {
+        throw new Error('Upload failed: Unexpected URL format. Expected Supabase or Drive URL.');
       }
 
       setUploadedFile({ name: file.name, url });

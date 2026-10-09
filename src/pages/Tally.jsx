@@ -3,10 +3,33 @@ import {
   Search, Database, Loader2, CheckCircle2,
   Wrench, Zap, X, BookOpen, ShieldCheck,
   ShieldAlert, AlertTriangle, AlertCircle,
-  ExternalLink, Eye, CheckSquare, RefreshCw
+  ExternalLink, Eye, CheckSquare, RefreshCw, Upload
 } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, nowDateTime, getDriveViewUrl, formatDateForSubmit, formatDate } from '../lib/utils';
+import { cn, formatCurrency, nowDateTime, getDriveViewUrl, formatDateForSubmit, formatDate, uploadFileToDrive } from '../lib/utils';
+
+const FIX_FIELDS = [
+  { key: 'billNo', label: 'Bill No', kind: 'text' },
+  { key: 'amount', label: 'Total Amount', kind: 'number' },
+  { key: 'tdsAmount', label: 'TDS Amount', kind: 'number' },
+  { key: 'vendor', label: 'Vendor', kind: 'text' },
+  { key: 'location', label: 'Location', kind: 'text' },
+  { key: 'description', label: 'Work Description', kind: 'text', wide: true },
+  { key: 'remark', label: 'Remark', kind: 'text', wide: true },
+];
+
+const buildFixForm = (item) => ({
+  billNo: item?.billNo || '',
+  billCopy: item?.billCopy || '',
+  amount: item?.amount ?? '',
+  tdsAmount: item?.tdsAmount ?? '',
+  vendor: item?.vendor || '',
+  location: item?.location || '',
+  description: item?.description || '',
+  remark: item?.remark || '',
+});
+
+const clip = (s, n = 40) => (String(s).length > n ? `${String(s).slice(0, n)}...` : String(s));
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs, isViewOnly } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
@@ -36,6 +59,12 @@ const Tally = () => {
   const [tallyVoucher, setTallyVoucher] = useState('');
   const [tallyDate, setTallyDate] = useState('');
   const [tallyRemarks, setTallyRemarks] = useState('');
+  const [fixForm, setFixForm] = useState(buildFixForm(null));
+  const [showFixDetails, setShowFixDetails] = useState(false);
+  const [fixUploading, setFixUploading] = useState(false);
+  const [fixUploadError, setFixUploadError] = useState('');
+  const [fixFileName, setFixFileName] = useState('');
+  const fixFileInputRef = useRef(null);
 
   // Show services where bill has been uploaded (same as Bills → History)
   const serviceTally = services
@@ -154,7 +183,34 @@ const Tally = () => {
   const openRectifyModal = (item) => {
     setSelectedItem(item);
     setResolutionNote('');
+    setFixForm(buildFixForm(item));
+    setShowFixDetails(false);
+    setFixUploadError('');
+    setFixFileName('');
     setIsRectifyModalOpen(true);
+  };
+
+  const handleFixFileUpload = async (file) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { setFixUploadError('File too large. Max 10MB.'); return; }
+    setFixUploading(true);
+    setFixUploadError('');
+    try {
+      const url = await uploadFileToDrive(file);
+      if (!url || url.includes('script.googleusercontent.com') || url.includes('macros/echo')) {
+        throw new Error('Invalid file URL.');
+      }
+      if (!url.includes('supabase.co') && !url.includes('drive.google.com')) {
+        throw new Error('Unexpected URL format.');
+      }
+      setFixForm(prev => ({ ...prev, billCopy: url }));
+      setFixFileName(file.name);
+    } catch (err) {
+      setFixUploadError('Upload error: ' + err.message);
+    } finally {
+      setFixUploading(false);
+      if (fixFileInputRef.current) fixFileInputRef.current.value = '';
+    }
   };
 
   const openTallyModal = (item) => {
@@ -186,12 +242,50 @@ const Tally = () => {
 
   const handleRectifySubmit = async (e) => {
     e.preventDefault();
+    if (fixUploading) return;
+
+    const changedFields = {};
+    const changeLabels = [];
+    for (const f of FIX_FIELDS) {
+      if (f.kind === 'number') {
+        const next = fixForm[f.key] === '' ? 0 : Number(fixForm[f.key]);
+        if (!Number.isFinite(next) || next < 0) {
+          alert(`${f.label} must be a valid non-negative number.`);
+          return;
+        }
+        const prev = Number(selectedItem?.[f.key] || 0);
+        if (next !== prev) {
+          changedFields[f.key] = next;
+          changeLabels.push(`${f.label} ${prev} → ${next}`);
+        }
+      } else {
+        const next = String(fixForm[f.key] ?? '').trim();
+        const prev = String(selectedItem?.[f.key] ?? '').trim();
+        if (next !== prev) {
+          changedFields[f.key] = next;
+          changeLabels.push(`${f.label}: ${clip(prev || '-')} → ${clip(next || '-')}`);
+        }
+      }
+    }
+    if ((fixForm.billCopy || '') !== (selectedItem?.billCopy || '')) {
+      changedFields.billCopy = fixForm.billCopy || '';
+      changeLabels.push('Bill Copy updated');
+    }
+    const finalAmount = 'amount' in changedFields ? changedFields.amount : Number(selectedItem?.amount || 0);
+    const finalTds = 'tdsAmount' in changedFields ? changedFields.tdsAmount : Number(selectedItem?.tdsAmount || 0);
+    if (finalTds > finalAmount) {
+      alert('TDS Amount cannot be greater than Total Amount.');
+      return;
+    }
+
     setIsRectifyModalOpen(false);
     setIsSaving(true);
     try {
-      const remarksText = resolutionNote ? `Rectified: ${resolutionNote}` : 'Rectified and approved';
+      let remarksText = resolutionNote ? `Rectified: ${resolutionNote}` : 'Rectified and approved';
+      if (changeLabels.length > 0) remarksText += ` | Changed: ${changeLabels.join(', ')}`;
       if (selectedItem?.type === 'Service') {
         await updateService(selectedItem.sheetRowIndex, {
+          ...changedFields,
           actual4: nowDateTime(),
           status4: 'Audited',
           remarks4: remarksText
@@ -638,7 +732,7 @@ const Tally = () => {
       {/* 2. RECTIFY SUBMIT RESOLUTION MODAL */}
       {isRectifyModalOpen && selectedItem && (
         <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-gray-100">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100">
             <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-gray-800 flex items-center gap-1.5">
@@ -680,6 +774,70 @@ const Tally = () => {
                 </div>
               </div>
 
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowFixDetails(v => !v)}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 bg-gray-50 hover:bg-gray-100 text-xs font-bold text-gray-700 uppercase tracking-wider"
+                >
+                  <span>Fix Details (optional)</span>
+                  <span className="text-gray-400">{showFixDetails ? 'Hide' : 'Show'}</span>
+                </button>
+                {showFixDetails && (
+                  <div className="p-3.5 space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-gray-500 uppercase">Bill Copy</label>
+                      <input
+                        ref={fixFileInputRef}
+                        type="file"
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                        className="hidden"
+                        onChange={(e) => handleFixFileUpload(e.target.files?.[0])}
+                      />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          disabled={isSaving || fixUploading || viewOnly}
+                          onClick={() => fixFileInputRef.current?.click()}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-xs font-semibold text-gray-700 disabled:opacity-50"
+                        >
+                          {fixUploading ? <Loader2 className="animate-spin" size={13} /> : <Upload size={13} />}
+                          <span>{fixUploading ? 'Uploading...' : 'Upload new bill'}</span>
+                        </button>
+                        {fixFileName && <span className="text-xs text-emerald-700 font-semibold">New: {fixFileName}</span>}
+                        {fixForm.billCopy && (
+                          <a href={getDriveViewUrl(fixForm.billCopy)} target="_blank" rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline font-semibold">
+                            <ExternalLink size={12} /><span>View current</span>
+                          </a>
+                        )}
+                      </div>
+                      {fixUploadError && <p className="text-xs text-rose-600 font-semibold">{fixUploadError}</p>}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {FIX_FIELDS.map(f => (
+                        <div key={f.key} className={cn('space-y-1', f.wide && 'col-span-2')}>
+                          <label className="text-[10px] font-bold text-gray-500 uppercase">{f.label}</label>
+                          <input
+                            type={f.kind === 'number' ? 'number' : 'text'}
+                            min={f.kind === 'number' ? 0 : undefined}
+                            step={f.kind === 'number' ? 'any' : undefined}
+                            disabled={isSaving || viewOnly}
+                            value={fixForm[f.key]}
+                            onChange={(e) => setFixForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                            className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-gray-400">
+                      Net Amount after fix: <span className="font-bold text-emerald-700">{formatCurrency((Number(fixForm.amount) || 0) - (Number(fixForm.tdsAmount) || 0))}</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Resolution Notes Input */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-700 uppercase">Resolution Notes / Action Taken</label>
@@ -706,8 +864,8 @@ const Tally = () => {
                 {!viewOnly && (
                   <button
                     type="submit"
-                    disabled={isSaving}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-rose-600/10"
+                    disabled={isSaving || fixUploading}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-semibold shadow-lg shadow-rose-600/10 disabled:opacity-60"
                   >
                     {isSaving ? (
                       <>

@@ -1,5 +1,13 @@
 import { clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { supabase as defaultSupabase } from './supabase'
+import { createClient } from '@supabase/supabase-js'
+
+// Fallback secondary client for shared Supabase storage (lift-bills / image bucket)
+const fallbackSupabase = createClient(
+  'https://jcgmyvxcamstnhuwmemc.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjZ215dnhjYW1zdG5odXdtZW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwMDgyODAsImV4cCI6MjA4NTU4NDI4MH0.wMKYEcXGOgrRwy7DKBlBz-a_mWhAuZaknG_iXYvKLLo'
+);
 
 export function cn(...inputs) {
   return twMerge(clsx(inputs))
@@ -92,6 +100,11 @@ export function formatDateForSubmit(isoDate) {
 export function getDriveViewUrl(url) {
   if (!url || typeof url !== 'string') return url;
 
+  // Supabase storage URLs - return directly as is
+  if (url.includes('supabase.co')) {
+    return url;
+  }
+
   // If it's a deprecated script.googleusercontent.com URL, it's broken — return empty
   if (url.includes('script.googleusercontent.com') || url.includes('macros/echo')) {
     console.error('Broken deprecated Google Apps Script URL detected:', url);
@@ -113,103 +126,118 @@ export function getDriveViewUrl(url) {
   return url;
 }
 
-export async function uploadFileToDrive(file) {
+/**
+ * Upload file to Supabase Storage
+ * Prioritizes 'images' bucket, then 'image' bucket on project, then shared bucket.
+ */
+export async function uploadFileToStorage(file, folder = 'lift-bills') {
+  if (!file) throw new Error('No file provided for upload');
+
+  const timestamp = Date.now();
+  const fileExt = (file.name && file.name.includes('.'))
+    ? file.name.split('.').pop()
+    : (file.type && file.type.includes('/') ? file.type.split('/')[1] : 'pdf');
+  const randomSuffix = Math.random().toString(36).substring(7);
+  const fileName = `${timestamp}_${randomSuffix}.${fileExt}`;
+  const filePath = folder ? `${folder}/${fileName}` : fileName;
+
+  const fileBuffer = await file.arrayBuffer();
+  const contentType = file.type || 'application/octet-stream';
+
+  // Candidate targets in priority order:
+  // 1. App's Supabase (vivzinohfkyqwxwzpuuy) -> bucket 'images'
+  // 2. App's Supabase -> bucket 'image'
+  // 3. Shared Supabase (jcgmyvxcamstnhuwmemc) -> bucket 'images'
+  // 4. Shared Supabase -> bucket 'image' (currently active & tested)
+  const candidates = [
+    { client: defaultSupabase, bucket: 'images', name: 'app:images' },
+    { client: defaultSupabase, bucket: 'image',  name: 'app:image' },
+    { client: fallbackSupabase, bucket: 'images', name: 'shared:images' },
+    { client: fallbackSupabase, bucket: 'image',  name: 'shared:image' },
+  ];
+
+  let lastError = null;
+  for (const candidate of candidates) {
+    if (!candidate.client) continue;
+    try {
+      const { data, error } = await candidate.client.storage
+        .from(candidate.bucket)
+        .upload(filePath, fileBuffer, {
+          contentType,
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (!error && data) {
+        const { data: { publicUrl } } = candidate.client.storage
+          .from(candidate.bucket)
+          .getPublicUrl(filePath);
+
+        return { url: publicUrl, path: filePath };
+      }
+
+      lastError = error;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  // Fallback: If Supabase fails, try legacy Apps Script Google Drive upload
+  try {
+    const legacyUrl = await uploadLegacyDrive(file);
+    return { url: legacyUrl, path: '' };
+  } catch (driveErr) {
+    throw new Error(`Upload failed: ${lastError?.message || driveErr.message}`);
+  }
+}
+
+/**
+ * Backwards-compatible uploadFileToDrive that returns public URL string
+ */
+export async function uploadFileToDrive(file, folder = 'lift-bills') {
+  const result = await uploadFileToStorage(file, folder);
+  return result.url;
+}
+
+// ⚡ Legacy fallback helper: Base64 Apps Script upload
+async function uploadLegacyDrive(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = async () => {
       try {
-        // ⚡ Skip canvas compression for PDFs, just upload directly
-        const shouldCompress = file.type && file.type.startsWith('image/') && file.type !== 'image/svg+xml';
+        const base64Data = reader.result.split(',')[1];
+        const params = new URLSearchParams();
+        params.append('action', 'uploadFile');
+        params.append('fileName', file.name || 'file');
+        params.append('mimeType', file.type || 'application/octet-stream');
+        params.append('base64Data', base64Data);
 
-        if (shouldCompress && file.size > 2 * 1024 * 1024) {
-          // Compress large images to reduce upload time
-          compressImage(file, (compressedBase64) => {
-            sendUpload(compressedBase64, file.name, file.type, resolve, reject);
-          }, reject);
+        const apiUrl = import.meta.env.VITE_APPSCRIPT_URL;
+        if (!apiUrl) throw new Error('No Apps Script URL configured');
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          body: params,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        const result = await response.json();
+        if (result.success) {
+          resolve(getDriveViewUrl(result.fileUrl));
         } else {
-          const base64Data = reader.result.split(',')[1];
-          sendUpload(base64Data, file.name, file.type, resolve, reject);
+          reject(new Error(result.error || result.message || 'Legacy upload failed'));
         }
-      } catch (error) {
-        reject(error);
+      } catch (e) {
+        reject(e);
       }
     };
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
-}
-
-// ⚡ Helper: Compress image before upload
-function compressImage(file, onSuccess, onError) {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const maxWidth = 1920;
-      const maxHeight = 1080;
-      let { width, height } = img;
-
-      if (width > height) {
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        }
-      } else {
-        if (height > maxHeight) {
-          width = Math.round((width * maxHeight) / height);
-          height = maxHeight;
-        }
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-
-      const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
-      onSuccess(compressedBase64);
-    };
-    img.onerror = () => onError(new Error('Image compression failed'));
-    img.src = e.target.result;
-  };
-  reader.onerror = () => onError(reader.error);
-  reader.readAsDataURL(file);
-}
-
-// ⚡ Helper: Send upload to server
-async function sendUpload(base64Data, fileName, mimeType, resolve, reject) {
-  try {
-    const params = new URLSearchParams();
-    params.append('action', 'uploadFile');
-    params.append('fileName', fileName);
-    params.append('mimeType', mimeType || 'application/octet-stream');
-    params.append('base64Data', base64Data);
-
-    const apiUrl = import.meta.env.VITE_APPSCRIPT_URL || 'https://script.google.com/macros/s/AKfycbxH_TMsqQkK3XpPUR4-999K7Q0R-P0WNd0rc1vL9b_KYMFB2xMN6VDP6vXqaNw4Kk3b/exec';
-
-    // ⚡ Add upload timeout
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      body: params,
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    const result = await response.json();
-    if (result.success) {
-      resolve(getDriveViewUrl(result.fileUrl));
-    } else {
-      reject(new Error(result.error || result.message || 'Upload failed'));
-    }
-  } catch (error) {
-    reject(error);
-  }
 }
 

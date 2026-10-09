@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, User, Eye, EyeOff } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const LogoMark = ({ size = 48 }) => (
   <img src="/logo.png" alt="logo" width={size} height={size} style={{ objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
@@ -17,48 +18,39 @@ const Login = ({ onLogin }) => {
     setIsLoading(true);
     setError('');
     try {
-      const apiUrl = import.meta.env.VITE_APPSCRIPT_URL || 'https://script.google.com/macros/s/AKfycbxH_TMsqQkK3XpPUR4-999K7Q0R-P0WNd0rc1vL9b_KYMFB2xMN6VDP6vXqaNw4Kk3b/exec';
-      const response = await fetch(`${apiUrl}?sheet=Login`);
-      const result = await response.json();
+      // 🔵 Supabase Login — srv_login function
+      const { data, error: rpcError } = await supabase.rpc('srv_login', {
+        p_username: username.trim(),
+        p_password: password,
+      });
 
-      if (!result.success || !result.data || result.data.length < 2)
-        throw new Error('Invalid response or empty database.');
+      if (rpcError) throw new Error(rpcError.message);
 
-      const headers     = result.data[0];
-      const nameIdx     = headers.indexOf('Name');
-      const usernameIdx = headers.indexOf('Username');
-      const passwordIdx = headers.indexOf('Password');
-      const roleIdx     = headers.indexOf('Role');
-      const firmNameIdx = headers.indexOf('Firm Name');
-      const pagesIdx    = headers.indexOf('Pages');
-      const tabsIdx     = headers.indexOf('Tabs');
+      const user = Array.isArray(data) ? data[0] : data;
+      if (!user) throw new Error('invalid_credentials');
 
-      if (usernameIdx === -1 || passwordIdx === -1)
-        throw new Error('Database missing Username or Password column.');
-
-      const matchedRow = result.data.slice(1).find(r =>
-        String(r[usernameIdx]) === username && String(r[passwordIdx]) === password
-      );
-
-      if (matchedRow) {
-        onLogin({
-          name:     nameIdx !== -1     ? matchedRow[nameIdx]     : username,
-          username: matchedRow[usernameIdx],
-          role:     roleIdx !== -1     ? matchedRow[roleIdx]     : 'User',
-          firmName: firmNameIdx !== -1 ? matchedRow[firmNameIdx] : '',
-          pages:    pagesIdx !== -1    ? matchedRow[pagesIdx]    : 'All',
-          tabs:     tabsIdx !== -1     ? matchedRow[tabsIdx]     : 'All',
-          email:    `${matchedRow[usernameIdx]}@servicefms.com`,
-        });
-      } else {
-        setError('Invalid username or password. Please try again.');
-      }
+      onLogin({
+        name:     user.name     || username,
+        username: user.username || username,
+        role:     user.role     || 'User',
+        firmName: user.firm_name || '',
+        pages:    user.pages    || 'All',
+        tabs:     user.tabs     || 'All',
+        email:    `${user.username || username}@servicefms.com`,
+      });
+      return; // success — baaki code skip
     } catch (err) {
-      setError('Connection failed. Please check your network and try again.');
+      if (err.message === 'invalid_credentials') {
+        setError('Invalid username or password. Please try again.');
+      } else {
+        console.error('[Login]', err.message);
+        setError('Connection failed. Please check your network and try again.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4 bg-transparent overflow-hidden">

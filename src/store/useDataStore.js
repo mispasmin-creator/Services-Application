@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import useAuthStore from './useAuthStore';
 import { nowDateTime, formatDate } from '../lib/utils';
+import { supabase } from '../lib/supabase';
 
 const apiUrl = import.meta.env.VITE_APPSCRIPT_URL || 'https://script.google.com/macros/s/AKfycbxH_TMsqQkK3XpPUR4-999K7Q0R-P0WNd0rc1vL9b_KYMFB2xMN6VDP6vXqaNw4Kk3b/exec';
+
 
 // ⚡ Request deduplication — prevents duplicate parallel requests
 const requestCache = new Map();
@@ -163,313 +165,220 @@ const useDataStore = create((set, get) => ({
   lastFetchTime: 0, // ⚡ Track last fetch to skip redundant calls
   fetchDebounceTimer: null, // ⚡ Debounce timer
 
-  fetchData: async () => {
+  fetchData: async (force = false) => {
     const now = Date.now();
     const timeSinceLastFetch = now - get().lastFetchTime;
 
-    // ⚡ Skip if fetched within last 15 seconds (unless forced)
-    if (timeSinceLastFetch < 15000 && get().isFetchingInBackground) {
+    // ⚡ Skip only if NOT forced AND fetched within last 15 sec AND already fetching
+    if (!force && timeSinceLastFetch < 15000 && get().isFetchingInBackground) {
       return;
     }
 
-    if (get().isFetchingInBackground) {
-      console.log("fetchData call ignored - fetch already in progress");
+    if (!force && get().isFetchingInBackground) {
+      console.log('fetchData call ignored - fetch already in progress');
       return;
     }
 
     const hasExistingData = get().offers.length > 0 || get().services.length > 0 || get().utilities.length > 0;
 
-    // Only set loading to true if we have zero data loaded anywhere
     if (!hasExistingData) {
       set({ loading: true, error: null });
     }
     set({ isFetchingInBackground: true });
 
     try {
-      // Fetch all sheets in PARALLEL — dramatically faster than sequential (was 12-20s, now 2-5s)
-      const [offersResult, servicesResult, utilitiesResult, masterResult] = await Promise.allSettled([
-        fetchJsonWithRetry(`${apiUrl}?sheet=OFFER`),
-        fetchJsonWithRetry(`${apiUrl}?sheet=SERVICE`),
-        fetchJsonWithRetry(`${apiUrl}?sheet=UTILITY`),
-        fetchJsonWithRetry(`${apiUrl}?sheet=Master`)
+      // 🔵 Fetch from Supabase in parallel
+      const [servicesRes, offersRes, utilitiesRes, masterRes] = await Promise.allSettled([
+        supabase.from('services').select('*').order('created_at', { ascending: false }),
+        supabase.from('offers').select('*').order('created_at', { ascending: false }),
+        supabase.from('utilities').select('*').order('created_at', { ascending: false }),
+        supabase.from('master_data').select('*'),
       ]);
 
-      const offersRes    = offersResult.status    === 'fulfilled' ? offersResult.value    : { success: false, data: [] };
-      const servicesRes  = servicesResult.status  === 'fulfilled' ? servicesResult.value  : { success: false, data: [] };
-      const utilitiesRes = utilitiesResult.status === 'fulfilled' ? utilitiesResult.value : { success: false, data: [] };
-      const masterRes    = masterResult.status    === 'fulfilled' ? masterResult.value    : { success: false, data: [] };
-
-      if (offersResult.status    === 'rejected') console.error('OFFER fetch failed:',   offersResult.reason);
-      if (servicesResult.status  === 'rejected') console.error('SERVICE fetch failed:', servicesResult.reason);
-      if (utilitiesResult.status === 'rejected') console.error('UTILITY fetch failed:', utilitiesResult.reason);
-      if (masterResult.status    === 'rejected') console.error('Master fetch failed:',  masterResult.reason);
-
-      let offers = [];
-      let offerHeaders = [];
-      if (offersRes.success && offersRes.data && offersRes.data.length > 0) {
-        const { headerIdx, headers } = findHeaderRow(offersRes.data, 'Offer No.');
-        offerHeaders = headers;
-        if (headerIdx >= 0) {
-          const rows = offersRes.data.slice(headerIdx + 1);
-          offers = rows
-            .filter(row => row && row.some(cell => String(cell || '').trim() !== ''))
-            .map((row, idx) => ({
-              sheetRowIndex: headerIdx + 2 + idx,
-              timestamp: formatDate(row[0]),
-              id: row[1] || `OFF-${idx + 1}`,
-              firmName: row[2] || '',
-              vendor: row[3] || '',
-              description: row[4] || '',
-              location: row[5] || '',
-              amount: parseFloat(row[6]) || 0,
-              isOffer: row[7] || '',
-              offerCopy: row[8] || '',
-              amountPaid: parseFloat(row[9]) || 0,
-              outstanding: parseFloat(row[10]) || 0,
-              status: row[11] || 'Pending',
-              date: formatDate(row[0])
-            }));
-        }
-      }
-
+      // — Services —
       let services = [];
-      let serviceHeaders = [];
-      if (servicesRes.success && servicesRes.data && servicesRes.data.length > 0) {
-        const { headerIdx, headers } = findHeaderRow(servicesRes.data, 'Service No.');
-        serviceHeaders = headers;
-        if (headerIdx >= 0) {
-          const rows = servicesRes.data.slice(headerIdx + 1);
-          services = rows
-            .filter(row => row && row.some(cell => String(cell || '').trim() !== ''))
-            .map((row, idx) => {
-          const getVal = (headerNames, fallbackIdx = -1) => {
-            const names = Array.isArray(headerNames) ? headerNames : [headerNames];
-            for (const name of names) {
-              const colIdx = serviceHeaders.findIndex(h => String(h || '').trim().toLowerCase() === name.toLowerCase());
-              if (colIdx >= 0 && row[colIdx] !== undefined && row[colIdx] !== null && String(row[colIdx]).trim() !== '') {
-                return String(row[colIdx]).trim();
-              }
-            }
-            if (fallbackIdx >= 0 && row[fallbackIdx] !== undefined && row[fallbackIdx] !== null && String(row[fallbackIdx]).trim() !== '') {
-              return String(row[fallbackIdx]).trim();
-            }
-            return '';
-          };
+      if (servicesRes.status === 'fulfilled' && !servicesRes.value.error) {
+        services = (servicesRes.value.data || []).map(row => {
           const s = {
-            sheetRowIndex: headerIdx + 2 + idx,
-            timestamp: formatDate(row[0]),
-            offerNo: row[1] || '',
-            id: row[2] || `SRV-${idx + 1}`,
-            firmName: row[3] || '',
-            checker: row[4] || '',
-            amount: parseFloat(row[5]) || 0,
-            tdsAmount: parseFloat(row[6]) || 0,
-            remark: getVal(['Remark', 'Remarks'], 7),
-            vendor: row[8] || '',
-            description: row[9] || '',
-            location: row[10] || '',
-            planned1: formatSheetDate(row[11]),
-            actual1: formatSheetDate(row[12]),
-            delay1: row[13] || '',
-            billNo: getVal(['Bill No.', 'Bill Number'], 14),
-            billCopy: getVal(['Bill Copy', 'Bill Image'], 15),
-            planned2: formatSheetDate(row[16]),
-            actual2: formatSheetDate(row[17]),
-            delay2: row[18] || '',
-            paymentProof: getVal(['Payment Proof', 'Payment Proof Url', 'Payment Reference'], 19),
-            planned3: formatSheetDate(getVal('Planned 3', 19)),
-            actual3: formatSheetDate(getVal('Actual 3', 20)),
-            delay3: getVal('Delay 3', 21),
-            status3: getVal(['Status 3', 'Status3'], 22),
-            remarks3: getVal(['Remarks 3', 'Remarks3'], 23),
-            planned4: formatSheetDate(getVal('Planned 4', 24)),
-            actual4: formatSheetDate(getVal('Actual 4', 25)),
-            delay4: getVal('Delay 4', 26),
-            status4: getVal(['Status 4', 'Status4'], 27),
-            remarks4: getVal(['Remarks 4', 'Remarks4'], 28),
-            planned5: formatSheetDate(getVal('Planned 5', 29)),
-            actual5: formatSheetDate(getVal('Actual 5', 30)),
-            delay5: getVal('Delay 5', 31),
-            status5: getVal(['Status 5', 'Status5'], 32),
-            remarks5: getVal(['Remarks 5', 'Remarks5'], 33),
-            paymentForm: getVal(['Payment Form', 'Payment Form Link', 'Payment Link', 'Form Link'], 34),
-            date: formatDate(row[0])
+            sheetRowIndex: row.id,
+            id:            row.service_no        || '',
+            timestamp:     formatDate(row.created_at),
+            offerNo:       row.offer_no           || '',
+            firmName:      row.firm_name          || '',
+            checker:       row.service_checker    || '',   // ✅ Supabase: service_checker
+            amount:        Number(row.total_amount)  || 0, // ✅ Supabase: total_amount
+            tdsAmount:     Number(row.tds_amount)    || 0,
+            remark:        row.remark             || '',
+            vendor:        row.vendor_name        || '',   // ✅ Supabase: vendor_name
+            description:   row.work_description   || '',  // ✅ Supabase: work_description
+            location:      row.service_location   || '',  // ✅ Supabase: service_location
+            planned1:      formatDate(row.planned_1),     // ✅ Supabase: planned_1
+            actual1:       formatDate(row.actual_1),      // ✅ Supabase: actual_1
+            delay1:        '',                           // not in Supabase
+            billNo:        row.bill_no            || '',
+            billCopy:      row.bill_copy_url      || '',   // ✅ Supabase: bill_copy_url
+            planned2:      formatDate(row.planned_2),     // ✅ Supabase: planned_2
+            actual2:       formatDate(row.actual_2),      // ✅ Supabase: actual_2
+            delay2:        '',                           // not in Supabase
+            paymentProof:  row.bill_copy_url      || '',  // maps to bill_copy_url
+            planned3:      formatDate(row.planned_3),     // ✅ Supabase: planned_3
+            actual3:       formatDate(row.actual_3),      // ✅ Supabase: actual_3
+            delay3:        '',
+            status3:       row.status_3           || '',  // ✅ Supabase: status_3
+            remarks3:      row.remarks_3          || '',  // ✅ Supabase: remarks_3
+            planned4:      formatDate(row.planned_4),     // ✅ Supabase: planned_4
+            actual4:       formatDate(row.actual_4),      // ✅ Supabase: actual_4
+            delay4:        '',
+            status4:       row.status_4           || '',  // ✅ Supabase: status_4
+            remarks4:      row.remarks_4          || '',  // ✅ Supabase: remarks_4
+            planned5:      formatDate(row.planned_5),     // ✅ Supabase: planned_5
+            actual5:       formatDate(row.actual_5),      // ✅ Supabase: actual_5
+            delay5:        '',
+            status5:       row.status_5           || '',  // ✅ Supabase: status_5
+            remarks5:      row.remarks_5          || '',  // ✅ Supabase: remarks_5
+            paymentForm:   row.payment_form_url   || '',  // ✅ Supabase: payment_form_url
+            date:          formatDate(row.created_at),
+            _dbId:         row.id,
           };
           s.status = getServiceStatus(s);
           return s;
         });
-        }
+      } else if (servicesRes.status === 'rejected') {
+        console.error('[Supabase] services fetch failed:', servicesRes.reason);
+      } else {
+        console.error('[Supabase] services error:', servicesRes.value?.error?.message);
       }
 
+      // — Offers —
+      let offers = [];
+      if (offersRes.status === 'fulfilled' && !offersRes.value.error) {
+        offers = (offersRes.value.data || []).map(row => ({
+          sheetRowIndex: row.id,
+          id:            row.offer_no          || '',
+          timestamp:     formatDate(row.created_at),
+          firmName:      row.firm_name         || '',
+          vendor:        row.vendor_name       || '',   // ✅ Supabase: vendor_name
+          description:   row.work_description  || '',  // ✅ Supabase: work_description
+          location:      row.service_location  || '',  // ✅ Supabase: service_location
+          amount:        Number(row.amount)    || 0,
+          isOffer:       row.is_there_offer    || '',  // ✅ Supabase: is_there_offer
+          offerCopy:     row.offer_copy_url    || '',  // ✅ Supabase: offer_copy_url
+          amountPaid:    Number(row.amount_to_be_paid)  || 0,  // ✅ Supabase: amount_to_be_paid
+          outstanding:   Number(row.outstanding_amount) || 0,  // ✅ Supabase: outstanding_amount
+          status:        row.status            || 'Pending',
+          date:          formatDate(row.created_at),
+          _dbId:         row.id,
+        }));
+      } else if (offersRes.status === 'rejected') {
+        console.error('[Supabase] offers fetch failed:', offersRes.reason);
+      } else {
+        console.error('[Supabase] offers error:', offersRes.value?.error?.message);
+      }
+
+      // — Utilities —
       let utilities = [];
-      let utilityHeaders = [];
-      if (utilitiesRes.success && utilitiesRes.data && utilitiesRes.data.length > 0) {
-        let { headerIdx, headers } = findHeaderRow(utilitiesRes.data, 'Utility No.');
-        if (headerIdx >= 0) {
-          utilityHeaders = headers;
-          
-          // Self-healing columns: check if any requested columns are missing
-          const requiredPaymentCols = [
-            'Payment Number',
-            'Payment Mode',
-            'Transaction Reference',
-            'Payment Date',
-            'Payment Attachment',
-            'Payment Remarks',
-            'Fms Name',
-            'Details',
-            'Approval Attachment'
-          ];
-          const missingCols = requiredPaymentCols.filter(col => !utilityHeaders.includes(col));
-          if (missingCols.length > 0) {
-            utilityHeaders = [...utilityHeaders, ...missingCols];
-            // Fire-and-forget update to the Google Sheet header row so it's persisted
-            get().saveRow('UTILITY', 'update', headerIdx + 1, utilityHeaders)
-              .catch(err => console.error('Error updating utility headers on Google Sheets:', err));
-          }
+      if (utilitiesRes.status === 'fulfilled' && !utilitiesRes.value.error) {
+        utilities = (utilitiesRes.value.data || []).map(row => {
+          const amountVal = Number(row.bill_amount) || 0;
+          const tdsVal    = Number(row.tds_amount)  || 0;   // ✅ Supabase: tds_amount
+          const actual1   = row.actual_1;                   // ✅ Supabase: actual_1
+          const actual2   = row.actual_2;                   // ✅ Supabase: actual_2
+          let statusVal   = row.status || '';
+          if (actual2 || statusVal === 'Completed')        statusVal = 'Completed';
+          else if (actual1 || statusVal === 'Approved')    statusVal = 'Approved';
+          else if (statusVal === 'Rejected')               statusVal = 'Rejected';
+          else if (!statusVal)                             statusVal = 'Pending Approval';
 
-          const rows = utilitiesRes.data.slice(headerIdx + 1);
-          utilities = rows
-            .filter(row => row && row.some(cell => String(cell || '').trim() !== ''))
-            .map((row, idx) => {
-              const getVal = (headerName, defaultVal = '') => {
-                const colIdx = utilityHeaders.indexOf(headerName);
-                return (colIdx >= 0 && row[colIdx] !== undefined) ? row[colIdx] : defaultVal;
-              };
-              
-              const amountVal = parseFloat(getVal('Bill Amount', 0)) || 0;
-              const tdsVal = parseFloat(getVal('TDS Deduction Amount', 0)) || 0;
-              const actual1Val = getVal('Actual 1');
-              const actual2Val = getVal('Actual 2');
-              let statusVal = getVal('Status');
-              if (actual2Val || statusVal === 'Completed') {
-                statusVal = 'Completed';
-              } else if (actual1Val || statusVal === 'Approved') {
-                statusVal = 'Approved';
-              } else if (statusVal === 'Rejected') {
-                statusVal = 'Rejected';
-              } else if (!statusVal || statusVal === '#REF!') {
-                statusVal = 'Pending Approval';
-              }
-              
-              return {
-                sheetRowIndex: headerIdx + 2 + idx,
-                timestamp: formatDate(getVal('Timestamp')),
-                id: getVal('Utility No.') || `UT-${idx + 1}`,
-                firmName: getVal('Firm Name'),
-                personName: getVal('Person Name'),
-                userName: getVal('Name Of User'),
-                department: getVal('Department'),
-                groupHead: getVal('Group Head'),
-                payTo: getVal('Pay To'),
-                amount: amountVal,
-                billImage: getVal('Bill Image'),
-                billDate: formatDate(getVal('Bill Date')),
-                dueDate: formatDate(getVal('Due Date')),
-                remarks: getVal('Remarks'),       // col M — entry remark
-                remark1: getVal('Remark 1'),        // col U — approval remark
-                tdsAmount: tdsVal,
-                amountPaid: parseFloat(getVal('Amount To Be Paid', amountVal - tdsVal)) || (amountVal - tdsVal),
-                outstanding: parseFloat(getVal('Outstanding Amount', amountVal - tdsVal)) || (amountVal - tdsVal),
-                status: statusVal,
-                actual: formatDate(getVal('Actual')),          // NEW: submission date from Utility Entries tab
-                planned1: formatSheetDate(getVal('Planned 1')),
-                actual1: formatDate(getVal('Actual 1')),
-                delay1: getVal('Delay 1'),
-                planned2: formatDate(getVal('Planned 2')),
-                actual2: formatDate(getVal('Actual 2')),
-                delay2: getVal('Delay 2') || getVal('Dalay 2'),
-                paymentFormLink: getVal('Payment Form Link'),
-                
-                // New approval fields
-                fmsName: getVal('Fms Name'),
-                details: getVal('Details'),
-                approvalAttachment: getVal('Approval Attachment'),
-                
-                // Payment Fields (Step 3)
-                paymentNo: getVal('Payment Number'),
-                paymentMode: getVal('Payment Mode'),
-                transactionRef: getVal('Transaction Reference'),
-                paymentDate: formatDate(getVal('Payment Date')),
-                paymentAttachment: getVal('Payment Attachment'),
-                paymentRemarks: getVal('Payment Remarks'),
-                
-                date: formatDate(getVal('Bill Date') || getVal('Timestamp'))
-              };
-            });
-        }
+          return {
+            sheetRowIndex:      row.id,
+            id:                 row.utility_no              || '',
+            timestamp:          formatDate(row.created_at),
+            firmName:           row.firm_name               || '',
+            personName:         row.person_name             || '',
+            userName:           row.user_name               || '',  // ✅ Supabase: user_name
+            department:         row.department              || '',
+            groupHead:          row.group_head              || '',
+            payTo:              row.pay_to                  || '',
+            amount:             amountVal,
+            billImage:          row.bill_image_url          || '',  // ✅ Supabase: bill_image_url
+            billDate:           formatDate(row.bill_date),
+            dueDate:            formatDate(row.due_date),
+            remarks:            row.remarks                 || '',
+            remark1:            row.remark_1               || '',   // ✅ Supabase: remark_1
+            tdsAmount:          tdsVal,
+            amountPaid:         Number(row.amount_to_be_paid)  || (amountVal - tdsVal),
+            outstanding:        Number(row.outstanding_amount) || (amountVal - tdsVal),
+            status:             statusVal,
+            actual:             formatDate(row.actual_0),           // ✅ Supabase: actual_0
+            planned1:           formatDate(row.planned_1),          // ✅ Supabase: planned_1
+            actual1:            formatDate(row.actual_1),           // ✅ Supabase: actual_1
+            delay1:             row.delay1                 || '',
+            planned2:           formatDate(row.planned_2),          // ✅ Supabase: planned_2
+            actual2:            formatDate(row.actual_2),           // ✅ Supabase: actual_2
+            delay2:             row.delay2                 || '',
+            paymentFormLink:    row.payment_form_link       || '',
+            fmsName:            row.fms_name               || '',
+            details:            row.details                || '',
+            approvalAttachment: row.approval_attachment_url || '', // ✅ Supabase: approval_attachment_url
+            paymentNo:          row.payment_number         || '',
+            paymentMode:        row.payment_mode           || '',
+            transactionRef:     row.transaction_reference  || '',
+            paymentDate:        formatDate(row.payment_date),
+            paymentAttachment:  row.payment_attachment_url || '',   // ✅ Supabase: payment_attachment_url
+            paymentRemarks:     row.payment_remarks        || '',
+            date:               formatDate(row.bill_date || row.created_at),
+            _dbId:              row.id,
+          };
+        });
+      } else if (utilitiesRes.status === 'rejected') {
+        console.error('[Supabase] utilities fetch failed:', utilitiesRes.reason);
+      } else {
+        console.error('[Supabase] utilities error:', utilitiesRes.value?.error?.message);
       }
 
-      let departments = [];
-      let groupHeads = [];
-      let firms = [];
-      let fmsNames = [];
-      let serviceLocations = [];
-      if (masterRes && masterRes.success && masterRes.data && masterRes.data.length > 0) {
-        const headers = masterRes.data[0] || [];
-        const getColIdx = (names, fallbackIdx) => {
-          const nameList = Array.isArray(names) ? names : [names];
-          const idx = headers.findIndex(h => {
-            const clean = String(h || '').trim().toLowerCase();
-            return nameList.some(n => clean === n.toLowerCase());
-          });
-          return idx !== -1 ? idx : fallbackIdx;
-        };
-
-        const deptIdx = getColIdx(['Department', 'Departments'], 0);
-        const ghIdx = getColIdx(['Group Head', 'GroupHead'], 1);
-        const firmIdx = getColIdx(['Firm Name', 'FirmName', 'Firm'], 2);
-        const fmsIdx = getColIdx(['Fms Name', 'FmsName', 'FMS'], 3);
-        const locIdx = getColIdx(['Service Location', 'ServiceLocation', 'Location'], 4);
-
-        const rows = masterRes.data.slice(1);
-        const validRows = rows.filter(row => Array.isArray(row));
-        departments = [...new Set(validRows.map(row => String(row[deptIdx] || '').trim()).filter(val => val !== ''))];
-        groupHeads = [...new Set(validRows.map(row => String(row[ghIdx] || '').trim()).filter(val => val !== ''))];
-        firms = [...new Set(validRows.map(row => String(row[firmIdx] || '').trim()).filter(val => val !== ''))];
-        fmsNames = [...new Set(validRows.map(row => String(row[fmsIdx] || '').trim()).filter(val => val !== ''))];
-        serviceLocations = [...new Set(validRows.map(row => String(row[locIdx] || '').trim()).filter(val => val !== ''))];
+      // — Master Data — (Supabase: list_type + value format)
+      let departments = [], groupHeads = [], firms = [], fmsNames = [], serviceLocations = [];
+      if (masterRes.status === 'fulfilled' && !masterRes.value.error) {
+        const rows = masterRes.value.data || [];
+        const getList = (type) => [...new Set(
+          rows.filter(r => r.list_type === type && r.value).map(r => r.value)
+        )].sort((a, b) => a.localeCompare(b));
+        departments      = getList('department');
+        groupHeads       = getList('group_head');
+        firms            = getList('firm_name');
+        fmsNames         = getList('fms_name');
+        serviceLocations = getList('service_location');
+      } else if (masterRes.status === 'rejected') {
+        console.error('[Supabase] master_data fetch failed:', masterRes.reason);
       }
 
-      // Compute effective amountPaid, outstanding, and status for each offer based on linked services (matching BOTH offerNo AND firmName)
+      // Compute offer amountPaid + outstanding from linked services (SUMIFS logic)
       offers = offers.map(o => {
-        const servicesForOffer = services.filter(s => 
-          s.offerNo && 
+        const servicesForOffer = services.filter(s =>
+          s.offerNo &&
           String(s.offerNo).trim().toLowerCase() === String(o.id).trim().toLowerCase() &&
           (!s.firmName || !o.firmName || String(s.firmName).trim().toLowerCase() === String(o.firmName).trim().toLowerCase())
         );
         const sumServices = servicesForOffer.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-        const hasLinkedServices = servicesForOffer.length > 0;
-        const amountPaid = hasLinkedServices ? sumServices : (Number(o.amountPaid) || 0);
+        const hasLinked   = servicesForOffer.length > 0;
+        const amountPaid  = hasLinked ? sumServices : (Number(o.amountPaid) || 0);
         const outstanding = o.amount > 0 ? Math.max(0, Number(o.amount) - amountPaid) : (Number(o.outstanding) || 0);
-
         let status = o.status;
         if (!status || status === 'Pending') {
-          if (hasLinkedServices && outstanding <= 0) {
-            status = 'Converted';
-          }
+          if (hasLinked && outstanding <= 0) status = 'Converted';
         }
-        return {
-          ...o,
-          amountPaid,
-          outstanding,
-          status: status || 'Pending'
-        };
+        return { ...o, amountPaid, outstanding, status: status || 'Pending' };
       });
 
-      // Keep complete unfiltered list of all offers for firm-wise ID lookups
       const allOffers = [...offers];
 
-      // Compute global maximum SRV-xxx across ALL services from all firms (before firm filtering)
+      // Global max SRV number
       const allSrvIds = services
-        .map(s => {
-          const match = String(s.id || '').match(/SRV-(\d+)/i);
-          return match ? parseInt(match[1], 10) : 0;
-        })
+        .map(s => { const m = String(s.id || '').match(/SRV-(\d+)/i); return m ? parseInt(m[1], 10) : 0; })
         .filter(id => !isNaN(id) && id > 0);
       const globalMaxServiceId = allSrvIds.length > 0 ? Math.max(...allSrvIds) : 0;
 
-      // Filter data based on current logged in user's assigned firms (except for admins or 'All' access)
+      // Firm-based access filter
       const currentUser = useAuthStore.getState().user;
       const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
       const userFirms = currentUser?.firmName
@@ -478,18 +387,9 @@ const useDataStore = create((set, get) => ({
       const hasAllAccess = userFirms.includes('all') || userFirms.includes('all firms');
 
       if (!isAdmin && !hasAllAccess) {
-        offers = offers.filter(o => {
-          const firm = (o.firmName || '').trim().toLowerCase();
-          return userFirms.includes(firm);
-        });
-        services = services.filter(s => {
-          const firm = (s.firmName || '').trim().toLowerCase();
-          return userFirms.includes(firm);
-        });
-        utilities = utilities.filter(u => {
-          const firm = (u.firmName || '').trim().toLowerCase();
-          return userFirms.includes(firm);
-        });
+        offers    = offers.filter(o    => userFirms.includes((o.firmName    || '').trim().toLowerCase()));
+        services  = services.filter(s  => userFirms.includes((s.firmName    || '').trim().toLowerCase()));
+        utilities = utilities.filter(u => userFirms.includes((u.firmName    || '').trim().toLowerCase()));
       }
 
       set({
@@ -497,9 +397,9 @@ const useDataStore = create((set, get) => ({
         allOffers,
         services,
         utilities,
-        offerHeaders,
-        serviceHeaders,
-        utilityHeaders,
+        offerHeaders:    [],   // not needed with Supabase (column names are fixed)
+        serviceHeaders:  [],
+        utilityHeaders:  [],
         departments,
         groupHeads,
         firms,
@@ -508,656 +408,292 @@ const useDataStore = create((set, get) => ({
         globalMaxServiceId,
         loading: false,
         isFetchingInBackground: false,
-        lastFetchTime: Date.now() // ⚡ Track successful fetch time
+        lastFetchTime: Date.now(),
       });
 
-      // Save to localStorage cache for 0ms initial load next time
+      // Cache for instant 0ms load next session
       saveCache('offers', offers);
       saveCache('allOffers', allOffers);
       saveCache('services', services);
       saveCache('utilities', utilities);
-      saveCache('offerHeaders', offerHeaders);
-      saveCache('serviceHeaders', serviceHeaders);
-      saveCache('utilityHeaders', utilityHeaders);
       saveCache('departments', departments);
       saveCache('groupHeads', groupHeads);
       saveCache('firms', firms);
       saveCache('fmsNames', fmsNames);
       saveCache('serviceLocations', serviceLocations);
       saveCache('globalMaxServiceId', globalMaxServiceId);
+
+      console.log(`[Supabase] ✅ Loaded — services:${services.length} offers:${offers.length} utilities:${utilities.length}`);
+
     } catch (err) {
-      const errorMsg = err.message || 'Failed to load data from Google Sheets';
-      console.error('[FetchData Error]', err);
-
-      // Use cached data as fallback
+      const errorMsg = err.message || 'Failed to load data from Supabase';
+      console.error('[fetchData Error]', err);
       const hasCachedData = get().offers.length > 0 || get().services.length > 0;
-
       set({
         error: hasCachedData ? `${errorMsg} (showing cached data)` : errorMsg,
         loading: false,
-        isFetchingInBackground: false
+        isFetchingInBackground: false,
       });
     }
   },
 
-  saveRow: async (sheetName, action, rowIndex, rowDataArray, retries = 2) => {
-    // CRITICAL: Never auto-retry an 'insert' action!
-    // When an insert call times out or returns an HTML redirect from Google Apps Script,
-    // the row is usually already appended to the sheet. Retrying appends duplicate rows.
-    const effectiveRetries = action === 'insert' ? 0 : retries;
 
-    const params = new URLSearchParams();
-    params.append('sheetName', sheetName);
-    params.append('action', action);
-    if (rowIndex) {
-      params.append('rowIndex', String(rowIndex));
-    }
-    params.append('rowData', JSON.stringify(rowDataArray));
+  // ─── Legacy no-ops (Sheets calls removed) ───────────────────────────────────
+  saveRow:  async () => ({ success: true }),
+  saveCell: async () => ({ success: true }),
 
-    try {
-      // ⚡ Add request timeout (10 seconds max)
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        body: params,
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-
-      const text = await response.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (parseErr) {
-        // If Google Apps Script returned a 200 HTML response (e.g. redirect or cold start echo),
-        // for an insert, the row was already committed to Google Sheet.
-        if (response.ok && (text.includes('success') || text.includes('Google') || text.includes('<!DOCTYPE'))) {
-          console.warn(`saveRow ${action} for ${sheetName} received non-JSON 200 response, treated as success:`, text.slice(0, 100));
-          return { success: true, message: 'Row inserted successfully' };
-        }
-        throw new Error(`Invalid server response: ${text.slice(0, 100)}`);
-      }
-      if (data && data.success === false) {
-        throw new Error(data.message || data.error || 'Server returned failure');
-      }
-      return data;
-    } catch (err) {
-      if (effectiveRetries > 0 && err.name !== 'AbortError') {
-        const delay = Math.min(50 * Math.pow(1.5, 2 - effectiveRetries), 200);
-        console.warn(`saveRow failed for ${sheetName} ${action}, retrying in ${delay}ms... (${effectiveRetries} left). Error: ${err.message}`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return get().saveRow(sheetName, action, rowIndex, rowDataArray, effectiveRetries - 1);
-      }
-      throw err;
-    }
-  },
-
-  saveCell: async (sheetName, rowIndex, columnIndex, value, retries = 1) => {
-    const params = new URLSearchParams();
-    params.append('sheetName', sheetName);
-    params.append('action', 'updateCell');
-    params.append('rowIndex', String(rowIndex));
-    params.append('columnIndex', String(columnIndex));
-    params.append('value', value !== undefined && value !== null ? String(value) : '');
-
-    try {
-      // ⚡ Add request timeout (5 seconds max)
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        body: params,
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-
-      const text = await response.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (parseErr) {
-        throw new Error(`Invalid JSON response: ${text.slice(0, 100)}`);
-      }
-      if (data && data.success === false) {
-        throw new Error(data.message || data.error || 'Server returned failure');
-      }
-      return data;
-    } catch (err) {
-      if (retries > 0 && err.name !== 'AbortError') {
-        console.warn(`saveCell failed for ${sheetName} row ${rowIndex} col ${columnIndex}, retrying in 50ms... (${retries} left). Error: ${err.message}`);
-        await new Promise(resolve => setTimeout(resolve, 50));
-        return get().saveCell(sheetName, rowIndex, columnIndex, value, retries - 1);
-      }
-      throw err;
-    }
-  },
-
+  // ─── OFFERS ──────────────────────────────────────────────────────────────────
   addOffer: async (offer) => {
-    const rawHeaders = get().offerHeaders;
-    const defaultHeaders = [
-      'Timestamp', 'Offer No.', 'Firm Name', 'Vendor Name', 'Work Description',
-      'Service Location', 'Amount', 'Is There An Offer', 'Offer Copy',
-      'Amount To Be Paid', 'Outstanding Amount', 'Status'
-    ];
-    const headers = (rawHeaders && rawHeaders.length > 0) ? rawHeaders : defaultHeaders;
-
-    const offerColumnMap = {
-      'Firm Name': offer.firmName,
-      'Vendor Name': offer.vendor,
-      'Work Description': offer.description,
-      'Service Location': offer.location,
-      'Amount': offer.amount,
-      'Is There An Offer': offer.isOffer || 'Yes',
-      'Offer Copy': offer.offerCopy || '',
+    const nowTs = new Date().toISOString();
+    const row = {
+      offer_no:          offer.id            || '',
+      firm_name:         offer.firmName      || '',
+      vendor_name:       offer.vendor        || '',
+      work_description:  offer.description   || '',
+      service_location:  offer.location      || '',
+      amount:            Number(offer.amount) || 0,
+      is_there_offer:    offer.isOffer       || 'Yes',
+      offer_copy_url:    offer.offerCopy     || '',
+      amount_to_be_paid: 0,              // nothing paid yet — SUMIFS will compute from services
+      outstanding_amount: Number(offer.amount) || 0,
+      status:            'Pending',
     };
-    // Submit Timestamp (Column A) + Offer No (Column B) + 7 input columns — leave Amount To Be Paid, Outstanding Amount, Status to Google Sheet formulas
-    const fullArray = headers.map(header => {
-      const norm = String(header || '').trim().toLowerCase().replace(/\s+/g, '');
-      if (norm === 'timestamp') return offer.timestamp || nowDateTime();
-      if (norm === 'offerno.' || norm === 'offerno') return offer.id || '';
-      if (norm === 'firmname') return offer.firmName;
-      if (norm === 'vendorname' || norm === 'vendor') return offer.vendor;
-      if (norm === 'workdescription' || norm === 'description') return offer.description;
-      if (norm === 'servicelocation' || norm === 'location') return offer.location;
-      if (norm === 'amount') return offer.amount;
-      if (norm === 'isthereanoffer') return offer.isOffer || 'Yes';
-      if (norm === 'offercopy') return offer.offerCopy || '';
-      return null;
-    });
-    let lastMatchIdx = -1;
-    for (let i = fullArray.length - 1; i >= 0; i--) {
-      if (fullArray[i] !== null) { lastMatchIdx = i; break; }
-    }
-    const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? '' : v);
 
-    // Optimistic UI update — add new offer to state & localStorage immediately
-    const nowTs = nowDateTime();
-    const newOfferObj = {
-      sheetRowIndex: (get().offers.length > 0 ? Math.max(...get().offers.map(o => o.sheetRowIndex || 0)) + 1 : 2),
-      timestamp: nowTs,
-      id: offer.id || '',
-      firmName: offer.firmName,
-      vendor: offer.vendor,
-      description: offer.description,
-      location: offer.location,
-      amount: offer.amount,
-      isOffer: offer.isOffer || 'Yes',
-      offerCopy: offer.offerCopy || '',
-      amountPaid: 0,
-      outstanding: offer.amount,
-      status: 'Pending',
-      date: nowTs
+    // Optimistic UI
+    const newObj = {
+      sheetRowIndex: Date.now(),
+      timestamp: nowTs, id: offer.id, firmName: offer.firmName,
+      vendor: offer.vendor, description: offer.description,
+      location: offer.location, amount: Number(offer.amount) || 0,
+      isOffer: offer.isOffer || 'Yes', offerCopy: offer.offerCopy || '',
+      amountPaid: 0, outstanding: Number(offer.amount) || 0,
+      status: 'Pending', date: nowTs,
     };
-    const updatedOffers = [newOfferObj, ...get().offers];
-    const updatedAllOffers = [newOfferObj, ...(get().allOffers || [])];
+    const updatedOffers = [newObj, ...get().offers];
+    const updatedAllOffers = [newObj, ...(get().allOffers || [])];
     set({ offers: updatedOffers, allOffers: updatedAllOffers });
     saveCache('offers', updatedOffers);
     saveCache('allOffers', updatedAllOffers);
 
-    const res = await get().saveRow('OFFER', 'insert', null, rowDataArray);
-    // Background refetch — don't block the caller
-    if (res && res.success) {
-      get().fetchData();
-    }
-    return res;
+    const { data, error } = await supabase.from('offers').insert(row).select().single();
+    if (error) { console.error('[addOffer]', error.message); throw new Error(error.message); }
+    console.log('[addOffer] ✅', data?.offer_no);
+    get().fetchData(true); // force refresh after write
+    return { success: true };
   },
 
   updateOffer: async (rowIndex, updatedFields) => {
-    const offer = get().offers.find(o => o.sheetRowIndex === rowIndex);
+    const offer = get().offers.find(o => o.sheetRowIndex === rowIndex || o._dbId === rowIndex);
     if (!offer) throw new Error('Offer not found');
     const merged = { ...offer, ...updatedFields };
 
-    const headers = get().offerHeaders;
-    const rowDataArray = headers.map(header => {
-      if (header === 'Timestamp') return null;           // never overwrite original timestamp
-      if (header === 'Offer No.') return null;           // formula column — do not overwrite
-      if (header === 'Firm Name') return merged.firmName;
-      if (header === 'Vendor Name') return merged.vendor;
-      if (header === 'Work Description') return merged.description;
-      if (header === 'Service Location') return merged.location;
-      if (header === 'Amount') return merged.amount;
-      if (header === 'Is There An Offer') return merged.isOffer;
-      if (header === 'Offer Copy') return merged.offerCopy;
-      if (header === 'Amount To Be Paid') return null;   // formula column — do not overwrite
-      if (header === 'Outstanding Amount') return null;  // formula column — do not overwrite
-      if (header === 'Status') return null;              // formula column — do not overwrite
-      return '';
-    });
-    // Optimistic UI update for offers
-    const updatedOffers = get().offers.map(o => o.sheetRowIndex === rowIndex ? merged : o);
+    const patch = {};
+    if ('firmName'    in updatedFields) patch.firm_name        = updatedFields.firmName;
+    if ('vendor'      in updatedFields) patch.vendor_name      = updatedFields.vendor;
+    if ('description' in updatedFields) patch.work_description = updatedFields.description;
+    if ('location'    in updatedFields) patch.service_location = updatedFields.location;
+    if ('amount'      in updatedFields) patch.amount           = Number(updatedFields.amount);
+    if ('isOffer'     in updatedFields) patch.is_there_offer   = updatedFields.isOffer;
+    if ('offerCopy'   in updatedFields) patch.offer_copy_url   = updatedFields.offerCopy;
+    if ('status'      in updatedFields) patch.status           = updatedFields.status;
+
+    // Optimistic UI
+    const updatedOffers = get().offers.map(o =>
+      (o.sheetRowIndex === rowIndex || o._dbId === rowIndex) ? merged : o
+    );
     set({ offers: updatedOffers });
     saveCache('offers', updatedOffers);
 
-    const res = await get().saveRow('OFFER', 'update', rowIndex, rowDataArray);
-    // Background refetch — UI already updated optimistically
-    if (res && res.success) {
-      get().fetchData();
+    if (Object.keys(patch).length > 0) {
+      const { error } = await supabase.from('offers')
+        .update(patch)
+        .eq('offer_no', offer.id);
+      if (error) { console.error('[updateOffer]', error.message); throw new Error(error.message); }
     }
-    return res;
+    get().fetchData(true); // force refresh after write
+    return { success: true };
   },
 
+  // ─── SERVICES ────────────────────────────────────────────────────────────────
   addService: async (service) => {
-    const rawHeaders = get().serviceHeaders;
-    const defaultHeaders = [
-      'Timestamp', 'Offer No.', 'Service No.', 'Firm Name', 'Service Checker',
-      'Total Amount', 'TDS Deduction Amount', 'Remark', 'Vendor Name',
-      'Work Description', 'Service Location'
-    ];
-    const headers = (rawHeaders && rawHeaders.length > 0) ? rawHeaders : defaultHeaders;
+    const nowTs = new Date().toISOString();
+    const netAmount = Math.round((Number(service.amount) || 0) - (Number(service.tdsAmount) || 0));
 
-    const fullArray = headers.map(header => {
-      const norm = String(header || '').trim().toLowerCase().replace(/\s+/g, '');
-      if (norm === 'timestamp') return nowDateTime();
-      if (norm === 'offerno.' || norm === 'offerno') return service.offerNo;
-      if (norm === 'serviceno.' || norm === 'serviceno') return service.id;
-      if (norm === 'firmname') return service.firmName;
-      if (norm === 'servicechecker' || norm === 'checker') return service.checker;
-      if (norm === 'totalamount' || norm === 'amount') return service.amount;
-      if (norm === 'tdsdeductionamount' || norm === 'tdsamount') return service.tdsAmount || 0;
-      if (norm === 'remark' || norm === 'remarks') return service.remark || '';
-      if (norm === 'vendorname' || norm === 'vendor') return service.vendor;
-      if (norm === 'workdescription' || norm === 'description') return service.description;
-      if (norm === 'servicelocation' || norm === 'location') return service.location;
-      return null;
-    });
-    let lastMatchIdx = -1;
-    for (let i = fullArray.length - 1; i >= 0; i--) {
-      if (fullArray[i] !== null) { lastMatchIdx = i; break; }
-    }
-    // Keep null as null — Code.gs insert treats null as "skip this cell" so formulas
-    // (Planned 1, Delay 1 … Planned 5, Delay 5) are never overwritten with blank strings.
-    const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? null : v);
+    // Auto-generate Payment Form URL (same Google Form as old system)
+    const FORM_BASE = 'https://docs.google.com/forms/d/e/1FAIpQLScJJFvh6zchRosSzX0mU-u7-oeMaQW6iv1osE70hRDoE-uVrg/viewform?usp=pp_url';
+    const paymentFormUrl = `${FORM_BASE}&entry.1200639812=${encodeURIComponent(service.id || '')}&entry.604194301=New+Service+Application&entry.1358288895=Yes&entry.1091308719=${encodeURIComponent(service.vendor || '')}&entry.1486176123=${netAmount}&entry.2102057582=Service+Payment`;
 
-    // Optimistic UI update — add new service to state immediately
-    const nowTs = nowDateTime();
-    const newServiceObj = {
-      sheetRowIndex: (get().services.length > 0 ? Math.max(...get().services.map(s => s.sheetRowIndex || 0)) + 1 : 2),
-      timestamp: nowTs,
-      offerNo: service.offerNo,
-      id: service.id,
-      firmName: service.firmName,
-      checker: service.checker,
-      amount: service.amount,
-      tdsAmount: service.tdsAmount || 0,
-      remark: service.remark || '',
-      vendor: service.vendor,
-      description: service.description,
-      location: service.location,
-      status: 'Service Created',
-      planned1: nowTs, actual1: '', delay1: '',
-      billNo: '', billCopy: '',
-      planned2: '', actual2: '', delay2: '',
-      paymentProof: ''
+    const row = {
+      service_no:        service.id          || '',
+      offer_no:          service.offerNo     || '',
+      firm_name:         service.firmName    || '',
+      service_checker:   service.checker     || '',
+      total_amount:      Number(service.amount)    || 0,
+      tds_amount:        Number(service.tdsAmount) || 0,
+      remark:            service.remark      || '',
+      vendor_name:       service.vendor      || '',
+      work_description:  service.description || '',
+      service_location:  service.location    || '',
+      payment_form_url:  paymentFormUrl,     // ✅ auto-generated
     };
-    const updatedServices = [newServiceObj, ...get().services];
+
+    // Optimistic UI
+    const newObj = {
+      sheetRowIndex: Date.now(),
+      timestamp: nowTs, offerNo: service.offerNo, id: service.id,
+      firmName: service.firmName, checker: service.checker,
+      amount: Number(service.amount) || 0, tdsAmount: Number(service.tdsAmount) || 0,
+      remark: service.remark || '', vendor: service.vendor,
+      description: service.description, location: service.location,
+      status: 'Service Created',
+      planned1: '', actual1: '', delay1: '', billNo: '', billCopy: '',
+      planned2: '', actual2: '', delay2: '', paymentProof: '',
+    };
+    const updatedServices = [newObj, ...get().services];
     const match = String(service.id || '').match(/SRV-(\d+)/i);
     const newIdNum = match ? parseInt(match[1], 10) : 0;
-    const currentMax = get().globalMaxServiceId || 0;
-    const updatedGlobalMax = Math.max(currentMax, newIdNum);
+    const updatedGlobalMax = Math.max(get().globalMaxServiceId || 0, newIdNum);
     set({ services: updatedServices, globalMaxServiceId: updatedGlobalMax });
     saveCache('services', updatedServices);
     saveCache('globalMaxServiceId', updatedGlobalMax);
 
-    const res = await get().saveRow('SERVICE', 'insert', null, rowDataArray);
-    // Background refetch — sync with sheet
-    if (res && res.success) {
-      get().fetchData();
-    }
-    return res;
-  },
-
-  updateService: async (rowIndex, updatedFields) => {
-    const service = get().services.find(s => s.sheetRowIndex === rowIndex);
-    if (!service) throw new Error('Service not found');
-    const merged = { ...service, ...updatedFields };
-
-    // Optimistic UI update — UI reflects change immediately without waiting for network
-    const updatedServices = get().services.map(s => s.sheetRowIndex === rowIndex ? merged : s);
-    set({ services: updatedServices });
-    saveCache('services', updatedServices);
-
-    const headers = (get().serviceHeaders && get().serviceHeaders.length > 0) ? get().serviceHeaders : [];
-    const norm = h => String(h || '').trim().toLowerCase().replace(/\s+/g, '');
-
-    const findColIdx = (predicate) => {
-      const idx = headers.findIndex(h => predicate(norm(h)));
-      return idx >= 0 ? idx + 1 : null;
-    };
-
-    const updatesToMake = [];
-
-    if ('offerNo' in updatedFields) {
-      const col = findColIdx(h => h === 'offerno.' || h === 'offerno');
-      if (col) updatesToMake.push({ col, val: updatedFields.offerNo });
-    }
-    if ('id' in updatedFields) {
-      const col = findColIdx(h => h === 'serviceno.' || h === 'serviceno');
-      if (col) updatesToMake.push({ col, val: updatedFields.id });
-    }
-    if ('firmName' in updatedFields) {
-      const col = findColIdx(h => h === 'firmname');
-      if (col) updatesToMake.push({ col, val: updatedFields.firmName });
-    }
-    if ('checker' in updatedFields) {
-      const col = findColIdx(h => h === 'servicechecker' || h === 'checker');
-      if (col) updatesToMake.push({ col, val: updatedFields.checker });
-    }
-    if ('amount' in updatedFields) {
-      const col = findColIdx(h => h === 'totalamount' || h === 'amount');
-      if (col) updatesToMake.push({ col, val: updatedFields.amount });
-    }
-    if ('tdsAmount' in updatedFields) {
-      const col = findColIdx(h => h === 'tdsdeductionamount' || h === 'tdsamount');
-      if (col) updatesToMake.push({ col, val: updatedFields.tdsAmount });
-    }
-    if ('remark' in updatedFields) {
-      const col = findColIdx(h => h === 'remark' || h === 'remarks');
-      if (col) updatesToMake.push({ col, val: updatedFields.remark });
-    }
-    if ('vendor' in updatedFields) {
-      const col = findColIdx(h => h === 'vendorname' || h === 'vendor');
-      if (col) updatesToMake.push({ col, val: updatedFields.vendor });
-    }
-    if ('description' in updatedFields) {
-      const col = findColIdx(h => h === 'workdescription' || h === 'description');
-      if (col) updatesToMake.push({ col, val: updatedFields.description });
-    }
-    if ('location' in updatedFields) {
-      const col = findColIdx(h => h === 'servicelocation' || h === 'location');
-      if (col) updatesToMake.push({ col, val: updatedFields.location });
-    }
-    if ('actual1' in updatedFields) {
-      const col = findColIdx(h => h === 'actual1');
-      if (col) updatesToMake.push({ col, val: updatedFields.actual1 });
-    }
-    if ('billNo' in updatedFields) {
-      const col = findColIdx(h => h === 'billno.' || h === 'billnumber' || h === 'billno');
-      if (col) updatesToMake.push({ col, val: updatedFields.billNo });
-    }
-    if ('billCopy' in updatedFields) {
-      const col = findColIdx(h => h === 'billcopy' || h === 'billimage');
-      if (col) updatesToMake.push({ col, val: updatedFields.billCopy });
-    }
-    if ('actual2' in updatedFields) {
-      const col = findColIdx(h => h === 'actual2');
-      if (col) updatesToMake.push({ col, val: updatedFields.actual2 });
-    }
-    if ('delay2' in updatedFields) {
-      const col = findColIdx(h => h === 'delay2' || h === 'dalay2');
-      if (col) updatesToMake.push({ col, val: updatedFields.delay2 });
-    }
-    if ('paymentProof' in updatedFields) {
-      const col = findColIdx(h => h === 'paymentproof' || h === 'paymentproofurl' || h === 'paymentreference');
-      if (col) updatesToMake.push({ col, val: updatedFields.paymentProof });
-    }
-    if ('actual3' in updatedFields) {
-      const col = findColIdx(h => h === 'actual3');
-      if (col) updatesToMake.push({ col, val: updatedFields.actual3 });
-    }
-    if ('status3' in updatedFields) {
-      const col = findColIdx(h => h === 'status3');
-      if (col) updatesToMake.push({ col, val: updatedFields.status3 });
-    }
-    if ('remarks3' in updatedFields) {
-      const col = findColIdx(h => h === 'remarks3' || h === 'remark3');
-      if (col) updatesToMake.push({ col, val: updatedFields.remarks3 });
-    }
-    if ('actual4' in updatedFields) {
-      const col = findColIdx(h => h === 'actual4');
-      if (col) updatesToMake.push({ col, val: updatedFields.actual4 });
-    }
-    if ('status4' in updatedFields) {
-      const col = findColIdx(h => h === 'status4');
-      if (col) updatesToMake.push({ col, val: updatedFields.status4 });
-    }
-    if ('remarks4' in updatedFields) {
-      const col = findColIdx(h => h === 'remarks4' || h === 'remark4');
-      if (col) updatesToMake.push({ col, val: updatedFields.remarks4 });
-    }
-    if ('actual5' in updatedFields) {
-      const col = findColIdx(h => h === 'actual5');
-      if (col) updatesToMake.push({ col, val: updatedFields.actual5 });
-    }
-    if ('status5' in updatedFields) {
-      const col = findColIdx(h => h === 'status5');
-      if (col) updatesToMake.push({ col, val: updatedFields.status5 });
-    }
-    if ('remarks5' in updatedFields) {
-      const col = findColIdx(h => h === 'remarks5' || h === 'remark5');
-      if (col) updatesToMake.push({ col, val: updatedFields.remarks5 });
-    }
-
-    if (updatesToMake.length === 0) return { success: true };
-
-    // ⚡ PARALLEL execution: All cells update at once, not one-by-one
-    await Promise.all(updatesToMake.map(u => get().saveCell('SERVICE', rowIndex, u.col, u.val)));
-
-    // Background refetch — UI already updated optimistically above
-    get().fetchData();
-
+    const { data, error } = await supabase.from('services').insert(row).select().single();
+    if (error) { console.error('[addService]', error.message); throw new Error(error.message); }
+    console.log('[addService] ✅', data?.service_no);
+    get().fetchData(true); // force refresh after write
     return { success: true };
   },
 
+  updateService: async (rowIndex, updatedFields) => {
+    const service = get().services.find(s => s.sheetRowIndex === rowIndex || s._dbId === rowIndex);
+    if (!service) throw new Error('Service not found');
+    const merged = { ...service, ...updatedFields };
+    merged.status = getServiceStatus(merged);
+
+    // Optimistic UI
+    const updatedServices = get().services.map(s =>
+      (s.sheetRowIndex === rowIndex || s._dbId === rowIndex) ? merged : s
+    );
+    set({ services: updatedServices });
+    saveCache('services', updatedServices);
+
+    const patch = {};
+    if ('offerNo'      in updatedFields) patch.offer_no          = updatedFields.offerNo;
+    if ('firmName'     in updatedFields) patch.firm_name         = updatedFields.firmName;
+    if ('checker'      in updatedFields) patch.service_checker   = updatedFields.checker;
+    if ('amount'       in updatedFields) patch.total_amount      = Number(updatedFields.amount);
+    if ('tdsAmount'    in updatedFields) patch.tds_amount        = Number(updatedFields.tdsAmount);
+    if ('remark'       in updatedFields) patch.remark            = updatedFields.remark;
+    if ('vendor'       in updatedFields) patch.vendor_name       = updatedFields.vendor;
+    if ('description'  in updatedFields) patch.work_description  = updatedFields.description;
+    if ('location'     in updatedFields) patch.service_location  = updatedFields.location;
+    if ('actual1'      in updatedFields) patch.actual_1          = updatedFields.actual1 || null;
+    if ('billNo'       in updatedFields) patch.bill_no           = updatedFields.billNo;
+    if ('billCopy'     in updatedFields) patch.bill_copy_url     = updatedFields.billCopy;
+    if ('actual2'      in updatedFields) patch.actual_2          = updatedFields.actual2 || null;
+    if ('paymentProof' in updatedFields) patch.bill_copy_url     = updatedFields.paymentProof; // no separate payment_proof col
+    if ('actual3'      in updatedFields) patch.actual_3          = updatedFields.actual3 || null;
+    if ('status3'      in updatedFields) patch.status_3          = updatedFields.status3;
+    if ('remarks3'     in updatedFields) patch.remarks_3         = updatedFields.remarks3;
+    if ('actual4'      in updatedFields) patch.actual_4          = updatedFields.actual4 || null;
+    if ('status4'      in updatedFields) patch.status_4          = updatedFields.status4;
+    if ('remarks4'     in updatedFields) patch.remarks_4         = updatedFields.remarks4;
+    if ('actual5'      in updatedFields) patch.actual_5          = updatedFields.actual5 || null;
+    if ('status5'      in updatedFields) patch.status_5          = updatedFields.status5;
+    if ('remarks5'     in updatedFields) patch.remarks_5         = updatedFields.remarks5;
+
+    if (Object.keys(patch).length === 0) return { success: true };
+
+    const { error } = await supabase.from('services')
+      .update(patch)
+      .eq('service_no', service.id);
+    if (error) { console.error('[updateService]', error.message); throw new Error(error.message); }
+    get().fetchData(true); // force refresh after write
+    return { success: true };
+  },
+
+  // ─── UTILITIES ───────────────────────────────────────────────────────────────
   addUtility: async (utility) => {
-    const headers = get().utilityHeaders;
-    const allowedHeaders = [
-      'Timestamp',
-      'UT-Utility No.', 'Utility No.',
-      'Firm Name',
-      'Person Name',
-      'Name Of User',
-      'Department',
-      'Group Head',
-      'Pay To',
-      'Bill Amount',
-      'Bill Image',
-      'Bill Date',
-      'Due Date',
-      'Remarks',
-      'TDS Deduction Amount',
-      'Amount To Be Paid'
-    ];
+    const tdsVal = Number(utility.tdsAmount) || 0;
+    const amtVal = Number(utility.amount) || 0;
+    const row = {
+      utility_no:          utility.id         || '',
+      firm_name:           utility.firmName   || '',
+      person_name:         utility.personName || '',
+      user_name:           utility.userName   || '',
+      department:          utility.department || '',
+      group_head:          utility.groupHead  || '',
+      pay_to:              utility.payTo      || '',
+      bill_amount:         amtVal,
+      bill_image_url:      utility.billImage  || '',
+      bill_date:           utility.billDate   || null,
+      due_date:            utility.dueDate    || null,
+      remarks:             utility.remarks    || '',
+      tds_amount:          tdsVal,
+      amount_to_be_paid:   utility.amountPaid !== undefined ? Number(utility.amountPaid) : (amtVal - tdsVal),
+      outstanding_amount:  amtVal - tdsVal,
+      status:              'Pending Approval',
+    };
 
-    const fullArray = headers.map(header => {
-      if (!allowedHeaders.includes(header)) return null;
-
-      if (header === 'Timestamp') return nowDateTime();
-      if (header === 'UT-Utility No.' || header === 'Utility No.') return utility.id;
-      if (header === 'Firm Name') return utility.firmName || '';
-      if (header === 'Person Name') return utility.personName || '';
-      if (header === 'Name Of User') return utility.userName || '';
-      if (header === 'Department') return utility.department || '';
-      if (header === 'Group Head') return utility.groupHead || '';
-      if (header === 'Pay To') return utility.payTo || '';
-      if (header === 'Bill Amount') return utility.amount || 0;
-      if (header === 'Bill Image') return utility.billImage || '';
-      if (header === 'Bill Date') return utility.billDate || '';
-      if (header === 'Due Date') return utility.dueDate || '';
-      if (header === 'Remarks') return utility.remarks || '';
-      if (header === 'TDS Deduction Amount') return utility.tdsAmount || 0;
-      if (header === 'Amount To Be Paid') return (utility.amountPaid !== undefined && utility.amountPaid !== null) ? utility.amountPaid : ((utility.amount || 0) - (utility.tdsAmount || 0));
-
-      return null;
-    });
-    // Everything after the last creation-time field (Planned/Actual approval + payment
-    // columns) is filled in step-by-step later via updateUtility — trim the array so
-    // creation never touches those cells, otherwise it blanks out the Planned formula columns.
-    let lastMatchIdx = -1;
-    for (let i = fullArray.length - 1; i >= 0; i--) {
-      if (fullArray[i] !== null) { lastMatchIdx = i; break; }
-    }
-    const rowDataArray = fullArray.slice(0, lastMatchIdx + 1).map(v => v === null ? '' : v);
-    const res = await get().saveRow('UTILITY', 'insert', null, rowDataArray);
-    // Background refetch — don't block the caller
-    if (res && res.success) {
-      get().fetchData();
-    }
-    return res;
+    const { data, error } = await supabase.from('utilities').insert(row).select().single();
+    if (error) { console.error('[addUtility]', error.message); throw new Error(error.message); }
+    console.log('[addUtility] ✅', data?.utility_no);
+    get().fetchData(true); // force refresh after write
+    return { success: true };
   },
 
   updateUtility: async (rowIndex, updatedFields) => {
-    const utility = get().utilities.find(u => u.sheetRowIndex === rowIndex);
+    const utility = get().utilities.find(u => u.sheetRowIndex === rowIndex || u._dbId === rowIndex);
     if (!utility) throw new Error('Utility not found');
     const merged = { ...utility, ...updatedFields };
-    
-    // Optimistic UI update
+
+    // Optimistic UI
     set(state => ({
-      utilities: state.utilities.map(u => u.sheetRowIndex === rowIndex ? merged : u)
+      utilities: state.utilities.map(u =>
+        (u.sheetRowIndex === rowIndex || u._dbId === rowIndex) ? merged : u
+      )
     }));
 
-    const headers = get().utilityHeaders;
-    const norm = h => String(h || '').trim().toLowerCase().replace(/\s+/g, '');
+    const patch = {};
+    if ('firmName'          in updatedFields) patch.firm_name             = updatedFields.firmName;
+    if ('personName'        in updatedFields) patch.person_name           = updatedFields.personName;
+    if ('userName'          in updatedFields) patch.user_name             = updatedFields.userName;
+    if ('department'        in updatedFields) patch.department            = updatedFields.department;
+    if ('groupHead'         in updatedFields) patch.group_head            = updatedFields.groupHead;
+    if ('payTo'             in updatedFields) patch.pay_to               = updatedFields.payTo;
+    if ('amount'            in updatedFields) patch.bill_amount           = Number(updatedFields.amount);
+    if ('billImage'         in updatedFields) patch.bill_image_url        = updatedFields.billImage;
+    if ('billDate'          in updatedFields) patch.bill_date             = updatedFields.billDate || null;
+    if ('dueDate'           in updatedFields) patch.due_date              = updatedFields.dueDate  || null;
+    if ('remarks'           in updatedFields) patch.remarks               = updatedFields.remarks;
+    if ('remark1'           in updatedFields) patch.remark_1              = updatedFields.remark1;
+    if ('tdsAmount'         in updatedFields) patch.tds_amount            = Number(updatedFields.tdsAmount);
+    if ('amountPaid'        in updatedFields) patch.amount_to_be_paid     = Number(updatedFields.amountPaid);
+    if ('outstanding'       in updatedFields) patch.outstanding_amount    = Number(updatedFields.outstanding);
+    if ('status'            in updatedFields) patch.status                = updatedFields.status;
+    if ('actual'            in updatedFields) patch.actual_0              = updatedFields.actual   || null;
+    if ('actual1'           in updatedFields) patch.actual_1              = updatedFields.actual1  || null;
+    if ('delay1'            in updatedFields) patch.delay1                = updatedFields.delay1;
+    if ('actual2'           in updatedFields) patch.actual_2              = updatedFields.actual2  || null;
+    if ('delay2'            in updatedFields) patch.delay2                = updatedFields.delay2;
+    if ('paymentFormLink'   in updatedFields) patch.payment_form_link     = updatedFields.paymentFormLink;
+    if ('fmsName'           in updatedFields) patch.fms_name              = updatedFields.fmsName;
+    if ('details'           in updatedFields) patch.details               = updatedFields.details;
+    if ('approvalAttachment'in updatedFields) patch.approval_attachment_url = updatedFields.approvalAttachment;
+    if ('paymentNo'         in updatedFields) patch.payment_number        = updatedFields.paymentNo;
+    if ('paymentMode'       in updatedFields) patch.payment_mode          = updatedFields.paymentMode;
+    if ('transactionRef'    in updatedFields) patch.transaction_reference = updatedFields.transactionRef;
+    if ('paymentDate'       in updatedFields) patch.payment_date          = updatedFields.paymentDate || null;
+    if ('paymentAttachment' in updatedFields) patch.payment_attachment_url= updatedFields.paymentAttachment;
+    if ('paymentRemarks'    in updatedFields) patch.payment_remarks       = updatedFields.paymentRemarks;
 
-    const findColIdx = (predicate) => {
-      const idx = headers.findIndex(h => predicate(norm(h)));
-      return idx >= 0 ? idx + 1 : null;
-    };
+    if (Object.keys(patch).length === 0) return { success: true };
 
-    const updatesToMake = [];
-
-    if ('firmName' in updatedFields) {
-      const col = findColIdx(h => h === 'firmname');
-      if (col) updatesToMake.push({ col, val: updatedFields.firmName });
-    }
-    if ('personName' in updatedFields) {
-      const col = findColIdx(h => h === 'personname');
-      if (col) updatesToMake.push({ col, val: updatedFields.personName });
-    }
-    if ('userName' in updatedFields) {
-      const col = findColIdx(h => h === 'nameofuser');
-      if (col) updatesToMake.push({ col, val: updatedFields.userName });
-    }
-    if ('department' in updatedFields) {
-      const col = findColIdx(h => h === 'department');
-      if (col) updatesToMake.push({ col, val: updatedFields.department });
-    }
-    if ('groupHead' in updatedFields) {
-      const col = findColIdx(h => h === 'grouphead');
-      if (col) updatesToMake.push({ col, val: updatedFields.groupHead });
-    }
-    if ('payTo' in updatedFields) {
-      const col = findColIdx(h => h === 'payto');
-      if (col) updatesToMake.push({ col, val: updatedFields.payTo });
-    }
-    if ('amount' in updatedFields) {
-      const col = findColIdx(h => h === 'billamount');
-      if (col) updatesToMake.push({ col, val: updatedFields.amount });
-    }
-    if ('billImage' in updatedFields) {
-      const col = findColIdx(h => h === 'billimage');
-      if (col) updatesToMake.push({ col, val: updatedFields.billImage });
-    }
-    if ('billDate' in updatedFields) {
-      const col = findColIdx(h => h === 'billdate');
-      if (col) updatesToMake.push({ col, val: updatedFields.billDate });
-    }
-    if ('dueDate' in updatedFields) {
-      const col = findColIdx(h => h === 'duedate');
-      if (col) updatesToMake.push({ col, val: updatedFields.dueDate });
-    }
-    if ('remarks' in updatedFields) {
-      const col = findColIdx(h => h === 'remarks' || h === 'remark');
-      if (col) updatesToMake.push({ col, val: updatedFields.remarks });
-    }
-    if ('remark1' in updatedFields) {
-      const col = findColIdx(h => h === 'remark1' || h === 'remarks1');
-      if (col) updatesToMake.push({ col, val: updatedFields.remark1 });
-    }
-    if ('tdsAmount' in updatedFields) {
-      const col = findColIdx(h => h === 'tdsdeductionamount');
-      if (col) updatesToMake.push({ col, val: updatedFields.tdsAmount });
-    }
-    if ('amountPaid' in updatedFields) {
-      const col = findColIdx(h => h === 'amounttobepaid');
-      if (col) updatesToMake.push({ col, val: updatedFields.amountPaid });
-    }
-    if ('outstanding' in updatedFields) {
-      const col = findColIdx(h => h === 'outstandingamount');
-      if (col) updatesToMake.push({ col, val: updatedFields.outstanding });
-    }
-    if ('status' in updatedFields) {
-      const col = findColIdx(h => h === 'status');
-      if (col) updatesToMake.push({ col, val: updatedFields.status });
-    }
-    if ('actual1' in updatedFields) {
-      const col = findColIdx(h => h === 'actual1');
-      if (col) updatesToMake.push({ col, val: updatedFields.actual1 });
-    }
-    if ('delay1' in updatedFields) {
-      const col = findColIdx(h => h === 'delay1');
-      if (col) updatesToMake.push({ col, val: updatedFields.delay1 });
-    }
-    if ('actual2' in updatedFields) {
-      const col = findColIdx(h => h === 'actual2');
-      if (col) updatesToMake.push({ col, val: updatedFields.actual2 });
-    }
-    if ('delay2' in updatedFields) {
-      const col = findColIdx(h => h === 'delay2' || h === 'dalay2');
-      if (col) updatesToMake.push({ col, val: updatedFields.delay2 });
-    }
-    if ('paymentFormLink' in updatedFields) {
-      const col = findColIdx(h => h === 'paymentformlink');
-      if (col) updatesToMake.push({ col, val: updatedFields.paymentFormLink });
-    }
-    // NEW: "Actual" column — set by Utility Entries tab Submit for Approval action
-    if ('actual' in updatedFields) {
-      const col = findColIdx(h => h === 'actual');
-      if (col) updatesToMake.push({ col, val: updatedFields.actual });
-    }
-    if ('fmsName' in updatedFields) {
-      const col = findColIdx(h => h === 'fmsname');
-      if (col) updatesToMake.push({ col, val: updatedFields.fmsName });
-    }
-    if ('details' in updatedFields) {
-      const col = findColIdx(h => h === 'details');
-      if (col) updatesToMake.push({ col, val: updatedFields.details });
-    }
-    if ('approvalAttachment' in updatedFields) {
-      const col = findColIdx(h => h === 'approvalattachment');
-      if (col) updatesToMake.push({ col, val: updatedFields.approvalAttachment });
-    }
-    if ('paymentNo' in updatedFields) {
-      const col = findColIdx(h => h === 'paymentnumber' || h === 'paymentno.' || h === 'paymentno');
-      if (col) updatesToMake.push({ col, val: updatedFields.paymentNo });
-    }
-    if ('paymentMode' in updatedFields) {
-      const col = findColIdx(h => h === 'paymentmode');
-      if (col) updatesToMake.push({ col, val: updatedFields.paymentMode });
-    }
-    if ('transactionRef' in updatedFields) {
-      const col = findColIdx(h => h === 'transactionreference' || h === 'transactionref');
-      if (col) updatesToMake.push({ col, val: updatedFields.transactionRef });
-    }
-    if ('paymentDate' in updatedFields) {
-      const col = findColIdx(h => h === 'paymentdate');
-      if (col) updatesToMake.push({ col, val: updatedFields.paymentDate });
-    }
-    if ('paymentAttachment' in updatedFields) {
-      const col = findColIdx(h => h === 'paymentattachment');
-      if (col) updatesToMake.push({ col, val: updatedFields.paymentAttachment });
-    }
-    if ('paymentRemarks' in updatedFields) {
-      const col = findColIdx(h => h === 'paymentremarks');
-      if (col) updatesToMake.push({ col, val: updatedFields.paymentRemarks });
-    }
-
-    if (updatesToMake.length === 0) return { success: true };
-
-    // ⚡ PARALLEL execution: All cells update at once, not one-by-one
-    await Promise.all(updatesToMake.map(u => get().saveCell('UTILITY', rowIndex, u.col, u.val)));
-
-    // Background refetch — UI already updated optimistically above
-    get().fetchData();
-
+    const { error } = await supabase.from('utilities')
+      .update(patch)
+      .eq('utility_no', utility.id);
+    if (error) { console.error('[updateUtility]', error.message); throw new Error(error.message); }
+    get().fetchData(true); // force refresh after write
     return { success: true };
   },
 

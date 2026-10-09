@@ -12,6 +12,7 @@
     "type-check": "echo 'App ready'"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
     "@tailwindcss/vite": "^4.3.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
