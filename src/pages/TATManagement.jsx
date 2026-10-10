@@ -232,7 +232,7 @@ const TATManagement = () => {
         const effectivePlannedMs = realPlannedMs + extraMs;
 
         const actualVal = stage.getActual(raw);
-        const actualMs = toMs(actualVal);
+        const actualMs = parseMs(actualVal);
 
         let isCompleted = false;
         let isDelayed = false;
@@ -242,7 +242,7 @@ const TATManagement = () => {
           isCompleted = true;
           complete++;
           // If actualMs exists, calculate against effective planned
-          const compareTime = actualMs || toMs(raw.created_at) || effectivePlannedMs;
+          const compareTime = actualMs || parseMs(raw.created_at) || effectivePlannedMs;
           delayDays = (compareTime - effectivePlannedMs) / DAY;
           if (delayDays > 0.05) {
             isDelayed = true;
