@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Loader2, CreditCard, FileText, CheckCircle2, X, RefreshCw } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
-import { cn, formatCurrency, nowDateTime, getDriveViewUrl, formatDate } from '../lib/utils';
+import { cn, formatCurrency, nowDateTime, getDriveViewUrl, formatDate, getServicePaymentFormUrl } from '../lib/utils';
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs, isViewOnly } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
+import { computePlannedDate } from '../lib/tatUtils';
 
 const Services = () => {
   const { user: currentUser } = useAuthStore();
@@ -12,6 +13,14 @@ const Services = () => {
   const { services, loading, updateService, fetchData } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [firmFilter, setFirmFilter] = useState('');
+
+  // Re-render when TAT extra days change
+  const [, setTatTick] = useState(0);
+  useEffect(() => {
+    const handler = () => setTatTick(t => t + 1);
+    window.addEventListener('tat-days-updated', handler);
+    return () => window.removeEventListener('tat-days-updated', handler);
+  }, []);
 
   const { firms } = useDataStore();
   const masterFirms = firms && firms.length > 0 ? firms : ['Pmmpl', 'Rkl', 'Purab'];
@@ -291,9 +300,11 @@ const Services = () => {
                       <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
                     </>
                   )}
-                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    {activeTab === 'history' ? 'Timestamp (Actual)' : 'Timestamp (Planned)'}
-                  </th>
+                  {activeTab !== 'history' && (
+                    <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Timestamp (Planned)
+                    </th>
+                  )}
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Service No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm Name</th>
@@ -311,13 +322,15 @@ const Services = () => {
                     <>
                       <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill No.</th>
                       <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Copy</th>
+                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Timestamp (Planned)</th>
+                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Timestamp (Actual)</th>
                     </>
                   )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredServices.map((service) => {
-                  const displayDate = activeTab === 'history' ? (service.actual2 || service.actual1 || service.timestamp) : (service.planned2 || service.planned1 || service.timestamp);
+                  const displayDate = computePlannedDate('services', service);
                   return (
                   <tr key={service.sheetRowIndex} className="hover:bg-gray-50 transition-colors">
                     {/* Checkbox + Action — first columns on Make Payment tab */}
@@ -337,9 +350,9 @@ const Services = () => {
                           </td>
                         )}
                         <td className="px-3 py-2.5">
-                          {service.paymentForm ? (
+                          {(getServicePaymentFormUrl(service) || service.paymentForm) ? (
                             <a
-                              href={service.paymentForm}
+                              href={getServicePaymentFormUrl(service) || service.paymentForm}
                               target="_blank"
                               rel="noreferrer"
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white rounded-lg text-xs font-bold transition-all shadow-xs"
@@ -353,20 +366,17 @@ const Services = () => {
                       </>
                     )}
 
-                    <td className="px-3 py-2.5 whitespace-nowrap">
-                      {formatDate(displayDate) ? (
-                        <span className={cn(
-                          "text-xs font-semibold px-2.5 py-1 rounded-full border",
-                          activeTab === 'history'
-                            ? "text-emerald-700 bg-emerald-50 border-emerald-100"
-                            : "text-indigo-700 bg-indigo-50 border-indigo-100"
-                        )}>
-                          {formatDate(displayDate)}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
+                    {activeTab !== 'history' && (
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        {displayDate ? (
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full border text-indigo-700 bg-indigo-50 border-indigo-100">
+                            {displayDate}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-3 py-2.5 text-sm font-semibold text-gray-600">{service.offerNo}</td>
                     <td className="px-3 py-2.5 text-sm font-bold text-gray-900">{service.id}</td>
                     <td className="px-3 py-2.5 text-sm text-gray-600 font-medium">{service.firmName}</td>
@@ -395,6 +405,24 @@ const Services = () => {
                             </a>
                           ) : <span className="text-xs text-gray-400">—</span>}
                         </td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          {computePlannedDate('services', service) ? (
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full border text-indigo-700 bg-indigo-50 border-indigo-100">
+                              {computePlannedDate('services', service)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          {formatDate(service.actual2 || service.actual1 || service.timestamp) ? (
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full border text-emerald-700 bg-emerald-50 border-emerald-100">
+                              {formatDate(service.actual2 || service.actual1 || service.timestamp)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
                       </>
                     )}
                   </tr>
@@ -402,7 +430,7 @@ const Services = () => {
                 })}
                 {filteredServices.length === 0 && (
                   <tr>
-                    <td colSpan={14} className="px-6 py-10 text-center text-gray-400 text-sm">
+                    <td colSpan={activeTab === 'history' ? 16 : 14}className="px-6 py-10 text-center text-gray-400 text-sm">
                       No services found.
                     </td>
                   </tr>

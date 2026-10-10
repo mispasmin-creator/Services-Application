@@ -11,6 +11,7 @@ import { cn, formatCurrency, uploadFileToDrive, getDriveViewUrl, formatDateForSu
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs, isViewOnly } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
+import { computePlannedDate } from '../lib/tatUtils';
 
 const Utility = () => {
   const { user: currentUser } = useAuthStore();
@@ -18,6 +19,14 @@ const Utility = () => {
   const { utilities, loading, error, addUtility, updateUtility, departments, groupHeads, firms, fmsNames, fetchData } = useDataStore();
   const tableScrollRef = useRef(null);
   useStickyTableHead(tableScrollRef);
+
+  // Re-render when TAT extra days change
+  const [, setTatTick] = useState(0);
+  useEffect(() => {
+    const handler = () => setTatTick(t => t + 1);
+    window.addEventListener('tat-days-updated', handler);
+    return () => window.removeEventListener('tat-days-updated', handler);
+  }, []);
 
   const masterFirms = firms && firms.length > 0 ? firms : ['Pmmpl', 'Rkl', 'Purab'];
 
@@ -1163,10 +1172,12 @@ const Utility = () => {
                     </th>
                   )}
 
-                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    {activeTab === 'completed' ? 'Timestamp (Actual)' : 'Timestamp (Planned)'}
-                  </th>
-                  <th onClick={() => handleSort('id')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  {activeTab !== 'completed' && (
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Timestamp (Planned)
+                    </th>
+                  )}
+                  <th onClick={() => handleSort('id')}className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-1"><span>Utility No.</span>{sortColumn === 'id' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
                   <th onClick={() => handleSort('firmName')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
@@ -1213,6 +1224,12 @@ const Utility = () => {
                   <th onClick={() => handleSort('status')} className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-1"><span>Status</span>{sortColumn === 'status' && (sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}</div>
                   </th>
+                  {activeTab === 'completed' && (
+                    <>
+                      <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Timestamp (Planned)</th>
+                      <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Timestamp (Actual)</th>
+                    </>
+                  )}
                   {activeTab === 'create' && (
                     <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Payment Form</th>
                   )}
@@ -1244,28 +1261,18 @@ const Utility = () => {
                         </td>
                       )}
 
-                      <td className="px-3 py-3 text-xs whitespace-nowrap">
-                        {(() => {
-                          const rawDate = activeTab === 'completed'
-                            ? (utility.actual2 || utility.actual1 || utility.timestamp)
-                            : activeTab === 'approval'
-                            ? (utility.planned1 || utility.dueDate || utility.timestamp)
-                            : activeTab === 'payment'
-                            ? (utility.planned2 || utility.planned1 || utility.dueDate || utility.timestamp)
-                            : (utility.dueDate || utility.billDate || utility.timestamp);
-                          const displayDate = formatDate(rawDate);
-                          return displayDate ? (
-                            <span className={cn(
-                              "font-semibold px-2.5 py-1 rounded-full border",
-                              activeTab === 'completed'
-                                ? "text-emerald-700 bg-emerald-50 border-emerald-100"
-                                : "text-indigo-700 bg-indigo-50 border-indigo-100"
-                            )}>
-                              {displayDate}
-                            </span>
-                          ) : <span className="text-gray-400">—</span>;
-                        })()}
-                      </td>
+                      {activeTab !== 'completed' && (
+                        <td className="px-3 py-3 text-xs whitespace-nowrap">
+                          {(() => {
+                            const displayDate = computePlannedDate('utility', utility);
+                            return displayDate ? (
+                              <span className="font-semibold px-2.5 py-1 rounded-full border text-indigo-700 bg-indigo-50 border-indigo-100">
+                                {displayDate}
+                              </span>
+                            ) : <span className="text-gray-400">—</span>;
+                          })()}
+                        </td>
+                      )}
                       <td className="px-3 py-3 font-bold text-gray-950">
                         <div className="flex items-center gap-1.5"><Zap size={14} className="text-gray-700" /><span>{utility.id}</span></div>
                       </td>
@@ -1301,6 +1308,25 @@ const Utility = () => {
                           utility.status === 'On Hold' && "bg-gray-100 text-gray-700 border-gray-200"
                         )}>{utility.actual2 ? 'Completed' : utility.status}</span>
                       </td>
+
+                      {activeTab === 'completed' && (
+                        <>
+                          <td className="px-3 py-3 text-xs whitespace-nowrap">
+                            {computePlannedDate('utility', utility) ? (
+                              <span className="font-semibold px-2.5 py-1 rounded-full border text-indigo-700 bg-indigo-50 border-indigo-100">
+                                {computePlannedDate('utility', utility)}
+                              </span>
+                            ) : <span className="text-gray-400">—</span>}
+                          </td>
+                          <td className="px-3 py-3 text-xs whitespace-nowrap">
+                            {formatDate(utility.actual2 || utility.actual1 || utility.timestamp) ? (
+                              <span className="font-semibold px-2.5 py-1 rounded-full border text-emerald-700 bg-emerald-50 border-emerald-100">
+                                {formatDate(utility.actual2 || utility.actual1 || utility.timestamp)}
+                              </span>
+                            ) : <span className="text-gray-400">—</span>}
+                          </td>
+                        </>
+                      )}
 
                       {/* Make Payment button — Utility Entries tab only */}
                       {activeTab === 'create' && (
@@ -1377,7 +1403,7 @@ const Utility = () => {
                 {/* Empty State */}
                 {totalItems === 0 && (
                   <tr>
-                    <td colSpan={15} className="px-6 py-16 text-center text-gray-400 bg-white">
+                    <td colSpan={activeTab === 'completed' ? 16 : 15}className="px-6 py-16 text-center text-gray-400 bg-white">
                       <div className="flex flex-col items-center gap-3">
                         <Database className="text-gray-200 animate-pulse" size={42} />
                         <div>

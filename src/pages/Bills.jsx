@@ -8,6 +8,7 @@ import { cn, formatCurrency, uploadFileToDrive, getDriveViewUrl, nowDateTime, fo
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs, isViewOnly } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
+import { computePlannedDate } from '../lib/tatUtils';
 
 const Bills = () => {
   const { user: currentUser } = useAuthStore();
@@ -15,6 +16,14 @@ const Bills = () => {
   const { services, loading, updateService, fetchData } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [firmFilter, setFirmFilter] = useState('');
+
+  // Re-render when TAT extra days change
+  const [, setTatTick] = useState(0);
+  useEffect(() => {
+    const handler = () => setTatTick(t => t + 1);
+    window.addEventListener('tat-days-updated', handler);
+    return () => window.removeEventListener('tat-days-updated', handler);
+  }, []);
 
   const { firms } = useDataStore();
   const masterFirms = firms && firms.length > 0 ? firms : ['Pmmpl', 'Rkl', 'Purab'];
@@ -252,9 +261,11 @@ const Bills = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    {activeTab === 'history' ? 'Timestamp (Actual)' : 'Timestamp (Planned)'}
-                  </th>
+                  {activeTab !== 'history' && (
+                    <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Timestamp (Planned)
+                    </th>
+                  )}
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Service No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm Name</th>
@@ -271,29 +282,31 @@ const Bills = () => {
                     </>
                   )}
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Status</th>
+                  {activeTab === 'history' && (
+                    <>
+                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Timestamp (Planned)</th>
+                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Timestamp (Actual)</th>
+                    </>
+                  )}
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredServices.map((s) => {
                   const billStatus = getBillStatus(s);
-                  const displayDate = activeTab === 'history' ? (s.actual1 || s.timestamp) : (s.planned1 || s.timestamp);
                   return (
                     <tr key={s.sheetRowIndex} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        {formatDate(displayDate) ? (
-                          <span className={cn(
-                            "text-xs font-semibold px-2.5 py-1 rounded-full border",
-                            activeTab === 'history'
-                              ? "text-emerald-700 bg-emerald-50 border-emerald-100"
-                              : "text-indigo-700 bg-indigo-50 border-indigo-100"
-                          )}>
-                            {formatDate(displayDate)}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400">—</span>
-                        )}
-                      </td>
+                      {activeTab !== 'history' && (
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          {computePlannedDate('bills', s) ? (
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full border text-indigo-700 bg-indigo-50 border-indigo-100">
+                              {computePlannedDate('bills', s)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-3 py-2.5 text-sm font-semibold text-gray-600">{s.offerNo}</td>
                       <td className="px-3 py-2.5 text-sm font-bold text-gray-900">{s.id}</td>
                       <td className="px-3 py-2.5 text-sm text-gray-600 font-medium">{s.firmName}</td>
@@ -325,6 +338,28 @@ const Bills = () => {
                           {billStatus}
                         </span>
                       </td>
+                      {activeTab === 'history' && (
+                        <>
+                          <td className="px-3 py-2.5 whitespace-nowrap">
+                            {computePlannedDate('bills', s) ? (
+                              <span className="text-xs font-semibold px-2.5 py-1 rounded-full border text-indigo-700 bg-indigo-50 border-indigo-100">
+                                {computePlannedDate('bills', s)}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 whitespace-nowrap">
+                            {formatDate(s.actual1 || s.timestamp) ? (
+                              <span className="text-xs font-semibold px-2.5 py-1 rounded-full border text-emerald-700 bg-emerald-50 border-emerald-100">
+                                {formatDate(s.actual1 || s.timestamp)}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </td>
+                        </>
+                      )}
                       <td className="px-3 py-2.5 text-right">
                         {billStatus === 'Awaiting Bill' && (
                           <button onClick={() => openUploadModal(s)} disabled={isSaving}
@@ -344,7 +379,7 @@ const Bills = () => {
                 })}
                 {filteredServices.length === 0 && (
                   <tr>
-                    <td colSpan={activeTab === 'history' ? 14 : 12} className="px-6 py-10 text-center text-gray-400 text-sm">
+                    <td colSpan={activeTab === 'history' ? 15 : 12} className="px-6 py-10 text-center text-gray-400 text-sm">
                       No bills found.
                     </td>
                   </tr>

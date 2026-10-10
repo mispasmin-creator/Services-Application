@@ -33,11 +33,20 @@ const clip = (s, n = 40) => (String(s).length > n ? `${String(s).slice(0, n)}...
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs, isViewOnly } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
+import { computePlannedDate } from '../lib/tatUtils';
 
 const Tally = () => {
   const { user: currentUser } = useAuthStore();
   const viewOnly = isViewOnly(currentUser);
   const { services, loading, updateService, fetchData } = useDataStore();
+
+  // Re-render when TAT extra days change
+  const [, setTatTick] = useState(0);
+  useEffect(() => {
+    const handler = () => setTatTick(t => t + 1);
+    window.addEventListener('tat-days-updated', handler);
+    return () => window.removeEventListener('tat-days-updated', handler);
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [firmFilter, setFirmFilter] = useState('All');
   const [activeTab, setActiveTab] = useState('audit'); // 'audit', 'rectify', 'tally', 'completed'
@@ -432,9 +441,11 @@ const Tally = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    {activeTab === 'completed' ? 'Timestamp (Actual)' : 'Timestamp (Planned)'}
-                  </th>
+                  {activeTab !== 'completed' && (
+                    <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Timestamp (Planned)
+                    </th>
+                  )}
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Service No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm Name</th>
@@ -453,32 +464,31 @@ const Tally = () => {
                   {activeTab === 'completed' && (
                     <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Voucher No.</th>
                   )}
+                  {activeTab === 'completed' && (
+                    <>
+                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Timestamp (Planned)</th>
+                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Timestamp (Actual)</th>
+                    </>
+                  )}
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {activeTabItems.map((item, index) => {
-                  const displayDate = activeTab === 'completed'
-                    ? (item.actual5 || item.actual4 || item.actual3 || item.actual2 || item.actual1 || item.timestamp)
-                    : (activeTab === 'audit' ? (item.planned3 || item.planned1 || item.timestamp) :
-                       activeTab === 'rectify' ? (item.planned4 || item.planned3 || item.timestamp) :
-                       (item.planned5 || item.planned3 || item.timestamp));
+                  const displayDate = computePlannedDate('tally', item);
                   return (
                   <tr key={`tally-stage-${item.type}-${item.sheetRowIndex}-${index}`} className="hover:bg-gray-50/70 transition-colors">
-                    <td className="px-3 py-2.5 whitespace-nowrap">
-                      {formatDate(displayDate) ? (
-                        <span className={cn(
-                          "text-xs font-semibold px-2.5 py-1 rounded-full border",
-                          activeTab === 'completed'
-                            ? "text-emerald-700 bg-emerald-50 border-emerald-100"
-                            : "text-indigo-700 bg-indigo-50 border-indigo-100"
-                        )}>
-                          {formatDate(displayDate)}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
+                    {activeTab !== 'completed' && (
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        {displayDate ? (
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full border text-indigo-700 bg-indigo-50 border-indigo-100">
+                            {displayDate}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-3 py-2.5 text-sm font-semibold text-gray-600">{item.offerNo || '—'}</td>
                     <td className="px-3 py-2.5 text-sm font-bold text-gray-900">{item.id}</td>
                     <td className="px-3 py-2.5 text-sm text-gray-600 font-medium">{item.firmName || '—'}</td>
@@ -525,6 +535,28 @@ const Tally = () => {
                         {item.tallyVoucher || <span className="text-gray-300 italic text-xs">N/A</span>}
                       </td>
                     )}
+                    {activeTab === 'completed' && (
+                      <>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          {computePlannedDate('tally', item) ? (
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full border text-indigo-700 bg-indigo-50 border-indigo-100">
+                              {computePlannedDate('tally', item)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          {formatDate(item.actual5 || item.actual4 || item.actual3 || item.actual2 || item.actual1 || item.timestamp) ? (
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full border text-emerald-700 bg-emerald-50 border-emerald-100">
+                              {formatDate(item.actual5 || item.actual4 || item.actual3 || item.actual2 || item.actual1 || item.timestamp)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+                      </>
+                    )}
 
                     <td className="px-3 py-2.5 text-right">
                       {activeTab === 'audit' && (
@@ -557,7 +589,7 @@ const Tally = () => {
 
                 {activeTabItems.length === 0 && (
                   <tr>
-                    <td colSpan={21} className="px-6 py-12 text-center text-gray-400 text-sm">
+                    <td colSpan={activeTab === 'completed' ? 22 : 21}className="px-6 py-12 text-center text-gray-400 text-sm">
                       <div className="flex flex-col items-center gap-2">
                         <Database className="text-gray-300" size={32} />
                         <p className="font-semibold text-gray-400">No records found in this stage.</p>

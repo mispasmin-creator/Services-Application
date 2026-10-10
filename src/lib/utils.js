@@ -69,6 +69,31 @@ export function formatDate(val) {
   return String(val);
 }
 
+// Firm → Google Payment Form mapping
+export const FIRM_FORM_LINKS = {
+  "purab": "https://docs.google.com/forms/d/e/1FAIpQLSdLWKfGPNXK62Orndb137GPKadFiRQZS8W_MM0c11HvdR4KkA/viewform",
+  "rkl": "https://docs.google.com/forms/d/e/1FAIpQLScJJFvh6zchRosSzX0mU-u7-oeMaQW6iv1osE70hRDoE-uVrg/viewform",
+  "refrasynth": "https://docs.google.com/forms/d/e/1FAIpQLSdHF5shP_liUbm1tsyOS3nrEmNUY9Y5zl4y2odXK0weaDjcpA/viewform",
+  "pmmpl": "https://docs.google.com/forms/d/e/1FAIpQLScn8tHEUldlOM_8DKpHUfHHiRImDVjkpkhhfduaZUIxpxlJrA/viewform",
+  "refratech": "https://docs.google.com/forms/d/e/1FAIpQLScTunRezHE3TKtNpXjISVWjnywDwUcT6F62DYtkLlgXL6MMaQ/viewform",
+};
+
+export function getServicePaymentFormUrl(service) {
+  const baseUrl = FIRM_FORM_LINKS[String(service?.firmName || '').trim().toLowerCase()];
+  if (!baseUrl) return '';
+  const netAmount = Math.round((Number(service.amount) || 0) - (Number(service.tdsAmount) || 0));
+  const params = new URLSearchParams({
+    usp: 'pp_url',
+    'entry.1200639812': service.id || '',
+    'entry.604194301': 'New Service Application',
+    'entry.1358288895': 'Yes',
+    'entry.1091308719': service.vendor || '',
+    'entry.1486176123': String(netAmount),
+    'entry.2102057582': 'Service Payment',
+  });
+  return `${baseUrl}?${params.toString()}`;
+}
+
 export function formatCurrency(amount) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",

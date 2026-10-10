@@ -9,6 +9,7 @@ import { cn, formatCurrency, uploadFileToDrive, nowDateTime, getDriveViewUrl, fo
 import useAuthStore from '../store/useAuthStore';
 import { getAllowedTabs, isViewOnly } from '../lib/permissions';
 import useStickyTableHead from '../hooks/useStickyTableHead';
+import { computePlannedDate } from '../lib/tatUtils';
 
 const Offers = () => {
   const { user: currentUser } = useAuthStore();
@@ -18,6 +19,14 @@ const Offers = () => {
   const [firmFilter, setFirmFilter] = useState('');
   const tableScrollRef = useRef(null);
   useStickyTableHead(tableScrollRef);
+
+  // Re-render when TAT extra days change
+  const [, setTatTick] = useState(0);
+  useEffect(() => {
+    const handler = () => setTatTick(t => t + 1);
+    window.addEventListener('tat-days-updated', handler);
+    return () => window.removeEventListener('tat-days-updated', handler);
+  }, []);
 
   useEffect(() => {
     if (!serviceLocations || serviceLocations.length === 0) {
@@ -417,9 +426,11 @@ const Offers = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    {activeTab === 'history' ? 'Timestamp (Actual)' : 'Timestamp (Planned)'}
-                  </th>
+                  {activeTab !== 'history' && (
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Timestamp (Planned)
+                    </th>
+                  )}
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer No</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Firm Name</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
@@ -431,26 +442,29 @@ const Offers = () => {
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Is There An Offer</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Offer Copy</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                  {activeTab === 'history' && (
+                    <>
+                      <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Timestamp (Planned)</th>
+                      <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Timestamp (Actual)</th>
+                    </>
+                  )}
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredOffers.map((offer) => (
                   <tr key={offer.sheetRowIndex} className="hover:bg-gray-50 transition-colors group">
-                    <td className="px-3 py-3 text-xs whitespace-nowrap">
-                      {formatDate(offer.timestamp) ? (
-                        <span className={cn(
-                          "px-2.5 py-1 rounded-full font-semibold border",
-                          activeTab === 'history' 
-                            ? "text-emerald-700 bg-emerald-50 border-emerald-100" 
-                            : "text-indigo-700 bg-indigo-50 border-indigo-100"
-                        )}>
-                          {formatDate(offer.timestamp)}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
+                    {activeTab !== 'history' && (
+                      <td className="px-3 py-3 text-xs whitespace-nowrap">
+                        {computePlannedDate('offers', offer) ? (
+                          <span className="px-2.5 py-1 rounded-full font-semibold border text-indigo-700 bg-indigo-50 border-indigo-100">
+                            {computePlannedDate('offers', offer)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-3 py-3 text-sm font-bold text-gray-900">{offer.id}</td>
                     <td className="px-3 py-3 text-sm font-medium text-gray-600">{offer.firmName}</td>
                     <td className="px-3 py-3">
@@ -491,6 +505,28 @@ const Offers = () => {
                         {offer.status || '—'}
                       </span>
                     </td>
+                    {activeTab === 'history' && (
+                      <>
+                        <td className="px-3 py-3 text-xs whitespace-nowrap">
+                          {computePlannedDate('offers', offer) ? (
+                            <span className="px-2.5 py-1 rounded-full font-semibold border text-indigo-700 bg-indigo-50 border-indigo-100">
+                              {computePlannedDate('offers', offer)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-xs whitespace-nowrap">
+                          {formatDate(offer.actual1 || offer.timestamp) ? (
+                            <span className="px-2.5 py-1 rounded-full font-semibold border text-emerald-700 bg-emerald-50 border-emerald-100">
+                              {formatDate(offer.actual1 || offer.timestamp)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+                      </>
+                    )}
                     <td className="px-3 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         {!isDone(offer.status) && (
@@ -511,7 +547,7 @@ const Offers = () => {
                 ))}
                 {filteredOffers.length === 0 && (
                   <tr>
-                    <td colSpan={13} className="px-6 py-10 text-center text-gray-400 text-sm">
+                    <td colSpan={14} className="px-6 py-10 text-center text-gray-400 text-sm">
                       No offers found.
                     </td>
                   </tr>

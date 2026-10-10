@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import useAuthStore from './useAuthStore';
-import { nowDateTime, formatDate } from '../lib/utils';
+import { nowDateTime, formatDate, getServicePaymentFormUrl } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
 const apiUrl = import.meta.env.VITE_APPSCRIPT_URL || 'https://script.google.com/macros/s/AKfycbxH_TMsqQkK3XpPUR4-999K7Q0R-P0WNd0rc1vL9b_KYMFB2xMN6VDP6vXqaNw4Kk3b/exec';
@@ -265,6 +265,8 @@ const useDataStore = create((set, get) => ({
           offerCopy:     row.offer_copy_url    || '',  // ✅ Supabase: offer_copy_url
           amountPaid:    Number(row.amount_to_be_paid)  || 0,  // ✅ Supabase: amount_to_be_paid
           outstanding:   Number(row.outstanding_amount) || 0,  // ✅ Supabase: outstanding_amount
+          planned1:      formatDate(row.planned_1),
+          actual1:       formatDate(row.actual_1),
           status:        row.status            || 'Pending',
           date:          formatDate(row.created_at),
           _dbId:         row.id,
@@ -520,8 +522,7 @@ const useDataStore = create((set, get) => ({
     const netAmount = Math.round((Number(service.amount) || 0) - (Number(service.tdsAmount) || 0));
 
     // Auto-generate Payment Form URL (same Google Form as old system)
-    const FORM_BASE = 'https://docs.google.com/forms/d/e/1FAIpQLScJJFvh6zchRosSzX0mU-u7-oeMaQW6iv1osE70hRDoE-uVrg/viewform?usp=pp_url';
-    const paymentFormUrl = `${FORM_BASE}&entry.1200639812=${encodeURIComponent(service.id || '')}&entry.604194301=New+Service+Application&entry.1358288895=Yes&entry.1091308719=${encodeURIComponent(service.vendor || '')}&entry.1486176123=${netAmount}&entry.2102057582=Service+Payment`;
+    const paymentFormUrl = getServicePaymentFormUrl(service);
 
     const row = {
       service_no:        service.id          || '',

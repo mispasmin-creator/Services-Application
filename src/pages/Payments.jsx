@@ -282,9 +282,11 @@ const Payments = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    {activeTab === 'history' ? 'Timestamp (Actual)' : 'Timestamp (Planned)'}
-                  </th>
+                  {activeTab !== 'history' && (
+                    <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Timestamp (Planned)
+                    </th>
+                  )}
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Reference</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Pay To</th>
@@ -292,28 +294,28 @@ const Payments = () => {
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">TDS</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Net Payable</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                  {activeTab === 'history' && (
+                    <>
+                      <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Timestamp (Planned)</th>
+                      <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Timestamp (Actual)</th>
+                    </>
+                  )}
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {allPayments.map((item, index) => {
-                  const displayDate = activeTab === 'history' 
-                    ? (item.actual2 || item.actual1 || item.timestamp) 
-                    : (item.planned2 || item.planned1 || item.dueDate || item.timestamp);
                   return (
                   <tr key={`pay-${item.type}-${item.sheetRowIndex}-${index}`} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-3 py-3 text-xs whitespace-nowrap">
-                      {formatDate(displayDate) ? (
-                        <span className={cn(
-                          "font-semibold px-2.5 py-1 rounded-full border",
-                          activeTab === 'history'
-                            ? "text-emerald-700 bg-emerald-50 border-emerald-100"
-                            : "text-indigo-700 bg-indigo-50 border-indigo-100"
-                        )}>
-                          {formatDate(displayDate)}
-                        </span>
-                      ) : <span className="text-gray-400">—</span>}
-                    </td>
+                    {activeTab !== 'history' && (
+                      <td className="px-3 py-3 text-xs whitespace-nowrap">
+                        {formatDate(item.planned2 || item.planned1 || item.dueDate || item.timestamp) ? (
+                          <span className="font-semibold px-2.5 py-1 rounded-full border text-indigo-700 bg-indigo-50 border-indigo-100">
+                            {formatDate(item.planned2 || item.planned1 || item.dueDate || item.timestamp)}
+                          </span>
+                        ) : <span className="text-gray-400">—</span>}
+                      </td>
+                    )}
                     <td className="px-3 py-3">
                       <span className={cn(
                         "px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1 w-fit",
@@ -343,6 +345,24 @@ const Payments = () => {
                         {item.paymentStatus}
                       </span>
                     </td>
+                    {activeTab === 'history' && (
+                      <>
+                        <td className="px-3 py-3 text-xs whitespace-nowrap">
+                          {formatDate(item.planned2 || item.planned1 || item.dueDate || item.timestamp) ? (
+                            <span className="font-semibold px-2.5 py-1 rounded-full border text-indigo-700 bg-indigo-50 border-indigo-100">
+                              {formatDate(item.planned2 || item.planned1 || item.dueDate || item.timestamp)}
+                            </span>
+                          ) : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="px-3 py-3 text-xs whitespace-nowrap">
+                          {formatDate(item.actual2 || item.actual1 || item.timestamp) ? (
+                            <span className="font-semibold px-2.5 py-1 rounded-full border text-emerald-700 bg-emerald-50 border-emerald-100">
+                              {formatDate(item.actual2 || item.actual1 || item.timestamp)}
+                            </span>
+                          ) : <span className="text-gray-400">—</span>}
+                        </td>
+                      </>
+                    )}
                     <td className="px-3 py-3 text-right">
                       {item.paymentStatus !== 'Paid' && item.paymentStatus !== 'Payment Done' ? (
                         <button
@@ -363,7 +383,7 @@ const Payments = () => {
                 })}
                 {allPayments.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-6 py-10 text-center text-gray-400 text-sm">
+                    <td colSpan={activeTab === 'history' ? 10 : 8}className="px-6 py-10 text-center text-gray-400 text-sm">
                       {activeTab === 'active'
                         ? "No payments pending. Verify bills first in the Bills module."
                         : "No payment history records found."}

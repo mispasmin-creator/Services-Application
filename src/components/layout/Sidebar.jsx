@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Timer,
   UserCircle2,
   X,
 } from 'lucide-react';
@@ -30,6 +31,7 @@ const MENU_ITEMS = [
   { key: 'Tally',     icon: Database,        label: 'Tally',     path: '/tally',     section: 'finance' },
   { key: 'Utility',   icon: Zap,             label: 'Utility',   path: '/utility',   section: 'finance' },
   { key: 'Reports',   icon: ClipboardList,   label: 'Reports',   path: '/reports',   section: 'admin' },
+  { key: 'TAT',       icon: Timer,           label: 'TAT Management', path: '/tat', section: 'admin' },
   { key: 'Users',     icon: Users,           label: 'User Management', path: '/users', section: 'admin' },
 ];
 

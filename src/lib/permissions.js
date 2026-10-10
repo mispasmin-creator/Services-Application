@@ -8,6 +8,7 @@ export const PAGES = [
   { key: 'Tally', label: 'Tally' },
   { key: 'Utility', label: 'Utility' },
   { key: 'Reports', label: 'Reports' },
+  { key: 'TAT', label: 'TAT Management' },
   { key: 'Users', label: 'User Management' },
 ];
 

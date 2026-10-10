@@ -17,6 +17,7 @@ const Payments = React.lazy(() => import('./pages/Payments'));
 const Tally = React.lazy(() => import('./pages/Tally'));
 const Reports = React.lazy(() => import('./pages/Reports'));
 const Users = React.lazy(() => import('./pages/Users'));
+const TATManagement = React.lazy(() => import('./pages/TATManagement'));
 
 // ⚡ Loading fallback component
 const PageLoader = () => (
@@ -83,6 +84,7 @@ function App() {
           <Route path="payments" element={<PageGuard pageKey="Payments"><Suspense fallback={<PageLoader />}><Payments /></Suspense></PageGuard>} />
           <Route path="tally" element={<PageGuard pageKey="Tally"><Suspense fallback={<PageLoader />}><Tally /></Suspense></PageGuard>} />
           <Route path="reports" element={<PageGuard pageKey="Reports"><Suspense fallback={<PageLoader />}><Reports /></Suspense></PageGuard>} />
+          <Route path="tat" element={<PageGuard pageKey="TAT"><Suspense fallback={<PageLoader />}><TATManagement /></Suspense></PageGuard>} />
           <Route path="users" element={<PageGuard pageKey="Users"><Suspense fallback={<PageLoader />}><Users /></Suspense></PageGuard>} />
         </Route>
 
