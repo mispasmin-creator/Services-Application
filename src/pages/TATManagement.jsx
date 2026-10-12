@@ -231,7 +231,7 @@ const TATManagement = () => {
         const realPlannedMs = parseMs(baseDate) || now;
         const effectivePlannedMs = realPlannedMs + extraMs;
 
-        const actualVal = stage.getActual(raw);
+        const actualVal = isDone ? stage.getActual(raw) : null;
         const actualMs = parseMs(actualVal);
 
         let isCompleted = false;
@@ -241,7 +241,7 @@ const TATManagement = () => {
         if (isDone) {
           isCompleted = true;
           complete++;
-          // If actualMs exists, calculate against effective planned
+          // Completed items: delay is calculated between actual completion and effective planned date
           const compareTime = actualMs || parseMs(raw.created_at) || effectivePlannedMs;
           delayDays = (compareTime - effectivePlannedMs) / DAY;
           if (delayDays > 0.05) {
@@ -250,13 +250,11 @@ const TATManagement = () => {
             totalDelayDays += delayDays;
           }
         } else {
+          // Pending items: actual hasn't happened yet, so delay is not calculated
           pending++;
-          delayDays = (now - effectivePlannedMs) / DAY;
-          if (delayDays > 0.05) {
-            isDelayed = true;
-            delayed++;
-            totalDelayDays += delayDays;
-          }
+          isCompleted = false;
+          isDelayed = false;
+          delayDays = 0;
         }
 
         items.push({
@@ -644,7 +642,11 @@ const TATManagement = () => {
 
                       {/* Actual */}
                       <td className="py-3 px-4 text-gray-600 font-mono text-xs whitespace-nowrap">
-                        {item.actualMs ? fmtDT(item.actualMs) : item.isCompleted ? <span className="text-emerald-600 font-semibold text-xs">Completed</span> : <span className="text-gray-400">—</span>}
+                        {item.isCompleted ? (
+                          item.actualMs ? fmtDT(item.actualMs) : <span className="text-emerald-600 font-semibold text-xs">Completed</span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
                       </td>
 
                       {/* Delay Status Badge */}
@@ -655,16 +657,12 @@ const TATManagement = () => {
                               {item.delayDays.toFixed(1)} din late
                             </span>
                           ) : (
-                            <span className="inline-block px-2.5 py-0.5 text-xs font-bold rounded border bg-amber-50 text-amber-700 border-amber-200">
-                              0.0 din late
+                            <span className="inline-block px-2.5 py-0.5 text-xs font-bold rounded border bg-emerald-50 text-emerald-700 border-emerald-200">
+                              On Time
                             </span>
                           )
-                        ) : item.delayDays > 0.05 ? (
-                          <span className="inline-block px-2.5 py-0.5 text-xs font-bold rounded border bg-rose-50 text-rose-700 border-rose-200">
-                            {item.delayDays.toFixed(1)} din overdue
-                          </span>
                         ) : (
-                          <span className="inline-block px-2.5 py-0.5 text-xs font-bold rounded border bg-sky-50 text-sky-700 border-sky-200">
+                          <span className="inline-block px-2.5 py-0.5 text-xs font-bold rounded border bg-amber-50 text-amber-700 border-amber-200">
                             Pending
                           </span>
                         )}
