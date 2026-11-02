@@ -41,12 +41,6 @@ const Tally = () => {
   const { services, loading, updateService, fetchData } = useDataStore();
 
   // Re-render when TAT extra days change
-  const [, setTatTick] = useState(0);
-  useEffect(() => {
-    const handler = () => setTatTick(t => t + 1);
-    window.addEventListener('tat-days-updated', handler);
-    return () => window.removeEventListener('tat-days-updated', handler);
-  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [firmFilter, setFirmFilter] = useState('All');
   const [activeTab, setActiveTab] = useState('audit'); // 'audit', 'rectify', 'tally', 'completed'

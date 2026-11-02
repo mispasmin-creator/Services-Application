@@ -13,11 +13,15 @@ import {
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
 import {
-  getTATStageDays,
+  DEFAULT_STAGE_DAYS,
+  fetchTATStageDays,
   saveTATStageDays,
   getStageBaseDate,
+  getStagePlannedDate,
   parseMs,
 } from '../lib/tatUtils';
+import { isAdmin } from '../lib/permissions';
+import useAuthStore from '../store/useAuthStore';
 
 const DAY = 86400000;
 
@@ -103,7 +107,7 @@ const STAGES_CONFIG = [
     id: 'utility',
     name: 'Utility',
     table: 'utilities',
-    column: 'utilities.planned1',
+    column: 'utilities.planned2',
     getPool: (data) => data.utilities,
     // Match Utility.jsx rule: Completed if actual_2 is set OR status is Completed
     isCompleted: (r) => !!(r.actual_2 || r.status === 'Completed'),
@@ -122,8 +126,19 @@ const TATManagement = () => {
     utilities: [],
   });
 
-  // Extra days state (shared across all pages via tatUtils)
-  const [extraDaysMap, setExtraDaysMap] = useState(() => getTATStageDays());
+  const { user: currentUser } = useAuthStore();
+  const canEditDays = isAdmin(currentUser);
+
+  // Extra days, stored in Supabase (stage_settings)
+  const [extraDaysMap, setExtraDaysMap] = useState(DEFAULT_STAGE_DAYS);
+  const [daysLoaded, setDaysLoaded] = useState(false);
+  const [daysError, setDaysError] = useState('');
+
+  // Admin password prompt: { days, stageId } while open
+  const [pendingSave, setPendingSave] = useState(null);
+  const [password, setPassword] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const [savedStageId, setSavedStageId] = useState(null);
 
@@ -138,6 +153,16 @@ const TATManagement = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      try {
+        setExtraDaysMap(await fetchTATStageDays());
+        setDaysLoaded(true);
+        setDaysError('');
+      } catch (err) {
+        console.error('Error fetching TAT days:', err);
+        setDaysLoaded(false);
+        setDaysError('Extra days load nahi hue. Refresh karke dobara try karein.');
+      }
+
       const [sRes, oRes, uRes] = await Promise.all([
         supabase.from('services').select('*').order('created_at', { ascending: false }),
         supabase.from('offers').select('*').order('created_at', { ascending: false }),
@@ -191,22 +216,46 @@ const TATManagement = () => {
     fetchData();
   }, []);
 
-  // Save extra days for a stage (updates all pages live)
+  const openSavePrompt = (days, stageId) => {
+    setPassword('');
+    setSaveError('');
+    setPendingSave({ days, stageId });
+  };
+
+  // Save extra days for a stage. They apply only to entries created after this save.
   const handleSaveExtraDays = (stageId) => {
-    try {
-      saveTATStageDays(extraDaysMap);
-      setSavedStageId(stageId);
-      setTimeout(() => setSavedStageId(null), 2000);
-    } catch (err) {
-      console.error('Failed to save extra days:', err);
-    }
+    openSavePrompt({ [stageId]: Number(extraDaysMap[stageId]) || 0 }, stageId);
   };
 
   // Reset all extra days to 0
   const handleResetAllZero = () => {
-    const zeroMap = { offers: 0, services: 0, bills: 0, tally: 0, utility: 0 };
-    setExtraDaysMap(zeroMap);
-    saveTATStageDays(zeroMap);
+    openSavePrompt({ ...DEFAULT_STAGE_DAYS }, null);
+  };
+
+  const confirmSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setSaveError('');
+    try {
+      await saveTATStageDays(currentUser?.username, password, pendingSave.days);
+      setExtraDaysMap((prev) => ({ ...prev, ...pendingSave.days }));
+      if (pendingSave.stageId) {
+        const stageId = pendingSave.stageId;
+        setSavedStageId(stageId);
+        setTimeout(() => setSavedStageId(null), 2000);
+      }
+      setPendingSave(null);
+      setPassword('');
+    } catch (err) {
+      console.error('Failed to save extra days:', err);
+      setSaveError(
+        err.message.includes('not_admin')
+          ? 'Password galat hai, ya yeh login Admin nahi hai.'
+          : 'Save nahi hua. Dobara try karein.'
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Process stage statistics and list of items
@@ -216,7 +265,6 @@ const TATManagement = () => {
     return STAGES_CONFIG.map((stage) => {
       const rawList = stage.getPool(dataStore) || [];
       const extraDays = Number(extraDaysMap[stage.id]) || 0;
-      const extraMs = extraDays * DAY;
 
       let pending = 0;
       let complete = 0;
@@ -229,7 +277,7 @@ const TATManagement = () => {
         const isDone = stage.isCompleted(raw);
         const baseDate = getStageBaseDate(stage.id, raw);
         const realPlannedMs = parseMs(baseDate) || now;
-        const effectivePlannedMs = realPlannedMs + extraMs;
+        const effectivePlannedMs = parseMs(getStagePlannedDate(stage.id, raw)) || realPlannedMs;
 
         const actualVal = isDone ? stage.getActual(raw) : null;
         const actualMs = parseMs(actualVal);
@@ -334,7 +382,7 @@ const TATManagement = () => {
         <div>
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">TAT Management</h1>
           <p className="text-xs text-gray-500 mt-0.5">
-            Live Supabase data: Planned, Actual aur Delay tracking with Extra Days adjustment.
+            Live Supabase data: Planned, Actual aur Delay tracking. Extra days sirf save ke baad bani nayi entries par lagte hain; purani entries ki date nahi badalti.
           </p>
         </div>
       </div>
@@ -355,13 +403,21 @@ const TATManagement = () => {
             </button>
             <button
               onClick={handleResetAllZero}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer"
+              disabled={!canEditDays || !daysLoaded}
+              title={canEditDays ? undefined : 'Sirf Admin din badal sakta hai'}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RotateCcw size={13} />
               <span>Sab 0 karo</span>
             </button>
           </div>
         </div>
+
+        {daysError && (
+          <div className="px-6 py-2.5 bg-red-50 border-b border-red-100 text-xs font-semibold text-red-600">
+            {daysError}
+          </div>
+        )}
 
         {/* Stages Summary Table */}
         <div className="overflow-x-auto">
@@ -470,12 +526,13 @@ const TATManagement = () => {
                           type="number"
                           min="0"
                           max="60"
+                          disabled={!canEditDays || !daysLoaded}
                           value={extraDaysMap[stage.id] ?? 0}
                           onChange={(e) => {
-                            const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                            const val = Math.min(60, Math.max(0, parseInt(e.target.value, 10) || 0));
                             setExtraDaysMap((prev) => ({ ...prev, [stage.id]: val }));
                           }}
-                          className="w-16 px-2.5 py-1 bg-white border border-gray-300 rounded-lg text-center text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                          className="w-16 px-2.5 py-1 bg-white border border-gray-300 rounded-lg text-center text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                         />
                       </td>
 
@@ -484,8 +541,10 @@ const TATManagement = () => {
                         <button
                           type="button"
                           onClick={() => handleSaveExtraDays(stage.id)}
+                          disabled={!canEditDays || !daysLoaded}
+                          title={canEditDays ? undefined : 'Sirf Admin din badal sakta hai'}
                           className={cn(
-                            'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer',
+                            'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
                             savedStageId === stage.id
                               ? 'bg-emerald-700 text-white'
                               : 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -605,7 +664,7 @@ const TATManagement = () => {
                   <th className="py-3 px-6">Indent / Ref</th>
                   <th className="py-3 px-4">Party</th>
                   <th className="py-3 px-4">Real planned</th>
-                  <th className="py-3 px-4">Planned (+{activeStage.extraDays} din)</th>
+                  <th className="py-3 px-4">Planned</th>
                   <th className="py-3 px-4">Actual</th>
                   <th className="py-3 px-6 text-right">Delay</th>
                 </tr>
@@ -635,7 +694,7 @@ const TATManagement = () => {
                         {fmtDT(item.realPlannedMs)}
                       </td>
 
-                      {/* Planned (+X din) */}
+                      {/* Planned */}
                       <td className="py-3 px-4 text-gray-900 font-mono text-xs font-semibold whitespace-nowrap">
                         {fmtDT(item.effectivePlannedMs)}
                       </td>
@@ -703,6 +762,52 @@ const TATManagement = () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Admin password prompt for saving days */}
+      {pendingSave && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <form
+            onSubmit={confirmSave}
+            className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-gray-200 p-6 space-y-4"
+          >
+            <div>
+              <h3 className="text-base font-bold text-gray-900">Admin password daalein</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Naye din sabhi users ke liye sirf save ke baad bani entries par lagenge.
+              </p>
+            </div>
+            <input
+              type="password"
+              required
+              autoFocus
+              autoComplete="current-password"
+              aria-label="Admin password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+            {saveError && <p className="text-xs font-semibold text-red-600">{saveError}</p>}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingSave(null)}
+                disabled={saving}
+                className="px-3.5 py-1.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-lg text-xs font-semibold cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50"
+              >
+                {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                <span>Save</span>
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

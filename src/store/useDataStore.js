@@ -203,6 +203,7 @@ const useDataStore = create((set, get) => ({
             sheetRowIndex: row.id,
             id:            row.service_no        || '',
             timestamp:     formatDate(row.created_at),
+            tatDays:       row.tat_days           || null,
             offerNo:       row.offer_no           || '',
             firmName:      row.firm_name          || '',
             checker:       row.service_checker    || '',   // ✅ Supabase: service_checker
@@ -261,6 +262,7 @@ const useDataStore = create((set, get) => ({
           description:   row.work_description  || '',  // ✅ Supabase: work_description
           location:      row.service_location  || '',  // ✅ Supabase: service_location
           amount:        Number(row.amount)    || 0,
+          tatDays:       row.tat_days          || null,
           isOffer:       row.is_there_offer    || '',  // ✅ Supabase: is_there_offer
           offerCopy:     row.offer_copy_url    || '',  // ✅ Supabase: offer_copy_url
           amountPaid:    Number(row.amount_to_be_paid)  || 0,  // ✅ Supabase: amount_to_be_paid
@@ -296,6 +298,7 @@ const useDataStore = create((set, get) => ({
             id:                 row.utility_no              || '',
             timestamp:          formatDate(row.created_at),
             firmName:           row.firm_name               || '',
+            tatDays:            row.tat_days                || null,
             personName:         row.person_name             || '',
             userName:           row.user_name               || '',  // ✅ Supabase: user_name
             department:         row.department              || '',

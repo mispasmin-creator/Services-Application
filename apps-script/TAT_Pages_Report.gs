@@ -11,7 +11,7 @@ var TZ = 'Asia/Kolkata';
 var DAY = 86400000;
 var LATE_TOLERANCE_DAYS = 0.05;
 var FORCE_REWRITE_MS = 30 * 60 * 1000; // pending delays grow with time -> rewrite at least every 30 min
-var PAGES = ['Offers', 'Services', 'Bills', 'Tally', 'Utility'];
+var PAGES = ['Offers', 'Services', 'Bills', 'Audit', 'Rectify', 'Tally', 'Utility', 'Payment Approval', 'Tally Entry'];
 var OLD_TABS = ['TAT Report', 'Summary']; // tabs of the earlier script, removed on START
 
 // Status = Done / Pending (ye har jagah same ginti hai). Timing = Done wale me Late/On time, Pending wale me Overdue/Not yet due.
@@ -83,6 +83,11 @@ function ms_(v) {
   return isNaN(t) ? null : t;
 }
 
+/** Same Planned date as the app: new entries (tat_days set) use the Supabase column, old entries stay at the base date. */
+function plan_(r, field, base) {
+  return r.tat_days ? (r[field] || base) : base;
+}
+
 /** done: explicit true/false, or undefined -> done when an actual date exists */
 function entry_(stage, id, firm, party, planned, actual, nowMs, done) {
   var p = ms_(planned), a = ms_(actual);
@@ -106,16 +111,16 @@ function entry_(stage, id, firm, party, planned, actual, nowMs, done) {
 
 function collect_() {
   var nowMs = Date.now();
-  var out = { Offers: [], Services: [], Bills: [], Tally: [], Utility: [] };
+  var out = { Offers: [], Services: [], Bills: [], Tally: [], Audit: [], Rectify: [], Utility: [], 'Payment Approval': [], 'Tally Entry': [] };
   var low = function (v) { return String(v == null ? '' : v).trim().toLowerCase(); };
 
   var services = fetchAll_('services',
-    'service_no,offer_no,firm_name,vendor_name,total_amount,bill_no,bill_copy_url,status_3,status_4,status_5,' +
-    'planned_1,actual_1,planned_2,actual_2,planned_3,actual_3,planned_4,actual_4,planned_5,actual_5');
+    'service_no,offer_no,firm_name,vendor_name,total_amount,bill_no,bill_copy_url,status_3,status_4,status_5,tat_days,' +
+    'created_at,planned_1,actual_1,planned_2,actual_2,planned_3,actual_3,planned_4,actual_4,planned_5,actual_5');
 
   // 1) Offers — same rule as the Offers page (Active vs History)
   //    paid = sum of linked services' total_amount (offer_no + firm match); outstanding = amount - paid
-  fetchAll_('offers', 'offer_no,firm_name,vendor_name,status,amount,amount_to_be_paid,outstanding_amount,planned_1,actual_1').forEach(function (r) {
+  fetchAll_('offers', 'offer_no,firm_name,vendor_name,status,amount,amount_to_be_paid,outstanding_amount,tat_days,created_at,planned_1,actual_1').forEach(function (r) {
     var oId = low(r.offer_no), oFirm = low(r.firm_name);
     var linked = services.filter(function (s) {
       return s.offer_no && low(s.offer_no) === oId && (!s.firm_name || !oFirm || low(s.firm_name) === oFirm);
@@ -129,45 +134,54 @@ function collect_() {
     var st = low(status);
     var done = st === 'complete' || st === 'completed' || st === 'converted' || (amount > 0 && outstanding <= 0 && paid > 0);
     out.Offers.push(entry_('Convert to Service', r.offer_no, r.firm_name, r.vendor_name,
-      r.planned_1, done ? r.actual_1 : null, nowMs, done));
+      plan_(r, 'planned_1', r.created_at), done ? r.actual_1 : null, nowMs, done));
   });
 
   services.forEach(function (r) {
     // 2) Services — "Make Payment" tab vs History (paid = payment date OR bill no OR bill copy)
     var paid = !!(r.actual_2 || r.bill_no || r.bill_copy_url);
     out.Services.push(entry_('Make Payment', r.service_no, r.firm_name, r.vendor_name,
-      r.planned_2, paid ? r.actual_2 : null, nowMs, paid));
+      plan_(r, 'planned_2', r.created_at), paid ? (r.actual_2 || r.actual_1 || r.created_at) : null, nowMs, paid));
 
     // 3) Bills — Active (no bill uploaded) vs History (actual_1 set)
     var billDone = !!r.actual_1;
     out.Bills.push(entry_('Bill Upload', r.service_no, r.firm_name, r.vendor_name,
-      r.planned_1, billDone ? r.actual_1 : null, nowMs, billDone));
+      plan_(r, 'planned_1', r.actual_2 || r.created_at), billDone ? r.actual_1 : null, nowMs, billDone));
 
     // 4) Tally — only services with bill uploaded; each service sits in exactly ONE stage
     if (r.actual_1) {
-      if (r.status_5 === 'Completed' || r.actual_5) {
-        out.Tally.push(entry_('Completed', r.service_no, r.firm_name, r.vendor_name, r.planned_5, r.actual_5, nowMs, true));
-      } else if (r.status_3 === 'Rectify' && r.status_4 !== 'Audited') {
-        out.Tally.push(entry_('Rectify', r.service_no, r.firm_name, r.vendor_name, r.planned_4, null, nowMs, false));
-      } else if (r.status_3 === 'Audited' || r.status_4 === 'Audited') {
-        out.Tally.push(entry_('Tally Entry', r.service_no, r.firm_name, r.vendor_name, r.planned_5, null, nowMs, false));
-      } else {
-        out.Tally.push(entry_('Audit', r.service_no, r.firm_name, r.vendor_name, r.planned_3, null, nowMs, false));
+      var completed = r.status_5 === 'Completed' || !!r.actual_5;
+      var audited = r.status_3 === 'Audited' || r.status_4 === 'Audited' || !!r.actual_3;
+      var rectify = r.status_3 === 'Rectify' && r.status_4 !== 'Audited' && !completed;
+      out.Audit.push(entry_('Audit', r.service_no, r.firm_name, r.vendor_name,
+        plan_(r, 'planned_3', r.actual_1), (audited || completed) ? (r.actual_3 || r.actual_1) : null, nowMs, audited || completed));
+      if (rectify || r.actual_4 || r.status_4 === 'Audited') {
+        var rectifyDone = !!r.actual_4 || r.status_4 === 'Audited' || completed;
+        out.Rectify.push(entry_('Rectify', r.service_no, r.firm_name, r.vendor_name,
+          plan_(r, 'planned_4', r.actual_1), rectifyDone ? (r.actual_4 || r.actual_3 || r.actual_1) : null, nowMs, rectifyDone));
+      }
+      if ((audited && !rectify) || completed) {
+        out.Tally.push(entry_('Tally Entry', r.service_no, r.firm_name, r.vendor_name,
+          plan_(r, 'planned_5', r.actual_1), completed ? (r.actual_5 || r.actual_4 || r.actual_3 || r.actual_1) : null, nowMs, completed));
       }
     }
   });
 
-  // 5) Utility — same 4 tabs as the Utility page; each entry sits in exactly ONE stage
-  fetchAll_('utilities', 'utility_no,firm_name,person_name,pay_to,actual_0,planned_1,actual_1,planned_2,actual_2').forEach(function (r) {
+  // 5) Utility — follow the Utility workflow's actual timestamps:
+  // actual_0 = Utility Entry, actual_1 = Payment Approval, actual_2 = Tally/Completed.
+  // Add the workflow stages separately so planned and actual dates are visible.
+  fetchAll_('utilities', 'utility_no,firm_name,person_name,pay_to,tat_days,created_at,actual_0,planned_1,actual_1,planned_2,actual_2').forEach(function (r) {
     var party = r.pay_to || r.person_name;
+    var approvalRow = entry_('Payment Approval', r.utility_no, r.firm_name, party,
+      plan_(r, 'planned_1', r.created_at), r.actual_1 || null, nowMs, !!r.actual_1);
+    out['Payment Approval'].push(approvalRow);
+    if (r.actual_1 || r.actual_2) {
+      out['Tally Entry'].push(entry_('Tally Entry', r.utility_no, r.firm_name, party,
+        plan_(r, 'planned_2', r.created_at), r.actual_2 || null, nowMs, !!r.actual_2));
+    }
     if (r.actual_2) {
-      out.Utility.push(entry_('Completed', r.utility_no, r.firm_name, party, r.planned_2, r.actual_2, nowMs, true));
-    } else if (r.actual_1) {
-      out.Utility.push(entry_('Tally Entry', r.utility_no, r.firm_name, party, r.planned_2, null, nowMs, false));
-    } else if (r.actual_0) {
-      out.Utility.push(entry_('Payment Approval', r.utility_no, r.firm_name, party, r.planned_1, null, nowMs, false));
-    } else {
-      out.Utility.push(entry_('Utility Entry (submit baaki)', r.utility_no, r.firm_name, party, null, null, nowMs, false));
+      out.Utility.push(entry_('Completed', r.utility_no, r.firm_name, party,
+        plan_(r, 'planned_2', r.created_at), r.actual_2, nowMs, true));
     }
   });
 
