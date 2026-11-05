@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Pagination from '../components/ui/Pagination';
+import { usePagination } from '../lib/usePagination';
 import { Search, Loader2, CreditCard, FileText, CheckCircle2, X, RefreshCw } from 'lucide-react';
 import useDataStore from '../store/useDataStore';
 import { cn, formatCurrency, nowDateTime, getDriveViewUrl, formatDate, getServicePaymentFormUrl } from '../lib/utils';
@@ -57,13 +59,14 @@ const Services = () => {
     setSelectedServices(newSelected);
   };
 
-  // ⚡ Select/Deselect all visible payment-pending services
+  // ⚡ Select/Deselect the payment-pending services on the current page
   const toggleSelectAll = () => {
-    if (selectedServices.size === filteredServices.length) {
-      setSelectedServices(new Set());
-    } else {
-      setSelectedServices(new Set(filteredServices.map(s => s.sheetRowIndex)));
-    }
+    const next = new Set(selectedServices);
+    pagination.pageItems.forEach(s => {
+      if (allOnPageSelected) next.delete(s.sheetRowIndex);
+      else next.add(s.sheetRowIndex);
+    });
+    setSelectedServices(next);
   };
 
   const handleConfirmPayment = async () => {
@@ -148,6 +151,10 @@ const Services = () => {
     );
   });
 
+  const pagination = usePagination(filteredServices, `${activeTab}|${searchTerm}|${firmFilter}`);
+  const allOnPageSelected = pagination.pageItems.length > 0 &&
+    pagination.pageItems.every(s => selectedServices.has(s.sheetRowIndex));
+
   const paymentCount = services.filter(s => !isPaid(s)).length;
   const historyCount = services.filter(s => isPaid(s)).length;
 
@@ -231,7 +238,7 @@ const Services = () => {
           ))}
         </select>
         <button
-          onClick={() => fetchData()}
+          onClick={() => fetchData(true)}
           className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
           title="Refresh from Sheet"
         >
@@ -282,11 +289,11 @@ const Services = () => {
                           <div className="flex items-center justify-center">
                             <input
                               type="checkbox"
-                              checked={selectedServices.size > 0 && selectedServices.size === filteredServices.length}
+                              checked={allOnPageSelected}
                               onChange={toggleSelectAll}
                               className="w-4 h-4 rounded-md border-gray-300 text-gray-900 focus:ring-gray-900/20 cursor-pointer"
                               style={{ accentColor: '#1e3a5f' }}
-                              title="Select/Deselect all"
+                              title="Select/Deselect this page"
                             />
                           </div>
                         </th>
@@ -323,7 +330,7 @@ const Services = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredServices.map((service) => {
+                {pagination.pageItems.map((service) => {
                   const displayDate = computePlannedDate('services', service);
                   return (
                   <tr key={service.sheetRowIndex} className="hover:bg-gray-50 transition-colors">
@@ -432,6 +439,7 @@ const Services = () => {
               </tbody>
             </table>
           </div>
+          <Pagination pagination={pagination} />
         </div>
       )}
 

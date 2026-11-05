@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Pagination from '../components/ui/Pagination';
+import { usePagination } from '../lib/usePagination';
 import {
   Search, CreditCard, Loader2, CheckCircle2,
   Clock, IndianRupee, Wrench, Zap, ExternalLink, X, AlertCircle,
@@ -118,6 +120,7 @@ const Payments = () => {
     allPayments = allPayments.filter(p => p.paymentStatus === 'Paid' || p.paymentStatus === 'Payment Done');
   }
 
+  const pagination = usePagination(allPayments, `${activeTab}|${filterType}|${searchTerm}|${firmFilter}`);
   const totalAmount = allPayments.reduce((sum, p) => sum + (p.netAmount || 0), 0);
 
   const paymentsTabsConfig = [
@@ -261,7 +264,7 @@ const Payments = () => {
           ))}
         </div>
         <button
-          onClick={() => fetchData()}
+          onClick={() => fetchData(true)}
           className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
           title="Refresh from Sheet"
         >
@@ -304,7 +307,7 @@ const Payments = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {allPayments.map((item, index) => {
+                {pagination.pageItems.map((item, index) => {
                   return (
                   <tr key={`pay-${item.type}-${item.sheetRowIndex}-${index}`} className="hover:bg-gray-50 transition-colors">
                     {activeTab !== 'history' && (
@@ -393,6 +396,7 @@ const Payments = () => {
               </tbody>
             </table>
           </div>
+          <Pagination pagination={pagination} />
         </div>
       )}
 

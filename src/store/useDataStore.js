@@ -100,6 +100,17 @@ const fetchJsonWithRetry = async (url, options = {}, retries = 1, delay = 50) =>
   }
 };
 
+// Only the columns the app maps, instead of SELECT *
+const SERVICE_COLUMNS = 'id,created_at,service_no,offer_no,firm_name,service_checker,total_amount,tds_amount,remark,vendor_name,work_description,service_location,planned_1,actual_1,bill_no,bill_copy_url,planned_2,actual_2,planned_3,actual_3,status_3,remarks_3,planned_4,actual_4,status_4,remarks_4,planned_5,actual_5,status_5,remarks_5,payment_form_url,tat_days';
+const OFFER_COLUMNS = 'id,created_at,offer_no,firm_name,vendor_name,work_description,service_location,amount,is_there_offer,offer_copy_url,amount_to_be_paid,outstanding_amount,status,planned_1,actual_1,tat_days';
+const UTILITY_COLUMNS = 'id,created_at,utility_no,firm_name,person_name,user_name,department,group_head,pay_to,bill_amount,bill_image_url,bill_date,due_date,remarks,remark_1,tds_amount,amount_to_be_paid,outstanding_amount,status,actual_0,planned_1,actual_1,planned_2,actual_2,delay1,delay2,payment_form_link,payment_number,payment_mode,transaction_reference,payment_date,payment_attachment_url,payment_remarks,fms_name,details,approval_attachment_url,tat_days';
+
+const FRESH_MS = 60000; // page visits within this time reuse the loaded data
+const WRITE_REFRESH_DELAY_MS = 500; // bulk saves share one refresh
+let inFlightFetch = null;
+let refetchQueued = false;
+let writeRefreshTimer = null;
+
 // Helper to read and write localStorage cache for 0ms instant app loads
 const loadCache = (key) => {
   try {
@@ -165,20 +176,35 @@ const useDataStore = create((set, get) => ({
   lastFetchTime: 0, // ⚡ Track last fetch to skip redundant calls
   fetchDebounceTimer: null, // ⚡ Debounce timer
 
-  fetchData: async (force = false) => {
-    const now = Date.now();
-    const timeSinceLastFetch = now - get().lastFetchTime;
+  lastWriteAt: 0,
 
-    // ⚡ Skip only if NOT forced AND fetched within last 15 sec AND already fetching
-    if (!force && timeSinceLastFetch < 15000 && get().isFetchingInBackground) {
-      return;
+  // force = always load (Refresh button, login, after a save). A load already
+  // running is shared; a forced call during it runs one more load afterwards.
+  fetchData: (force = false) => {
+    if (inFlightFetch) {
+      if (force) refetchQueued = true;
+      return inFlightFetch;
     }
-
-    if (!force && get().isFetchingInBackground) {
-      console.log('fetchData call ignored - fetch already in progress');
-      return;
+    if (!force && Date.now() - get().lastFetchTime < FRESH_MS) {
+      return Promise.resolve();
     }
+    inFlightFetch = get().loadData().finally(() => {
+      inFlightFetch = null;
+      if (refetchQueued) {
+        refetchQueued = false;
+        get().fetchData(true);
+      }
+    });
+    return inFlightFetch;
+  },
 
+  refreshAfterWrite: () => {
+    set({ lastWriteAt: Date.now() });
+    clearTimeout(writeRefreshTimer);
+    writeRefreshTimer = setTimeout(() => get().fetchData(true), WRITE_REFRESH_DELAY_MS);
+  },
+
+  loadData: async () => {
     const hasExistingData = get().offers.length > 0 || get().services.length > 0 || get().utilities.length > 0;
 
     if (!hasExistingData) {
@@ -189,10 +215,10 @@ const useDataStore = create((set, get) => ({
     try {
       // 🔵 Fetch from Supabase in parallel
       const [servicesRes, offersRes, utilitiesRes, masterRes] = await Promise.allSettled([
-        supabase.from('services').select('*').order('created_at', { ascending: false }),
-        supabase.from('offers').select('*').order('created_at', { ascending: false }),
-        supabase.from('utilities').select('*').order('created_at', { ascending: false }),
-        supabase.from('master_data').select('*'),
+        supabase.from('services').select(SERVICE_COLUMNS).order('created_at', { ascending: false }),
+        supabase.from('offers').select(OFFER_COLUMNS).order('created_at', { ascending: false }),
+        supabase.from('utilities').select(UTILITY_COLUMNS).order('created_at', { ascending: false }),
+        supabase.from('master_data').select('list_type,value'),
       ]);
 
       // — Services —
@@ -480,10 +506,10 @@ const useDataStore = create((set, get) => ({
     saveCache('offers', updatedOffers);
     saveCache('allOffers', updatedAllOffers);
 
-    const { data, error } = await supabase.from('offers').insert(row).select().single();
+    const { data, error } = await supabase.from('offers').insert(row).select('offer_no').single();
     if (error) { console.error('[addOffer]', error.message); throw new Error(error.message); }
     console.log('[addOffer] ✅', data?.offer_no);
-    get().fetchData(true); // force refresh after write
+    get().refreshAfterWrite();
     return { success: true };
   },
 
@@ -515,7 +541,7 @@ const useDataStore = create((set, get) => ({
         .eq('offer_no', offer.id);
       if (error) { console.error('[updateOffer]', error.message); throw new Error(error.message); }
     }
-    get().fetchData(true); // force refresh after write
+    get().refreshAfterWrite();
     return { success: true };
   },
 
@@ -561,10 +587,10 @@ const useDataStore = create((set, get) => ({
     saveCache('services', updatedServices);
     saveCache('globalMaxServiceId', updatedGlobalMax);
 
-    const { data, error } = await supabase.from('services').insert(row).select().single();
+    const { data, error } = await supabase.from('services').insert(row).select('service_no').single();
     if (error) { console.error('[addService]', error.message); throw new Error(error.message); }
     console.log('[addService] ✅', data?.service_no);
-    get().fetchData(true); // force refresh after write
+    get().refreshAfterWrite();
     return { success: true };
   },
 
@@ -612,7 +638,7 @@ const useDataStore = create((set, get) => ({
       .update(patch)
       .eq('service_no', service.id);
     if (error) { console.error('[updateService]', error.message); throw new Error(error.message); }
-    get().fetchData(true); // force refresh after write
+    get().refreshAfterWrite();
     return { success: true };
   },
 
@@ -639,10 +665,10 @@ const useDataStore = create((set, get) => ({
       status:              'Pending Approval',
     };
 
-    const { data, error } = await supabase.from('utilities').insert(row).select().single();
+    const { data, error } = await supabase.from('utilities').insert(row).select('utility_no').single();
     if (error) { console.error('[addUtility]', error.message); throw new Error(error.message); }
     console.log('[addUtility] ✅', data?.utility_no);
-    get().fetchData(true); // force refresh after write
+    get().refreshAfterWrite();
     return { success: true };
   },
 
@@ -697,7 +723,7 @@ const useDataStore = create((set, get) => ({
       .update(patch)
       .eq('utility_no', utility.id);
     if (error) { console.error('[updateUtility]', error.message); throw new Error(error.message); }
-    get().fetchData(true); // force refresh after write
+    get().refreshAfterWrite();
     return { success: true };
   },
 

@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Pagination from '../components/ui/Pagination';
+import { usePagination } from '../lib/usePagination';
 import {
   Search, Loader2, FileText, X,
   Upload, Paperclip, ExternalLink, RefreshCw
@@ -151,6 +153,7 @@ const Bills = () => {
     );
   });
 
+  const pagination = usePagination(filteredServices, `${activeTab}|${searchTerm}|${firmFilter}`);
   const activeCount  = services.filter(s => !isBillDone(s)).length;
   const historyCount = services.filter(s => isBillDone(s)).length;
 
@@ -234,7 +237,7 @@ const Bills = () => {
           ))}
         </select>
         <button
-          onClick={() => fetchData()}
+          onClick={() => fetchData(true)}
           className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
           title="Refresh from Sheet"
         >
@@ -286,7 +289,7 @@ const Bills = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredServices.map((s) => {
+                {pagination.pageItems.map((s) => {
                   const billStatus = getBillStatus(s);
                   return (
                     <tr key={s.sheetRowIndex} className="hover:bg-gray-50 transition-colors">
@@ -381,6 +384,7 @@ const Bills = () => {
               </tbody>
             </table>
           </div>
+          <Pagination pagination={pagination} />
         </div>
       )}
 

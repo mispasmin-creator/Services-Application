@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Pagination from '../components/ui/Pagination';
+import { usePagination } from '../lib/usePagination';
 import {
   Search, FileSpreadsheet, FileText, Clock, IndianRupee,
   Wrench, Zap, FileSignature, AlertCircle, Loader2, RefreshCw,
@@ -343,6 +345,7 @@ const Reports = () => {
     );
   }
   pendingItems = pendingItems.sort((a, b) => (b.daysPending || 0) - (a.daysPending || 0));
+  const pagination = usePagination(pendingItems, `${typeFilter}|${stageFilter}|${firmFilter}|${searchTerm}`);
 
   const allPendingItems = [...pendingOffers, ...pendingServices, ...pendingUtilities];
   const totalPendingValue = allPendingItems.reduce((sum, i) => sum + (i.amount || 0), 0);
@@ -668,7 +671,7 @@ const Reports = () => {
                 <span>Print Report</span>
               </button>
               <button
-                onClick={() => fetchData()}
+                onClick={() => fetchData(true)}
                 className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
                 title="Refresh from Sheet"
               >
@@ -697,7 +700,7 @@ const Reports = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {pendingItems.map((item, index) => {
+                  {pagination.pageItems.map((item, index) => {
                     const Icon = TYPE_ICON[item.type] || Clock;
                     const rowKey = `${item.type}-${item.id}`;
                     const isExpanded = expandedRows.has(rowKey);
@@ -854,6 +857,7 @@ const Reports = () => {
                 </tbody>
               </table>
             </div>
+          <Pagination pagination={pagination} />
           </div>
         </div>
       )}

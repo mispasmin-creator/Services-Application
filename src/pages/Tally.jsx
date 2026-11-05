@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Pagination from '../components/ui/Pagination';
+import { usePagination } from '../lib/usePagination';
 import {
   Search, Database, Loader2, CheckCircle2,
   Wrench, Zap, X, BookOpen, ShieldCheck,
@@ -153,6 +155,7 @@ const Tally = () => {
   const completedCount = filteredTally.filter(t => t.stage === 'completed').length;
 
   const activeTabItems = filteredTally.filter(t => t.stage === activeTab);
+  const pagination = usePagination(activeTabItems, `${activeTab}|${searchTerm}|${firmFilter}`);
   
   // Total Accounting amount computed on completed vouchers
   const totalAmountCompleted = filteredTally
@@ -390,7 +393,7 @@ const Tally = () => {
           ))}
         </select>
         <button
-          onClick={() => fetchData()}
+          onClick={() => fetchData(true)}
           className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
           title="Refresh from Sheet"
         >
@@ -468,7 +471,7 @@ const Tally = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {activeTabItems.map((item, index) => {
+                {pagination.pageItems.map((item, index) => {
                   const displayDate = computePlannedDate('tally', item);
                   return (
                   <tr key={`tally-stage-${item.type}-${item.sheetRowIndex}-${index}`} className="hover:bg-gray-50/70 transition-colors">
@@ -517,10 +520,10 @@ const Tally = () => {
                     </td>
 
                     {activeTab === 'rectify' && (
-                      <td className="px-3 py-2.5 text-xs font-semibold text-rose-600 max-w-xs" title={item.auditRemarks}>
-                        <div className="flex items-center gap-1">
-                          <AlertTriangle size={12} className="shrink-0" />
-                          <span className="truncate max-w-[160px]">{item.auditRemarks || 'Needs corrections'}</span>
+                      <td className="px-3 py-2.5 text-xs font-semibold text-rose-600 min-w-[220px] max-w-xs whitespace-normal">
+                        <div className="flex items-start gap-1">
+                          <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                          <span className="min-w-0 break-words whitespace-pre-wrap">{item.auditRemarks || 'Needs corrections'}</span>
                         </div>
                       </td>
                     )}
@@ -595,6 +598,7 @@ const Tally = () => {
               </tbody>
             </table>
           </div>
+          <Pagination pagination={pagination} />
         </div>
       )}
 

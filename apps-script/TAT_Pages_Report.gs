@@ -10,6 +10,7 @@ var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI
 var TZ = 'Asia/Kolkata';
 var DAY = 86400000;
 var LATE_TOLERANCE_DAYS = 0.05;
+var REFRESH_MINUTES = 15; // each refresh downloads all 3 tables, so this drives Supabase egress
 var FORCE_REWRITE_MS = 30 * 60 * 1000; // pending delays grow with time -> rewrite at least every 30 min
 var PAGES = ['Offers', 'Services', 'Bills', 'Audit', 'Rectify', 'Tally', 'Utility', 'Payment Approval', 'Tally Entry'];
 var OLD_TABS = ['TAT Report', 'Summary']; // tabs of the earlier script, removed on START
@@ -26,7 +27,7 @@ function START() {
   var ss = SpreadsheetApp.getActive();
   ss.setSpreadsheetTimeZone(TZ);
   stopLive();
-  ScriptApp.newTrigger('refreshReport').timeBased().everyMinutes(1).create();
+  ScriptApp.newTrigger('timedRefresh').timeBased().everyMinutes(REFRESH_MINUTES).create();
   ScriptApp.newTrigger('onOpenRefresh').forSpreadsheet(ss).onOpen().create();
   refreshReport(true);
   OLD_TABS.forEach(function (n) {
@@ -42,12 +43,13 @@ function stopLive() {
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('TAT Report')
     .addItem('Refresh Now', 'refreshNow')
-    .addItem('Start live refresh (every minute)', 'START')
+    .addItem('Start live refresh (every ' + REFRESH_MINUTES + ' minutes)', 'START')
     .addItem('Stop live refresh', 'stopLive')
     .addToUi();
 }
 
 function onOpenRefresh() { refreshReport(); }
+function timedRefresh() { refreshReport(); } // a trigger passes an event object, which must not count as force
 function refreshNow() { refreshReport(true); }
 
 // ───────────────────────── Supabase fetch ─────────────────────────

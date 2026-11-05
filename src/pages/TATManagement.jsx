@@ -22,8 +22,17 @@ import {
 } from '../lib/tatUtils';
 import { isAdmin } from '../lib/permissions';
 import useAuthStore from '../store/useAuthStore';
+import useDataStore from '../store/useDataStore';
 
 const DAY = 86400000;
+const CACHE_MS = 60000;
+
+const SERVICE_COLUMNS = 'id,created_at,service_no,offer_no,firm_name,vendor_name,total_amount,bill_no,bill_copy_url,planned_1,actual_1,planned_2,actual_2,planned_3,planned_5,actual_5,status_5,tat_days';
+const OFFER_COLUMNS = 'id,created_at,offer_no,firm_name,vendor_name,amount,amount_to_be_paid,outstanding_amount,status,planned_1,actual_1,tat_days';
+const UTILITY_COLUMNS = 'id,created_at,utility_no,firm_name,person_name,pay_to,status,bill_date,due_date,planned_1,actual_1,planned_2,actual_2,tat_days';
+
+// Reused when the page is opened again shortly, unless something was saved since
+let tatDataCache = null;
 
 // Format timestamp as DD/MM/YYYY HH:mm:ss (IST / Local)
 const fmtDT = (val) => {
@@ -150,7 +159,7 @@ const TATManagement = () => {
   const pageSize = 15;
 
   // Fetch live Supabase data
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
     setLoading(true);
     try {
       try {
@@ -163,10 +172,21 @@ const TATManagement = () => {
         setDaysError('Extra days load nahi hue. Refresh karke dobara try karein.');
       }
 
+      const now = Date.now();
+      if (
+        !force &&
+        tatDataCache &&
+        now - tatDataCache.at < CACHE_MS &&
+        tatDataCache.at > useDataStore.getState().lastWriteAt
+      ) {
+        setDataStore(tatDataCache.data);
+        return;
+      }
+
       const [sRes, oRes, uRes] = await Promise.all([
-        supabase.from('services').select('*').order('created_at', { ascending: false }),
-        supabase.from('offers').select('*').order('created_at', { ascending: false }),
-        supabase.from('utilities').select('*').order('created_at', { ascending: false }),
+        supabase.from('services').select(SERVICE_COLUMNS).order('created_at', { ascending: false }),
+        supabase.from('offers').select(OFFER_COLUMNS).order('created_at', { ascending: false }),
+        supabase.from('utilities').select(UTILITY_COLUMNS).order('created_at', { ascending: false }),
       ]);
 
       const rawServices = sRes.data || [];
@@ -200,11 +220,15 @@ const TATManagement = () => {
         };
       });
 
-      setDataStore({
+      const loaded = {
         services: rawServices,
         offers: mappedOffers,
         utilities: rawUtilities,
-      });
+      };
+      if (!sRes.error && !oRes.error && !uRes.error) {
+        tatDataCache = { data: loaded, at: Date.now() };
+      }
+      setDataStore(loaded);
     } catch (err) {
       console.error('Error fetching TAT data:', err);
     } finally {
@@ -394,7 +418,7 @@ const TATManagement = () => {
           <h2 className="text-base font-bold text-gray-900">Stage-wise TAT (Supabase Live)</h2>
           <div className="flex items-center gap-2.5">
             <button
-              onClick={fetchData}
+              onClick={() => fetchData(true)}
               disabled={loading}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer disabled:opacity-50"
             >

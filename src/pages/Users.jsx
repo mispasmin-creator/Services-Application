@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Pagination from '../components/ui/Pagination';
+import { usePagination } from '../lib/usePagination';
 import {
   Plus, Search, Mail, Shield, UserCircle,
   MoreHorizontal, Loader2, AlertCircle, X,
@@ -182,6 +184,14 @@ const Users = () => {
     }
   };
 
+  const filteredUsers = users.filter(user => 
+    user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.role.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const pagination = usePagination(filteredUsers, searchTerm);
+
   // Render Block for Restricted Access
   if (!isAdmin) {
     return (
@@ -203,11 +213,6 @@ const Users = () => {
     );
   }
 
-  const filteredUsers = users.filter(user => 
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.role.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   if (isLoading && users.length === 0) {
     return (
@@ -289,7 +294,7 @@ const Users = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredUsers.map((user) => (
+              {pagination.pageItems.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50/50 transition-colors group text-sm">
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-3">
@@ -350,6 +355,7 @@ const Users = () => {
             </tbody>
           </table>
         </div>
+          <Pagination pagination={pagination} />
 
         {filteredUsers.length === 0 && !isLoading && (
           <div className="text-center py-16">
