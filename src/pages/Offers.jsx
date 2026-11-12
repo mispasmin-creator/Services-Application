@@ -467,7 +467,7 @@ const Offers = () => {
                     <td className="px-3 py-3">
                       <span className="text-sm font-semibold text-gray-900">{offer.vendor}</span>
                     </td>
-                    <td className="px-3 py-3 text-sm text-gray-600 max-w-xs truncate">{offer.description}</td>
+                    <td className="px-3 py-3 text-sm text-gray-600 min-w-[220px] max-w-xs whitespace-normal break-words">{offer.description}</td>
                     <td className="px-3 py-3 text-sm text-gray-600">{offer.location}</td>
                     <td className="px-3 py-3 text-sm font-bold text-gray-900">{formatCurrency(offer.amount)}</td>
                     <td className="px-3 py-3 text-sm font-bold text-gray-900">{formatCurrency(offer.amountPaid)}</td>

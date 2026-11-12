@@ -452,6 +452,7 @@ const Tally = () => {
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Net Amount</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Copy</th>
@@ -497,6 +498,7 @@ const Tally = () => {
                     <td className="px-3 py-2.5 text-sm font-bold text-emerald-700">{formatCurrency(item.netAmount)}</td>
                     <td className="px-3 py-2.5 text-sm text-gray-800 font-medium">{item.vendor || '—'}</td>
                     <td className="px-3 py-2.5 text-sm text-gray-600">{item.location || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600 min-w-[220px] max-w-xs whitespace-normal break-words" title={item.remark || item.remarks}>{item.remark || item.remarks || '—'}</td>
                     <td className="px-3 py-2.5">
                       <span className={cn(
                         "px-2.5 py-1 text-xs font-semibold rounded-full",
@@ -586,7 +588,7 @@ const Tally = () => {
 
                 {activeTabItems.length === 0 && (
                   <tr>
-                    <td colSpan={activeTab === 'completed' ? 22 : 21}className="px-6 py-12 text-center text-gray-400 text-sm">
+                    <td colSpan={activeTab === 'completed' ? 23 : 22}className="px-6 py-12 text-center text-gray-400 text-sm">
                       <div className="flex flex-col items-center gap-2">
                         <Database className="text-gray-300" size={32} />
                         <p className="font-semibold text-gray-400">No records found in this stage.</p>

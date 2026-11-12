@@ -271,6 +271,7 @@ const Bills = () => {
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">TDS</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Service Status</th>
                   {activeTab === 'history' && (
                     <>
@@ -312,6 +313,7 @@ const Bills = () => {
                       <td className="px-3 py-2.5 text-sm text-gray-600">{formatCurrency(s.tdsAmount)}</td>
                       <td className="px-3 py-2.5 text-sm text-gray-800 font-medium">{s.vendor}</td>
                       <td className="px-3 py-2.5 text-sm text-gray-600">{s.location}</td>
+                      <td className="px-3 py-2.5 text-sm text-gray-600 min-w-[220px] max-w-xs whitespace-normal break-words" title={s.remark}>{s.remark || '—'}</td>
                       <td className="px-3 py-2.5">
                         <span className={cn("px-2.5 py-1 text-xs font-semibold rounded-full", getStatusColor(s.status))}>
                           {s.status}
@@ -376,7 +378,7 @@ const Bills = () => {
                 })}
                 {filteredServices.length === 0 && (
                   <tr>
-                    <td colSpan={activeTab === 'history' ? 15 : 12} className="px-6 py-10 text-center text-gray-400 text-sm">
+                    <td colSpan={activeTab === 'history' ? 16 : 13} className="px-6 py-10 text-center text-gray-400 text-sm">
                       No bills found.
                     </td>
                   </tr>

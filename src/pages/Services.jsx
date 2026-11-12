@@ -386,9 +386,9 @@ const Services = () => {
                     <td className="px-3 py-2.5 text-sm text-gray-600">{formatCurrency(service.tdsAmount)}</td>
                     <td className="px-3 py-2.5 text-sm font-bold text-gray-900">{formatCurrency((service.amount || 0) - (service.tdsAmount || 0))}</td>
                     <td className="px-3 py-2.5 text-sm text-gray-800 font-medium">{service.vendor}</td>
-                    <td className="px-3 py-2.5 text-sm text-gray-600 max-w-xs truncate" title={service.description}>{service.description || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600 min-w-[240px] max-w-sm whitespace-normal break-words" title={service.description}>{service.description || '—'}</td>
                     <td className="px-3 py-2.5 text-sm text-gray-600">{service.location}</td>
-                    <td className="px-3 py-2.5 text-sm text-gray-600 max-w-xs truncate" title={service.remark}>{service.remark || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600 min-w-[220px] max-w-xs whitespace-normal break-words" title={service.remark}>{service.remark || '—'}</td>
                     <td className="px-3 py-2.5">
                       <span className={cn("px-2.5 py-1 text-xs font-semibold rounded-full", getStatusColor(service.status))}>
                         {service.status}

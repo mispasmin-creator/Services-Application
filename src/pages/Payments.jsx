@@ -296,6 +296,7 @@ const Payments = () => {
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Amount</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">TDS</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Net Payable</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                   {activeTab === 'history' && (
                     <>
@@ -337,6 +338,7 @@ const Payments = () => {
                       {item.tdsAmount ? `- ${formatCurrency(item.tdsAmount)}` : '—'}
                     </td>
                     <td className="px-3 py-3 text-sm font-bold text-emerald-700">{formatCurrency(item.netAmount)}</td>
+                    <td className="px-3 py-3 text-sm text-gray-600 min-w-[220px] max-w-xs whitespace-normal break-words" title={item.remark || item.remarks}>{item.remark || item.remarks || '—'}</td>
                     <td className="px-3 py-3">
                       <span className={cn(
                         "px-2.5 py-1 rounded-full text-xs font-bold",
@@ -386,7 +388,7 @@ const Payments = () => {
                 })}
                 {allPayments.length === 0 && (
                   <tr>
-                    <td colSpan={activeTab === 'history' ? 10 : 8}className="px-6 py-10 text-center text-gray-400 text-sm">
+                    <td colSpan={activeTab === 'history' ? 11 : 9} className="px-6 py-10 text-center text-gray-400 text-sm">
                       {activeTab === 'active'
                         ? "No payments pending. Verify bills first in the Bills module."
                         : "No payment history records found."}
