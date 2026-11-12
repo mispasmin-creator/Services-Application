@@ -228,7 +228,7 @@ const Utility = () => {
     const plannedPay = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // +7 days
     
     setNewUtility({
-      id: getNextUtilityId(),
+      id: '', // real utility_no is assigned by the DB sequence on insert
       firmName: '',
       personName: '',
       department: '',
@@ -320,7 +320,7 @@ const Utility = () => {
     e.preventDefault();
     setSaveError('');
     
-    if (!newUtility.id || !newUtility.firmName || !newUtility.personName || !newUtility.payTo || !newUtility.amount || !newUtility.billDate || !newUtility.dueDate) {
+    if (!newUtility.firmName || !newUtility.personName || !newUtility.payTo || !newUtility.amount || !newUtility.billDate || !newUtility.dueDate) {
       setSaveError('Please fill in all mandatory fields (including Firm Name).');
       return;
     }
@@ -328,7 +328,6 @@ const Utility = () => {
     setIsSaving(true);
     try {
       const res = await addUtility({
-        id: newUtility.id,
         firmName: newUtility.firmName,
         personName: newUtility.personName,
         userName: newUtility.personName, // Sync user name
@@ -1501,7 +1500,7 @@ const Utility = () => {
                   <input
                     type="text"
                     disabled
-                    value={newUtility.id}
+                    value="Auto-generated on save"
                     className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm font-bold text-gray-600"
                   />
                 </div>
