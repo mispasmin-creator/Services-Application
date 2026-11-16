@@ -13,6 +13,27 @@ export function cn(...inputs) {
   return twMerge(clsx(inputs))
 }
 
+const APP_TIMEZONE = 'Asia/Kolkata';
+
+// Format an instant in the application's fixed business timezone (IST).
+const formatInAppTimezone = (date) => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: APP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date).reduce((acc, part) => {
+    acc[part.type] = part.value;
+    return acc;
+  }, {});
+
+  return `${parts.month}/${parts.day}/${parts.year} ${parts.hour}:${parts.minute}:${parts.second}`;
+};
+
 export function formatDate(val) {
   if (!val) return '';
   if (typeof val === 'string') {
@@ -43,27 +64,14 @@ export function formatDate(val) {
     // Try parsing as Date (e.g. ISO strings like 2026-06-30T09:49:10.634Z)
     const parsedTime = Date.parse(trimmed);
     if (!isNaN(parsedTime)) {
-      const dt = new Date(parsedTime);
-      const MM = String(dt.getMonth() + 1).padStart(2, '0');
-      const dd = String(dt.getDate()).padStart(2, '0');
-      const yyyy = dt.getFullYear();
-      const HH = String(dt.getHours()).padStart(2, '0');
-      const mm = String(dt.getMinutes()).padStart(2, '0');
-      const ss = String(dt.getSeconds()).padStart(2, '0');
-      return `${MM}/${dd}/${yyyy} ${HH}:${mm}:${ss}`;
+      return formatInAppTimezone(new Date(parsedTime));
     }
 
     return trimmed;
   }
 
   if (val instanceof Date && !isNaN(val.getTime())) {
-    const MM = String(val.getMonth() + 1).padStart(2, '0');
-    const dd = String(val.getDate()).padStart(2, '0');
-    const yyyy = val.getFullYear();
-    const HH = String(val.getHours()).padStart(2, '0');
-    const mm = String(val.getMinutes()).padStart(2, '0');
-    const ss = String(val.getSeconds()).padStart(2, '0');
-    return `${MM}/${dd}/${yyyy} ${HH}:${mm}:${ss}`;
+    return formatInAppTimezone(val);
   }
 
   return String(val);
@@ -103,14 +111,7 @@ export function formatCurrency(amount) {
 
 /* Returns current datetime as MM/dd/yyyy HH:mm:ss (24-hour) */
 export function nowDateTime() {
-  const now = new Date();
-  const MM = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const yyyy = now.getFullYear();
-  const HH = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  const ss = String(now.getSeconds()).padStart(2, '0');
-  return `${MM}/${dd}/${yyyy} ${HH}:${mm}:${ss}`;
+  return formatInAppTimezone(new Date());
 }
 
 /* Converts a <input type="date"> value ('yyyy-MM-dd') into M/d/yyyy so every

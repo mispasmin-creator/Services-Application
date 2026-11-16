@@ -11,7 +11,7 @@ var TZ = 'Asia/Kolkata';
 var DAY = 86400000;
 var LATE_TOLERANCE_DAYS = 0.05;
 var FORCE_REWRITE_MS = 30 * 60 * 1000; // pending delays grow with time -> rewrite at least every 30 min
-var PAGES = ['Offers', 'Services', 'Bills', 'Tally', 'Utility'];
+var PAGES = ['Offers', 'Services', 'Bills', 'Audit', 'Rectify', 'Tally', 'Utility', 'Payment Approval', 'Tally Entry'];
 var OLD_TABS = ['TAT Report', 'Summary']; // tabs of the earlier script, removed on START
 
 // Status = Done / Pending (ye har jagah same ginti hai). Timing = Done wale me Late/On time, Pending wale me Overdue/Not yet due.
@@ -106,7 +106,7 @@ function entry_(stage, id, firm, party, planned, actual, nowMs, done) {
 
 function collect_() {
   var nowMs = Date.now();
-  var out = { Offers: [], Services: [], Bills: [], Tally: [], Utility: [] };
+  var out = { Offers: [], Services: [], Bills: [], Tally: [], Audit: [], Rectify: [], Utility: [], 'Payment Approval': [], 'Tally Entry': [] };
   var low = function (v) { return String(v == null ? '' : v).trim().toLowerCase(); };
 
   var services = fetchAll_('services',
@@ -145,29 +145,38 @@ function collect_() {
 
     // 4) Tally — only services with bill uploaded; each service sits in exactly ONE stage
     if (r.actual_1) {
-      if (r.status_5 === 'Completed' || r.actual_5) {
-        out.Tally.push(entry_('Completed', r.service_no, r.firm_name, r.vendor_name, r.planned_5, r.actual_5, nowMs, true));
-      } else if (r.status_3 === 'Rectify' && r.status_4 !== 'Audited') {
-        out.Tally.push(entry_('Rectify', r.service_no, r.firm_name, r.vendor_name, r.planned_4, null, nowMs, false));
-      } else if (r.status_3 === 'Audited' || r.status_4 === 'Audited') {
-        out.Tally.push(entry_('Tally Entry', r.service_no, r.firm_name, r.vendor_name, r.planned_5, null, nowMs, false));
-      } else {
-        out.Tally.push(entry_('Audit', r.service_no, r.firm_name, r.vendor_name, r.planned_3, null, nowMs, false));
+      var completed = r.status_5 === 'Completed' || !!r.actual_5;
+      var audited = r.status_3 === 'Audited' || r.status_4 === 'Audited' || !!r.actual_3;
+      var rectify = r.status_3 === 'Rectify' && r.status_4 !== 'Audited' && !completed;
+      out.Audit.push(entry_('Audit', r.service_no, r.firm_name, r.vendor_name,
+        r.planned_3, (audited || completed) ? (r.actual_3 || r.actual_1) : null, nowMs, audited || completed));
+      if (rectify || r.actual_4 || r.status_4 === 'Audited') {
+        var rectifyDone = !!r.actual_4 || r.status_4 === 'Audited' || completed;
+        out.Rectify.push(entry_('Rectify', r.service_no, r.firm_name, r.vendor_name,
+          r.planned_4, rectifyDone ? (r.actual_4 || r.actual_3 || r.actual_1) : null, nowMs, rectifyDone));
+      }
+      if ((audited && !rectify) || completed) {
+        out.Tally.push(entry_('Tally Entry', r.service_no, r.firm_name, r.vendor_name,
+          r.planned_5, completed ? (r.actual_5 || r.actual_4 || r.actual_3 || r.actual_1) : null, nowMs, completed));
       }
     }
   });
 
-  // 5) Utility — same 4 tabs as the Utility page; each entry sits in exactly ONE stage
+  // 5) Utility — follow the Utility workflow's actual timestamps:
+  // actual_0 = Payment Approval, actual_1 = Tally Entry, actual_2 = Completed.
+  // Add the workflow stages separately so planned and actual dates are visible.
   fetchAll_('utilities', 'utility_no,firm_name,person_name,pay_to,actual_0,planned_1,actual_1,planned_2,actual_2').forEach(function (r) {
     var party = r.pay_to || r.person_name;
+    var approvalRow = entry_('Payment Approval', r.utility_no, r.firm_name, party,
+      r.planned_1, r.actual_0 || null, nowMs, !!r.actual_0);
+    out['Payment Approval'].push(approvalRow);
+    if (r.actual_0 || r.actual_1 || r.actual_2) {
+      out['Tally Entry'].push(entry_('Tally Entry', r.utility_no, r.firm_name, party,
+        r.planned_2, r.actual_1 || null, nowMs, !!r.actual_1));
+    }
     if (r.actual_2) {
-      out.Utility.push(entry_('Completed', r.utility_no, r.firm_name, party, r.planned_2, r.actual_2, nowMs, true));
-    } else if (r.actual_1) {
-      out.Utility.push(entry_('Tally Entry', r.utility_no, r.firm_name, party, r.planned_2, null, nowMs, false));
-    } else if (r.actual_0) {
-      out.Utility.push(entry_('Payment Approval', r.utility_no, r.firm_name, party, r.planned_1, null, nowMs, false));
-    } else {
-      out.Utility.push(entry_('Utility Entry (submit baaki)', r.utility_no, r.firm_name, party, null, null, nowMs, false));
+      out.Utility.push(entry_('Completed', r.utility_no, r.firm_name, party,
+        r.planned_2, r.actual_2, nowMs, true));
     }
   });
 
