@@ -21,12 +21,6 @@ const Utility = () => {
   useStickyTableHead(tableScrollRef);
 
   // Re-render when TAT extra days change
-  const [, setTatTick] = useState(0);
-  useEffect(() => {
-    const handler = () => setTatTick(t => t + 1);
-    window.addEventListener('tat-days-updated', handler);
-    return () => window.removeEventListener('tat-days-updated', handler);
-  }, []);
 
   const masterFirms = firms && firms.length > 0 ? firms : ['Pmmpl', 'Rkl', 'Purab'];
 
@@ -234,7 +228,7 @@ const Utility = () => {
     const plannedPay = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // +7 days
     
     setNewUtility({
-      id: getNextUtilityId(),
+      id: '', // real utility_no is assigned by the DB sequence on insert
       firmName: '',
       personName: '',
       department: '',
@@ -326,7 +320,7 @@ const Utility = () => {
     e.preventDefault();
     setSaveError('');
     
-    if (!newUtility.id || !newUtility.firmName || !newUtility.personName || !newUtility.payTo || !newUtility.amount || !newUtility.billDate || !newUtility.dueDate) {
+    if (!newUtility.firmName || !newUtility.personName || !newUtility.payTo || !newUtility.amount || !newUtility.billDate || !newUtility.dueDate) {
       setSaveError('Please fill in all mandatory fields (including Firm Name).');
       return;
     }
@@ -334,7 +328,6 @@ const Utility = () => {
     setIsSaving(true);
     try {
       const res = await addUtility({
-        id: newUtility.id,
         firmName: newUtility.firmName,
         personName: newUtility.personName,
         userName: newUtility.personName, // Sync user name
@@ -893,7 +886,7 @@ const Utility = () => {
             <span className="font-bold">Error syncing data:</span> {error}. Please try reloading the page or retrying below.
           </div>
           <button 
-            onClick={() => fetchData()}
+            onClick={() => fetchData(true)}
             className="px-3.5 py-1.5 bg-red-100 hover:bg-red-200 text-red-900 rounded-xl transition-all text-xs font-bold"
           >
             Retry Sync
@@ -985,7 +978,7 @@ const Utility = () => {
               </button>
               
               <button
-                onClick={() => fetchData()}
+                onClick={() => fetchData(true)}
                 className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shadow-xs cursor-pointer"
                 title="Refresh from Sheet"
               >
@@ -1294,7 +1287,7 @@ const Utility = () => {
                       </td>
                       <td className="px-3 py-3 text-gray-500 font-medium">{formatDate(utility.billDate) || '—'}</td>
                       <td className="px-3 py-3 text-gray-500 font-medium">{formatDate(utility.dueDate) || '—'}</td>
-                      <td className="px-3 py-3 text-gray-500 max-w-[180px] truncate" title={utility.remarks}>{utility.remarks || '—'}</td>
+                      <td className="px-3 py-3 text-gray-500 min-w-[220px] max-w-xs break-words whitespace-pre-wrap">{utility.remarks || '—'}</td>
                       <td className="px-3 py-3 text-right font-bold text-rose-600">{utility.tdsAmount > 0 ? `-${formatCurrency(utility.tdsAmount)}` : 'No TDS'}</td>
                       <td className="px-3 py-3 text-right font-bold text-emerald-700">{formatCurrency(utility.amountPaid)}</td>
                       <td className="px-3 py-3 text-right font-bold text-amber-600">{formatCurrency(utility.outstanding)}</td>
@@ -1507,7 +1500,7 @@ const Utility = () => {
                   <input
                     type="text"
                     disabled
-                    value={newUtility.id}
+                    value="Auto-generated on save"
                     className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm font-bold text-gray-600"
                   />
                 </div>

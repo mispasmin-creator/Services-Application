@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Pagination from '../components/ui/Pagination';
+import { usePagination } from '../lib/usePagination';
 import {
   Search, CreditCard, Loader2, CheckCircle2,
   Clock, IndianRupee, Wrench, Zap, ExternalLink, X, AlertCircle,
@@ -118,6 +120,7 @@ const Payments = () => {
     allPayments = allPayments.filter(p => p.paymentStatus === 'Paid' || p.paymentStatus === 'Payment Done');
   }
 
+  const pagination = usePagination(allPayments, `${activeTab}|${filterType}|${searchTerm}|${firmFilter}`);
   const totalAmount = allPayments.reduce((sum, p) => sum + (p.netAmount || 0), 0);
 
   const paymentsTabsConfig = [
@@ -261,7 +264,7 @@ const Payments = () => {
           ))}
         </div>
         <button
-          onClick={() => fetchData()}
+          onClick={() => fetchData(true)}
           className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
           title="Refresh from Sheet"
         >
@@ -293,6 +296,7 @@ const Payments = () => {
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Amount</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">TDS</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Net Payable</th>
+                  <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
                   <th className="px-3 py-3 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                   {activeTab === 'history' && (
                     <>
@@ -304,7 +308,7 @@ const Payments = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {allPayments.map((item, index) => {
+                {pagination.pageItems.map((item, index) => {
                   return (
                   <tr key={`pay-${item.type}-${item.sheetRowIndex}-${index}`} className="hover:bg-gray-50 transition-colors">
                     {activeTab !== 'history' && (
@@ -334,6 +338,7 @@ const Payments = () => {
                       {item.tdsAmount ? `- ${formatCurrency(item.tdsAmount)}` : '—'}
                     </td>
                     <td className="px-3 py-3 text-sm font-bold text-emerald-700">{formatCurrency(item.netAmount)}</td>
+                    <td className="px-3 py-3 text-sm text-gray-600 min-w-[220px] max-w-xs whitespace-normal break-words" title={item.remark || item.remarks}>{item.remark || item.remarks || '—'}</td>
                     <td className="px-3 py-3">
                       <span className={cn(
                         "px-2.5 py-1 rounded-full text-xs font-bold",
@@ -383,7 +388,7 @@ const Payments = () => {
                 })}
                 {allPayments.length === 0 && (
                   <tr>
-                    <td colSpan={activeTab === 'history' ? 10 : 8}className="px-6 py-10 text-center text-gray-400 text-sm">
+                    <td colSpan={activeTab === 'history' ? 11 : 9} className="px-6 py-10 text-center text-gray-400 text-sm">
                       {activeTab === 'active'
                         ? "No payments pending. Verify bills first in the Bills module."
                         : "No payment history records found."}
@@ -393,6 +398,7 @@ const Payments = () => {
               </tbody>
             </table>
           </div>
+          <Pagination pagination={pagination} />
         </div>
       )}
 

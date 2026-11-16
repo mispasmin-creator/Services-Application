@@ -287,7 +287,7 @@ const WorkflowVisualizer = ({ offers = [], services = [], utilities = [], loadin
                         </td>
                         <td className="px-5 py-3 font-semibold text-gray-700">{vendorName}</td>
                         <td className="px-5 py-3 text-gray-600">{item.firmName || item.department || 'All'}</td>
-                        <td className="px-5 py-3 text-gray-500 max-w-xs truncate" title={desc}>{desc}</td>
+                        <td className="px-5 py-3 text-gray-500 min-w-[200px] max-w-xs whitespace-normal break-words" title={desc}>{desc}</td>
                         <td className="px-5 py-3 font-bold text-gray-900">{formatCurrency(item.amount)}</td>
                         <td className="px-5 py-3 text-right">
                           <button

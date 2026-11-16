@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Pagination from '../components/ui/Pagination';
+import { usePagination } from '../lib/usePagination';
 import {
   Search, Loader2, FileText, X,
   Upload, Paperclip, ExternalLink, RefreshCw
@@ -18,12 +20,6 @@ const Bills = () => {
   const [firmFilter, setFirmFilter] = useState('');
 
   // Re-render when TAT extra days change
-  const [, setTatTick] = useState(0);
-  useEffect(() => {
-    const handler = () => setTatTick(t => t + 1);
-    window.addEventListener('tat-days-updated', handler);
-    return () => window.removeEventListener('tat-days-updated', handler);
-  }, []);
 
   const { firms } = useDataStore();
   const masterFirms = firms && firms.length > 0 ? firms : ['Pmmpl', 'Rkl', 'Purab'];
@@ -157,6 +153,7 @@ const Bills = () => {
     );
   });
 
+  const pagination = usePagination(filteredServices, `${activeTab}|${searchTerm}|${firmFilter}`);
   const activeCount  = services.filter(s => !isBillDone(s)).length;
   const historyCount = services.filter(s => isBillDone(s)).length;
 
@@ -240,7 +237,7 @@ const Bills = () => {
           ))}
         </select>
         <button
-          onClick={() => fetchData()}
+          onClick={() => fetchData(true)}
           className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
           title="Refresh from Sheet"
         >
@@ -274,6 +271,7 @@ const Bills = () => {
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">TDS</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Service Status</th>
                   {activeTab === 'history' && (
                     <>
@@ -292,7 +290,7 @@ const Bills = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredServices.map((s) => {
+                {pagination.pageItems.map((s) => {
                   const billStatus = getBillStatus(s);
                   return (
                     <tr key={s.sheetRowIndex} className="hover:bg-gray-50 transition-colors">
@@ -315,6 +313,7 @@ const Bills = () => {
                       <td className="px-3 py-2.5 text-sm text-gray-600">{formatCurrency(s.tdsAmount)}</td>
                       <td className="px-3 py-2.5 text-sm text-gray-800 font-medium">{s.vendor}</td>
                       <td className="px-3 py-2.5 text-sm text-gray-600">{s.location}</td>
+                      <td className="px-3 py-2.5 text-sm text-gray-600 min-w-[220px] max-w-xs whitespace-normal break-words" title={s.remark}>{s.remark || '—'}</td>
                       <td className="px-3 py-2.5">
                         <span className={cn("px-2.5 py-1 text-xs font-semibold rounded-full", getStatusColor(s.status))}>
                           {s.status}
@@ -379,7 +378,7 @@ const Bills = () => {
                 })}
                 {filteredServices.length === 0 && (
                   <tr>
-                    <td colSpan={activeTab === 'history' ? 15 : 12} className="px-6 py-10 text-center text-gray-400 text-sm">
+                    <td colSpan={activeTab === 'history' ? 16 : 13} className="px-6 py-10 text-center text-gray-400 text-sm">
                       No bills found.
                     </td>
                   </tr>
@@ -387,6 +386,7 @@ const Bills = () => {
               </tbody>
             </table>
           </div>
+          <Pagination pagination={pagination} />
         </div>
       )}
 

@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Pagination from '../components/ui/Pagination';
+import { usePagination } from '../lib/usePagination';
 import {
   Plus, Search, CheckCircle2,
   ArrowRight, Loader2, AlertCircle, X,
@@ -21,12 +23,6 @@ const Offers = () => {
   useStickyTableHead(tableScrollRef);
 
   // Re-render when TAT extra days change
-  const [, setTatTick] = useState(0);
-  useEffect(() => {
-    const handler = () => setTatTick(t => t + 1);
-    window.addEventListener('tat-days-updated', handler);
-    return () => window.removeEventListener('tat-days-updated', handler);
-  }, []);
 
   useEffect(() => {
     if (!serviceLocations || serviceLocations.length === 0) {
@@ -313,6 +309,7 @@ const Offers = () => {
     }
     return true;
   });
+  const pagination = usePagination(filteredOffers, `${activeTab}|${searchTerm}|${firmFilter}`);
 
   const offersTabsConfig = [
     { id: 'active', label: 'Active Offers', count: offers.filter(o => !isDone(o)).length, colorClass: 'bg-blue-100 text-blue-800' },
@@ -406,7 +403,7 @@ const Offers = () => {
           ))}
         </select>
         <button
-          onClick={() => fetchData()}
+          onClick={() => fetchData(true)}
           className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
           title="Refresh from Sheet"
         >
@@ -452,7 +449,7 @@ const Offers = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredOffers.map((offer) => (
+                {pagination.pageItems.map((offer) => (
                   <tr key={offer.sheetRowIndex} className="hover:bg-gray-50 transition-colors group">
                     {activeTab !== 'history' && (
                       <td className="px-3 py-3 text-xs whitespace-nowrap">
@@ -470,7 +467,7 @@ const Offers = () => {
                     <td className="px-3 py-3">
                       <span className="text-sm font-semibold text-gray-900">{offer.vendor}</span>
                     </td>
-                    <td className="px-3 py-3 text-sm text-gray-600 max-w-xs truncate">{offer.description}</td>
+                    <td className="px-3 py-3 text-sm text-gray-600 min-w-[220px] max-w-xs whitespace-normal break-words">{offer.description}</td>
                     <td className="px-3 py-3 text-sm text-gray-600">{offer.location}</td>
                     <td className="px-3 py-3 text-sm font-bold text-gray-900">{formatCurrency(offer.amount)}</td>
                     <td className="px-3 py-3 text-sm font-bold text-gray-900">{formatCurrency(offer.amountPaid)}</td>
@@ -555,6 +552,7 @@ const Offers = () => {
               </tbody>
             </table>
           </div>
+          <Pagination pagination={pagination} />
         </div>
       )}
 

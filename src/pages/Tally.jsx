@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Pagination from '../components/ui/Pagination';
+import { usePagination } from '../lib/usePagination';
 import {
   Search, Database, Loader2, CheckCircle2,
   Wrench, Zap, X, BookOpen, ShieldCheck,
@@ -41,12 +43,6 @@ const Tally = () => {
   const { services, loading, updateService, fetchData } = useDataStore();
 
   // Re-render when TAT extra days change
-  const [, setTatTick] = useState(0);
-  useEffect(() => {
-    const handler = () => setTatTick(t => t + 1);
-    window.addEventListener('tat-days-updated', handler);
-    return () => window.removeEventListener('tat-days-updated', handler);
-  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [firmFilter, setFirmFilter] = useState('All');
   const [activeTab, setActiveTab] = useState('audit'); // 'audit', 'rectify', 'tally', 'completed'
@@ -159,6 +155,7 @@ const Tally = () => {
   const completedCount = filteredTally.filter(t => t.stage === 'completed').length;
 
   const activeTabItems = filteredTally.filter(t => t.stage === activeTab);
+  const pagination = usePagination(activeTabItems, `${activeTab}|${searchTerm}|${firmFilter}`);
   
   // Total Accounting amount computed on completed vouchers
   const totalAmountCompleted = filteredTally
@@ -396,7 +393,7 @@ const Tally = () => {
           ))}
         </select>
         <button
-          onClick={() => fetchData()}
+          onClick={() => fetchData(true)}
           className="p-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-800 rounded-xl transition-all shrink-0 cursor-pointer"
           title="Refresh from Sheet"
         >
@@ -455,6 +452,7 @@ const Tally = () => {
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Net Amount</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Copy</th>
@@ -474,7 +472,7 @@ const Tally = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {activeTabItems.map((item, index) => {
+                {pagination.pageItems.map((item, index) => {
                   const displayDate = computePlannedDate('tally', item);
                   return (
                   <tr key={`tally-stage-${item.type}-${item.sheetRowIndex}-${index}`} className="hover:bg-gray-50/70 transition-colors">
@@ -500,6 +498,7 @@ const Tally = () => {
                     <td className="px-3 py-2.5 text-sm font-bold text-emerald-700">{formatCurrency(item.netAmount)}</td>
                     <td className="px-3 py-2.5 text-sm text-gray-800 font-medium">{item.vendor || '—'}</td>
                     <td className="px-3 py-2.5 text-sm text-gray-600">{item.location || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600 min-w-[220px] max-w-xs whitespace-normal break-words" title={item.remark || item.remarks}>{item.remark || item.remarks || '—'}</td>
                     <td className="px-3 py-2.5">
                       <span className={cn(
                         "px-2.5 py-1 text-xs font-semibold rounded-full",
@@ -523,10 +522,10 @@ const Tally = () => {
                     </td>
 
                     {activeTab === 'rectify' && (
-                      <td className="px-3 py-2.5 text-xs font-semibold text-rose-600 max-w-xs" title={item.auditRemarks}>
-                        <div className="flex items-center gap-1">
-                          <AlertTriangle size={12} className="shrink-0" />
-                          <span className="truncate max-w-[160px]">{item.auditRemarks || 'Needs corrections'}</span>
+                      <td className="px-3 py-2.5 text-xs font-semibold text-rose-600 min-w-[220px] max-w-xs whitespace-normal">
+                        <div className="flex items-start gap-1">
+                          <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                          <span className="min-w-0 break-words whitespace-pre-wrap">{item.auditRemarks || 'Needs corrections'}</span>
                         </div>
                       </td>
                     )}
@@ -589,7 +588,7 @@ const Tally = () => {
 
                 {activeTabItems.length === 0 && (
                   <tr>
-                    <td colSpan={activeTab === 'completed' ? 22 : 21}className="px-6 py-12 text-center text-gray-400 text-sm">
+                    <td colSpan={activeTab === 'completed' ? 23 : 22}className="px-6 py-12 text-center text-gray-400 text-sm">
                       <div className="flex flex-col items-center gap-2">
                         <Database className="text-gray-300" size={32} />
                         <p className="font-semibold text-gray-400">No records found in this stage.</p>
@@ -601,6 +600,7 @@ const Tally = () => {
               </tbody>
             </table>
           </div>
+          <Pagination pagination={pagination} />
         </div>
       )}
 

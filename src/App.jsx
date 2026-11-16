@@ -47,7 +47,7 @@ function App() {
 
   useEffect(() => {
     if (isLoggedIn) {
-      fetchData();
+      fetchData(true);
     }
   }, [isLoggedIn, fetchData]);
 
