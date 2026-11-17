@@ -89,7 +89,7 @@ const Tally = () => {
   const mappedTally = allTally.map(item => {
     let auditStatus = '';
     let auditRemarks = '';
-    
+
     if (item.type === 'Service') {
       if (item.status4 === 'Audited') {
         auditStatus = 'Audited';
@@ -102,7 +102,25 @@ const Tally = () => {
       auditStatus = item.planned2 || '';
       auditRemarks = item.remarks || '';
     }
-    
+
+    // Build combined remarks: Audit remark + Rectify remark (for tally & completed stages)
+    // auditRemark  = remarks3 (Audit Stage)
+    // rectifyRemark = remarks4 (Rectify Stage)
+    let combinedAuditRemarks = '';
+    if (item.type === 'Service') {
+      const r3 = (item.remarks3 || '').trim();
+      const r4 = (item.remarks4 || '').trim();
+      if (r3 && r4) {
+        combinedAuditRemarks = `[Audit] ${r3} | [Rectify] ${r4}`;
+      } else if (r3) {
+        combinedAuditRemarks = `[Audit] ${r3}`;
+      } else if (r4) {
+        combinedAuditRemarks = `[Rectify] ${r4}`;
+      }
+    } else {
+      combinedAuditRemarks = (item.remarks || '').trim();
+    }
+
     // Determine stage
     let stage = 'audit';
     if (item.tallyStatus === 'Completed') {
@@ -124,11 +142,12 @@ const Tally = () => {
         stage = 'audit';
       }
     }
-    
+
     return {
       ...item,
       auditStatus,
       auditRemarks,
+      combinedAuditRemarks,
       stage
     };
   });
@@ -451,8 +470,16 @@ const Tally = () => {
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">TDS</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Net Amount</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
+                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider min-w-[180px]">Description</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
-                  <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
+                  {(activeTab === 'tally' || activeTab === 'completed') ? (
+                    <>
+                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-amber-600 uppercase tracking-wider min-w-[180px]">Audit Remark</th>
+                      <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-rose-600 uppercase tracking-wider min-w-[180px]">Rectify Remark</th>
+                    </>
+                  ) : (
+                    <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
+                  )}
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill No.</th>
                   <th className="px-3 py-2.5 sticky top-0 z-10 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Copy</th>
@@ -497,8 +524,23 @@ const Tally = () => {
                     </td>
                     <td className="px-3 py-2.5 text-sm font-bold text-emerald-700">{formatCurrency(item.netAmount)}</td>
                     <td className="px-3 py-2.5 text-sm text-gray-800 font-medium">{item.vendor || '—'}</td>
+                     <td className="px-3 py-2.5 text-sm text-gray-600 min-w-[200px] max-w-[260px] whitespace-normal break-words" title={item.description || ''}>{item.description || '—'}</td>
                     <td className="px-3 py-2.5 text-sm text-gray-600">{item.location || '—'}</td>
-                    <td className="px-3 py-2.5 text-sm text-gray-600 min-w-[220px] max-w-xs whitespace-normal break-words" title={item.remark || item.remarks}>{item.remark || item.remarks || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm text-gray-600 min-w-[160px] max-w-[220px] whitespace-normal break-words align-top">
+                        {(activeTab === 'tally' || activeTab === 'completed')
+                          ? (item.remarks3
+                              ? <span className="text-xs text-gray-700 italic break-words whitespace-pre-wrap">{item.remarks3}</span>
+                              : <span className="text-xs text-gray-300">—</span>)
+                          : <span title={item.remark || item.remarks}>{item.remark || item.remarks || '—'}</span>
+                        }
+                      </td>
+                      {(activeTab === 'tally' || activeTab === 'completed') && (
+                        <td className="px-3 py-2.5 text-sm min-w-[160px] max-w-[220px] whitespace-normal break-words align-top">
+                          {item.remarks4
+                            ? <span className="text-xs text-gray-700 italic break-words whitespace-pre-wrap">{item.remarks4}</span>
+                            : <span className="text-xs text-gray-300">—</span>}
+                        </td>
+                      )}
                     <td className="px-3 py-2.5">
                       <span className={cn(
                         "px-2.5 py-1 text-xs font-semibold rounded-full",
